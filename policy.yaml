@@ -1,0 +1,19 @@
+agent:
+  mode: moderate
+  max_lines_changed: 600
+  require_tests: true
+allow:
+  paths: ["apps/**","packages/**","infra/**",".github/**"]
+  languages: ["ts","tsx","json","yml","yaml","sql","md"]
+deny:
+  paths: ["**/*.pem","**/.env","**/secrets/**"]
+tests:
+  suites:
+    - { name: typecheck, cmd: "pnpm -w tsc -b" }
+    - { name: lint,     cmd: "pnpm -w lint" }
+    - { name: unit,     cmd: "pnpm -w test -- --run" }
+guards:
+  forbid_live_trading: true
+  env_overrides:
+    LIVE_TRADING_ENABLED: "false"
+    BITGET_ENV: "paper"
