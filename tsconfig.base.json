@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "node"
+    ],
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": [
+        "packages/shared-kernel/src/*"
+      ],
+      "@db/*": [
+        "packages/db/src/*"
+      ],
+      "@event-bus/*": [
+        "packages/event-bus/src/*"
+      ],
+      "@adapters/*": [
+        "packages/exchange-adapters/src/*"
+      ],
+      "@risk/*": [
+        "packages/risk-engine/src/*"
+      ],
+      "@rebalance/*": [
+        "packages/rebalance-engine/src/*"
+      ],
+      "@ai/*": [
+        "packages/ai-engine/src/*"
+      ],
+      "@auth/*": [
+        "packages/auth/src/*"
+      ]
+    }
+  }
+}

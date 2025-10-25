@@ -1,0 +1,18 @@
+{
+  "name": "@pkg/event-bus",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "pnpm build",
+    "test": "vitest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  }
+}
