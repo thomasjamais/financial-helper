@@ -4,6 +4,12 @@ on:
   issues:
     types: [opened, reopened, labeled]
 
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+  pull-requests: write
+
 concurrency:
   group: ai-programmer-${{ github.event.issue.number }}
   cancel-in-progress: false
