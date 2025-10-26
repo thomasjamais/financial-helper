@@ -27,20 +27,20 @@ jobs:
 
       - name: Run Product Agent
         run: |
-          # Create a temporary task definition with environment variables
-          TASK_DEF=$(aws ecs describe-task-definition --task-definition ${{ secrets.PRODUCT_TASK_DEFINITION }} --region ${{ secrets.AWS_REGION }} --query 'taskDefinition')
-          
-          # Update environment variables
-          UPDATED_TASK_DEF=$(echo "$TASK_DEF" | jq --arg token "${{ secrets.GITHUB_TOKEN }}" --arg owner "${{ github.repository_owner }}" --arg repo "${{ github.event.repository.name }}" --arg pr "${{ github.event.pull_request.number }}" '
-            .containerDefinitions[0].environment = [
-              {"name": "NODE_ENV", "value": "production"},
-              {"name": "GITHUB_TOKEN", "value": $token},
-              {"name": "GH_OWNER", "value": $owner},
-              {"name": "GH_REPO", "value": $repo},
-              {"name": "PR_NUMBER", "value": $pr},
-              {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"}
-            ]
-          ')
+          # Create container overrides with environment variables
+          CONTAINER_OVERRIDES=$(jq --arg token "${{ secrets.GITHUB_TOKEN }}" --arg owner "${{ github.repository_owner }}" --arg repo "${{ github.event.repository.name }}" --arg pr "${{ github.event.pull_request.number }}" '
+            [{
+              "name": "product-agent",
+              "environment": [
+                {"name": "NODE_ENV", "value": "production"},
+                {"name": "GITHUB_TOKEN", "value": $token},
+                {"name": "GH_OWNER", "value": $owner},
+                {"name": "GH_REPO", "value": $repo},
+                {"name": "PR_NUMBER", "value": $pr},
+                {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"}
+              ]
+            }]
+          ' <<< '{}')
           
           # Run the task
           TASK_ARN=$(aws ecs run-task \
@@ -48,7 +48,7 @@ jobs:
             --task-definition ${{ secrets.PRODUCT_TASK_DEFINITION }} \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNET_IDS }}],securityGroups=[${{ secrets.SECURITY_GROUP_IDS }}],assignPublicIp=ENABLED}" \
-            --overrides "$UPDATED_TASK_DEF" \
+            --overrides "containerOverrides=$CONTAINER_OVERRIDES" \
             --region ${{ secrets.AWS_REGION }} \
             --query 'tasks[0].taskArn' \
             --output text)

@@ -39,22 +39,22 @@ jobs:
 
       - name: Run Programmer Agent
         run: |
-          # Create a temporary task definition with environment variables
-          TASK_DEF=$(aws ecs describe-task-definition --task-definition ${{ secrets.PROGRAMMER_TASK_DEFINITION }} --region ${{ secrets.AWS_REGION }} --query 'taskDefinition')
-          
-          # Update environment variables
-          UPDATED_TASK_DEF=$(echo "$TASK_DEF" | jq --arg token "${{ secrets.GITHUB_TOKEN }}" --arg owner "${{ github.repository_owner }}" --arg repo "${{ github.event.repository.name }}" --arg issue "${{ github.event.issue.number }}" '
-            .containerDefinitions[0].environment = [
-              {"name": "NODE_ENV", "value": "production"},
-              {"name": "GITHUB_TOKEN", "value": $token},
-              {"name": "GH_OWNER", "value": $owner},
-              {"name": "GH_REPO", "value": $repo},
-              {"name": "ISSUE_NUMBER", "value": $issue},
-              {"name": "ASSIGNEE", "value": "ai-bot"},
-              {"name": "DEFAULT_BRANCH", "value": "main"},
-              {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"}
-            ]
-          ')
+          # Create container overrides with environment variables
+          CONTAINER_OVERRIDES=$(jq --arg token "${{ secrets.GITHUB_TOKEN }}" --arg owner "${{ github.repository_owner }}" --arg repo "${{ github.event.repository.name }}" --arg issue "${{ github.event.issue.number }}" '
+            [{
+              "name": "programmer-agent",
+              "environment": [
+                {"name": "NODE_ENV", "value": "production"},
+                {"name": "GITHUB_TOKEN", "value": $token},
+                {"name": "GH_OWNER", "value": $owner},
+                {"name": "GH_REPO", "value": $repo},
+                {"name": "ISSUE_NUMBER", "value": $issue},
+                {"name": "ASSIGNEE", "value": "ai-bot"},
+                {"name": "DEFAULT_BRANCH", "value": "main"},
+                {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"}
+              ]
+            }]
+          ' <<< '{}')
           
           # Run the task
           TASK_ARN=$(aws ecs run-task \
@@ -62,7 +62,7 @@ jobs:
             --task-definition ${{ secrets.PROGRAMMER_TASK_DEFINITION }} \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNET_IDS }}],securityGroups=[${{ secrets.SECURITY_GROUP_IDS }}],assignPublicIp=ENABLED}" \
-            --overrides "$UPDATED_TASK_DEF" \
+            --overrides "containerOverrides=$CONTAINER_OVERRIDES" \
             --region ${{ secrets.AWS_REGION }} \
             --query 'tasks[0].taskArn' \
             --output text)
