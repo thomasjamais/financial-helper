@@ -57,12 +57,28 @@ jobs:
           ')
           
           # Run the task
-          aws ecs run-task \
+          TASK_ARN=$(aws ecs run-task \
             --cluster ${{ secrets.ECS_CLUSTER }} \
             --task-definition ${{ secrets.PROGRAMMER_TASK_DEFINITION }} \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNET_IDS }}],securityGroups=[${{ secrets.SECURITY_GROUP_IDS }}],assignPublicIp=ENABLED}" \
             --overrides "$UPDATED_TASK_DEF" \
             --region ${{ secrets.AWS_REGION }} \
-            --wait-for-finish \
-            --wait-timeout 600
+            --query 'tasks[0].taskArn' \
+            --output text)
+          
+          echo "Task started: $TASK_ARN"
+          
+          # Wait for task to complete
+          echo "Waiting for task to complete..."
+          aws ecs wait tasks-stopped --cluster ${{ secrets.ECS_CLUSTER }} --tasks "$TASK_ARN" --region ${{ secrets.AWS_REGION }}
+          
+          # Get task exit code
+          EXIT_CODE=$(aws ecs describe-tasks --cluster ${{ secrets.ECS_CLUSTER }} --tasks "$TASK_ARN" --region ${{ secrets.AWS_REGION }} --query 'tasks[0].containers[0].exitCode' --output text)
+          
+          echo "Task completed with exit code: $EXIT_CODE"
+          
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Task failed with exit code: $EXIT_CODE"
+            exit 1
+          fi

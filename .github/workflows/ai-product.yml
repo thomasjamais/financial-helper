@@ -26,14 +26,45 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Run Product Agent
-        uses: muya/amazon-ecs-run-task@v1
-        with:
-          task-definition: ${{ secrets.PRODUCT_TASK_DEFINITION }}
-          cluster: ${{ secrets.ECS_CLUSTER }}
-          subnets: ${{ secrets.SUBNET_IDS }}
-          security-groups: ${{ secrets.SECURITY_GROUP_IDS }}
-          assign-public-ip: ENABLED
-          wait-for-finish: true
-          wait-for-minutes: 10
-          count: 1
-          launch-type: FARGATE
+        run: |
+          # Create a temporary task definition with environment variables
+          TASK_DEF=$(aws ecs describe-task-definition --task-definition ${{ secrets.PRODUCT_TASK_DEFINITION }} --region ${{ secrets.AWS_REGION }} --query 'taskDefinition')
+          
+          # Update environment variables
+          UPDATED_TASK_DEF=$(echo "$TASK_DEF" | jq --arg token "${{ secrets.GITHUB_TOKEN }}" --arg owner "${{ github.repository_owner }}" --arg repo "${{ github.event.repository.name }}" --arg pr "${{ github.event.pull_request.number }}" '
+            .containerDefinitions[0].environment = [
+              {"name": "NODE_ENV", "value": "production"},
+              {"name": "GITHUB_TOKEN", "value": $token},
+              {"name": "GH_OWNER", "value": $owner},
+              {"name": "GH_REPO", "value": $repo},
+              {"name": "PR_NUMBER", "value": $pr},
+              {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"}
+            ]
+          ')
+          
+          # Run the task
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ secrets.ECS_CLUSTER }} \
+            --task-definition ${{ secrets.PRODUCT_TASK_DEFINITION }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNET_IDS }}],securityGroups=[${{ secrets.SECURITY_GROUP_IDS }}],assignPublicIp=ENABLED}" \
+            --overrides "$UPDATED_TASK_DEF" \
+            --region ${{ secrets.AWS_REGION }} \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          
+          echo "Task started: $TASK_ARN"
+          
+          # Wait for task to complete
+          echo "Waiting for task to complete..."
+          aws ecs wait tasks-stopped --cluster ${{ secrets.ECS_CLUSTER }} --tasks "$TASK_ARN" --region ${{ secrets.AWS_REGION }}
+          
+          # Get task exit code
+          EXIT_CODE=$(aws ecs describe-tasks --cluster ${{ secrets.ECS_CLUSTER }} --tasks "$TASK_ARN" --region ${{ secrets.AWS_REGION }} --query 'tasks[0].containers[0].exitCode' --output text)
+          
+          echo "Task completed with exit code: $EXIT_CODE"
+          
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Task failed with exit code: $EXIT_CODE"
+            exit 1
+          fi
