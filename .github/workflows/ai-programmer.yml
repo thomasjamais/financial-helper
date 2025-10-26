@@ -2,10 +2,7 @@ name: AI Programmer Agent
 
 on:
   issues:
-    types: [opened, reopened]
-  issues:
-    types: [labeled]
-    labels: ['ai']
+    types: [opened, reopened, labeled]
 
 concurrency:
   group: ai-programmer-${{ github.event.issue.number }}
@@ -14,7 +11,10 @@ concurrency:
 jobs:
   programmer-agent:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'ai' || github.event.action == 'opened' || github.event.action == 'reopened'
+    if: |
+      github.event.action == 'opened' || 
+      github.event.action == 'reopened' || 
+      (github.event.action == 'labeled' && github.event.label.name == 'ai')
     
     steps:
       - name: Configure AWS credentials
