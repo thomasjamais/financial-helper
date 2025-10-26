@@ -1,10 +1,23 @@
 import { App } from 'octokit'
 
+async function getInstallationForRepo(app, owner, repo) {
+  // Robust repo-specific installation lookup
+  const { data } = await app.octokit.request(
+    'GET /repos/{owner}/{repo}/installation',
+    { owner, repo },
+  )
+  return data.id
+}
+
 async function main() {
   const appId = process.env.GITHUB_APP_ID
   const privateKey = process.env.GITHUB_PRIVATE_KEY
   const repoSlug = process.env.REPO_SLUG // "owner/repo"
-  const labels = (process.env.ISSUE_LABELS || 'Ready').split(',')
+  const wanted = (process.env.ISSUE_LABELS || 'Ready')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
   if (!appId || !privateKey || !repoSlug) {
     throw new Error(
       'Missing GITHUB_APP_ID / GITHUB_PRIVATE_KEY / REPO_SLUG env vars',
@@ -13,31 +26,31 @@ async function main() {
   const [owner, repo] = repoSlug.split('/')
 
   const app = new App({ appId: Number(appId), privateKey })
-  const { data: installations } = await app.octokit.request(
-    'GET /app/installations',
-  )
-  const installation =
-    installations.find(
-      (i) => (i.account?.login || '').toLowerCase() === owner.toLowerCase(),
-    ) || installations[0]
-  if (!installation)
-    throw new Error('GitHub App is not installed on the target repo/org')
+  const installationId = await getInstallationForRepo(app, owner, repo)
+  const octokit = await app.getInstallationOctokit(installationId)
 
-  const octokit = await app.getInstallationOctokit(installation.id)
-  const { data: issues } = await octokit.request(
-    'GET /repos/{owner}/{repo}/issues',
-    {
+  // OR over labels: fetch per label, merge & de-dupe
+  const seen = new Set()
+  const issues = []
+  for (const label of wanted) {
+    const { data } = await octokit.request('GET /repos/{owner}/{repo}/issues', {
       owner,
       repo,
       state: 'open',
-      labels: labels.join(','),
-    },
-  )
+      labels: label,
+      per_page: 100,
+    })
+    for (const it of data) {
+      if (!seen.has(it.id)) {
+        seen.add(it.id)
+        issues.push(it)
+      }
+    }
+  }
 
   console.log(
-    `Agent online. Repo=${repoSlug}. Ready-labeled issues=${issues.length}`,
+    `Agent online. Repo=${repoSlug}. Labels(OR)=[${wanted.join(', ')}]. Candidates=${issues.length}`,
   )
-  // keep the process alive so ECS shows heartbeats
   setInterval(() => console.log('heartbeat', new Date().toISOString()), 15000)
 }
 

@@ -1,4 +1,4 @@
-# Dockerfile for Programmer Agent
+# Dockerfile for Product Agent
 FROM node:18-alpine
 
 WORKDIR /workspace
@@ -29,4 +29,4 @@ RUN addgroup -g 1001 -S nodejs
 RUN adduser -S agent -u 1001
 USER agent
 
-CMD ["node", "dist/src/index.js"]
+CMD ["node", "dist/src/product/index.js"]

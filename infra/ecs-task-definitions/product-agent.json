@@ -1,0 +1,32 @@
+{
+    "family": "financial-helper-product-agent",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "512",
+    "memory": "1024",
+    "executionRoleArn": "arn:aws:iam::641870364246:role/financial-helper-task-exec",
+    "taskRoleArn": "arn:aws:iam::641870364246:role/financial-helper-task",
+    "containerDefinitions": [
+        {
+            "name": "product-agent",
+            "image": "641870364246.dkr.ecr.eu-west-3.amazonaws.com/financial-helper-agent:latest",
+            "essential": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/financial-helper-agent",
+                    "awslogs-region": "eu-west-3",
+                    "awslogs-stream-prefix": "product-agent"
+                }
+            },
+            "environment": [
+                {
+                    "name": "NODE_ENV",
+                    "value": "production"
+                }
+            ]
+        }
+    ]
+}

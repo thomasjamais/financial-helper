@@ -1,0 +1,88 @@
+name: AI Fix Agent
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ai-fix-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  fix-agent:
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/ai:fix')
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get PR details
+        id: pr-details
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number
+            });
+            
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_sha', pr.head.sha);
+
+      - name: Run Fix Agent
+        uses: aws-actions/amazon-ecs-run-task@v2
+        with:
+          task-definition: ${{ secrets.PROGRAMMER_TASK_DEFINITION }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          subnet-ids: ${{ secrets.SUBNET_IDS }}
+          security-group-ids: ${{ secrets.SECURITY_GROUP_IDS }}
+          assign-public-ip: ENABLED
+          wait-for-finish: true
+          overrides: |
+            {
+              "containerOverrides": [
+                {
+                  "name": "programmer-agent",
+                  "environment": [
+                    {
+                      "name": "GITHUB_TOKEN",
+                      "value": "${{ secrets.GITHUB_TOKEN }}"
+                    },
+                    {
+                      "name": "GH_OWNER",
+                      "value": "${{ github.repository_owner }}"
+                    },
+                    {
+                      "name": "GH_REPO",
+                      "value": "${{ github.event.repository.name }}"
+                    },
+                    {
+                      "name": "PR_NUMBER",
+                      "value": "${{ steps.pr-details.outputs.pr_number }}"
+                    },
+                    {
+                      "name": "BRANCH",
+                      "value": "${{ steps.pr-details.outputs.head_ref }}"
+                    },
+                    {
+                      "name": "ASSIGNEE",
+                      "value": "ai-bot"
+                    },
+                    {
+                      "name": "DEFAULT_BRANCH",
+                      "value": "${{ github.event.repository.default_branch }}"
+                    },
+                    {
+                      "name": "POLICY_PATH",
+                      "value": "/workspace/policy.yaml"
+                    }
+                  ]
+                }
+              ]
+            }

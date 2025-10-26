@@ -1,0 +1,98 @@
+# Financial Helper
+
+A comprehensive financial trading and portfolio management system built with TypeScript and deployed on AWS ECS Fargate.
+
+## AI Agents
+
+This repository includes automated AI agents for issue processing and PR review:
+
+### Programmer Agent
+- **Trigger**: Issues labeled with `ai` or new issues
+- **Function**: Claims issues, creates branches, applies edits, runs tests, opens PRs
+- **Modes**:
+  - `new-issue`: Creates new branch and PR from issue
+  - `fix-iteration`: Iterates on existing PR branch
+
+### Product Agent  
+- **Trigger**: PR opened or synchronized
+- **Function**: Validates PR against policy, runs tests, posts reviews
+- **Actions**: Approves passing PRs, requests changes for failures
+
+### Fix Agent
+- **Trigger**: `/ai:fix` comment on PR
+- **Function**: Runs programmer agent in fix mode to iterate on PR
+
+## Environment Variables
+
+### Required
+- `GITHUB_TOKEN`: GitHub personal access token
+- `GH_OWNER`: Repository owner
+- `GH_REPO`: Repository name
+
+### Optional
+- `POLICY_PATH`: Path to policy.yaml (default: `./policy.yaml`)
+- `ASSIGNEE`: GitHub username for issue assignment (default: `ai-bot`)
+- `DEFAULT_BRANCH`: Base branch for PRs (default: `main`)
+
+### Mode-specific
+- **New Issue Mode**: `ISSUE_NUMBER`
+- **Fix Mode**: `PR_NUMBER`, `BRANCH`
+
+## Local Development
+
+### Setup
+```bash
+# Install dependencies
+pnpm install
+
+# Build agents
+pnpm agent:build
+```
+
+### Testing Agents
+
+#### Programmer Agent (New Issue)
+```bash
+ISSUE_NUMBER=123 pnpm agent:dev:programmer
+```
+
+#### Programmer Agent (Fix Mode)
+```bash
+PR_NUMBER=456 BRANCH=ai/456-sample pnpm agent:dev:programmer
+```
+
+#### Product Agent
+```bash
+PR_NUMBER=456 pnpm agent:dev:product
+```
+
+## Workflows
+
+### `.github/workflows/ai-programmer.yml`
+- Triggers on issues with `ai` label or new issues
+- Runs programmer agent in new-issue mode
+
+### `.github/workflows/ai-product.yml`  
+- Triggers on PR opened/synchronized
+- Runs product agent for PR review
+
+### `.github/workflows/ai-fix.yml`
+- Triggers on `/ai:fix` comment
+- Runs programmer agent in fix mode
+
+## Policy Configuration
+
+Agents read configuration from `policy.yaml`:
+
+- **Path restrictions**: Allowed/denied file paths
+- **Pattern validation**: Forbidden patterns (secrets, keys)
+- **Test suites**: Commands and timeouts
+- **Coverage thresholds**: Minimum coverage requirements
+- **Environment overrides**: Safe env vars for testing
+
+## Architecture
+
+- **Monorepo**: pnpm workspaces with TypeScript strict mode
+- **Deployment**: AWS ECS Fargate with GitHub Actions OIDC
+- **Policy-driven**: All actions constrained by root policy.yaml
+- **Idempotent**: Concurrency controls prevent duplicate runs

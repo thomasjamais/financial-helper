@@ -1,6 +1,6 @@
 agent:
   mode: moderate   # low/moderate/high
-  max_lines_changed: 600
+  maxChangedFiles: 50
   require_tests: true
   require_readme_update_on_api_change: true
 
@@ -48,6 +48,7 @@ tests:
     - name: secrets
       cmd: "trufflehog filesystem --fail --since-commit HEAD~1 ."
       timeout: 300
+
 guards:
   forbid_live_trading: true
   env_overrides:

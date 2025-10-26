@@ -1,0 +1,72 @@
+name: AI Programmer Agent
+
+on:
+  issues:
+    types: [opened, reopened]
+  issues:
+    types: [labeled]
+    labels: ['ai']
+
+concurrency:
+  group: ai-programmer-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  programmer-agent:
+    runs-on: ubuntu-latest
+    if: github.event.label.name == 'ai' || github.event.action == 'opened' || github.event.action == 'reopened'
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run Programmer Agent
+        uses: aws-actions/amazon-ecs-run-task@v2
+        with:
+          task-definition: ${{ secrets.PROGRAMMER_TASK_DEFINITION }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          subnet-ids: ${{ secrets.SUBNET_IDS }}
+          security-group-ids: ${{ secrets.SECURITY_GROUP_IDS }}
+          assign-public-ip: ENABLED
+          wait-for-finish: true
+          overrides: |
+            {
+              "containerOverrides": [
+                {
+                  "name": "programmer-agent",
+                  "environment": [
+                    {
+                      "name": "GITHUB_TOKEN",
+                      "value": "${{ secrets.GITHUB_TOKEN }}"
+                    },
+                    {
+                      "name": "GH_OWNER",
+                      "value": "${{ github.repository_owner }}"
+                    },
+                    {
+                      "name": "GH_REPO",
+                      "value": "${{ github.event.repository.name }}"
+                    },
+                    {
+                      "name": "ISSUE_NUMBER",
+                      "value": "${{ github.event.issue.number }}"
+                    },
+                    {
+                      "name": "ASSIGNEE",
+                      "value": "ai-bot"
+                    },
+                    {
+                      "name": "DEFAULT_BRANCH",
+                      "value": "${{ github.event.repository.default_branch }}"
+                    },
+                    {
+                      "name": "POLICY_PATH",
+                      "value": "/workspace/policy.yaml"
+                    }
+                  ]
+                }
+              ]
+            }
