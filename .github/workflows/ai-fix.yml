@@ -47,11 +47,13 @@ jobs:
         with:
           task-definition: ${{ secrets.PROGRAMMER_TASK_DEFINITION }}
           cluster: ${{ secrets.ECS_CLUSTER }}
-          subnet-ids: ${{ secrets.SUBNET_IDS }}
-          security-group-ids: ${{ secrets.SECURITY_GROUP_IDS }}
+          subnets: ${{ secrets.SUBNET_IDS }}
+          security-groups: ${{ secrets.SECURITY_GROUP_IDS }}
           assign-public-ip: ENABLED
           wait-for-finish: true
           wait-for-minutes: 10
+          count: 1
+          launch-type: FARGATE
           environment-variables: |
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
             GH_OWNER=${{ github.repository_owner }}
