@@ -23,6 +23,13 @@ jobs:
       (github.event.action == 'labeled' && github.event.label.name == 'ai')
     
     steps:
+      - name: Debug GitHub context
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Action: ${{ github.event.action }}"
+          echo "Issue number: ${{ github.event.issue.number }}"
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
