@@ -37,9 +37,3 @@ jobs:
           wait-for-minutes: 10
           count: 1
           launch-type: FARGATE
-          environment-variables: |
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-            GH_OWNER=${{ github.repository_owner }}
-            GH_REPO=${{ github.event.repository.name }}
-            PR_NUMBER=${{ github.event.pull_request.number }}
-            POLICY_PATH=/workspace/policy.yaml

@@ -25,6 +25,26 @@
                 {
                     "name": "NODE_ENV",
                     "value": "production"
+                },
+                {
+                    "name": "GITHUB_TOKEN",
+                    "value": "PLACEHOLDER_GITHUB_TOKEN"
+                },
+                {
+                    "name": "GH_OWNER",
+                    "value": "PLACEHOLDER_GH_OWNER"
+                },
+                {
+                    "name": "GH_REPO",
+                    "value": "PLACEHOLDER_GH_REPO"
+                },
+                {
+                    "name": "PR_NUMBER",
+                    "value": "PLACEHOLDER_PR_NUMBER"
+                },
+                {
+                    "name": "POLICY_PATH",
+                    "value": "/workspace/policy.yaml"
                 }
             ]
         }
