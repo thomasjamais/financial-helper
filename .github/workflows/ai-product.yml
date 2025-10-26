@@ -20,7 +20,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Run Product Agent
-        uses: aws-actions/amazon-ecs-run-task@v2
+        uses: muya/amazon-ecs-run-task@v1
         with:
           task-definition: ${{ secrets.PRODUCT_TASK_DEFINITION }}
           cluster: ${{ secrets.ECS_CLUSTER }}
@@ -28,33 +28,10 @@ jobs:
           security-group-ids: ${{ secrets.SECURITY_GROUP_IDS }}
           assign-public-ip: ENABLED
           wait-for-finish: true
-          overrides: |
-            {
-              "containerOverrides": [
-                {
-                  "name": "product-agent",
-                  "environment": [
-                    {
-                      "name": "GITHUB_TOKEN",
-                      "value": "${{ secrets.GITHUB_TOKEN }}"
-                    },
-                    {
-                      "name": "GH_OWNER",
-                      "value": "${{ github.repository_owner }}"
-                    },
-                    {
-                      "name": "GH_REPO",
-                      "value": "${{ github.event.repository.name }}"
-                    },
-                    {
-                      "name": "PR_NUMBER",
-                      "value": "${{ github.event.pull_request.number }}"
-                    },
-                    {
-                      "name": "POLICY_PATH",
-                      "value": "/workspace/policy.yaml"
-                    }
-                  ]
-                }
-              ]
-            }
+          wait-for-minutes: 10
+          environment-variables: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            GH_OWNER=${{ github.repository_owner }}
+            GH_REPO=${{ github.event.repository.name }}
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            POLICY_PATH=/workspace/policy.yaml
