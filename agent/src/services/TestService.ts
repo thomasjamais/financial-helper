@@ -1,5 +1,5 @@
 import { execa } from 'execa'
-import type { Policy, TestResult } from '../types'
+import type { Policy, TestResult } from '../types.js'
 
 const runWithTimeout = async (
   cmd: string,

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import micromatch from 'micromatch'
-import type { Policy } from '../types'
+import type { Policy } from '../types.js'
 
 export class EditService {
   constructor(private policy: Policy) {}

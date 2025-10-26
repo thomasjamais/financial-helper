@@ -1,11 +1,11 @@
 import path from 'node:path'
 import fs from 'node:fs'
 import process from 'node:process'
-import { PolicyService } from '../services/PolicyService'
-import { TestService } from '../services/TestService'
-import { PRReviewService } from '../services/PRReviewService'
-import { GitService } from '../services/GitService'
-import type { Policy, RepoRef, TestResult } from '../types'
+import { PolicyService } from '../services/PolicyService.js'
+import { TestService } from '../services/TestService.js'
+import { PRReviewService } from '../services/PRReviewService.js'
+import { GitService } from '../services/GitService.js'
+import type { Policy, RepoRef, TestResult } from '../types.js'
 
 const run = async () => {
   const owner = process.env.GH_OWNER || ''

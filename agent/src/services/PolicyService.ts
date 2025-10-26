@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import yaml from 'js-yaml'
 import micromatch from 'micromatch'
-import type { Policy } from '../types'
+import type { Policy } from '../types.js'
 
 export class PolicyService {
   private policyPath: string

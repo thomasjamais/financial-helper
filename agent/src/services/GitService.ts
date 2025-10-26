@@ -1,5 +1,5 @@
 import simpleGit, { SimpleGit } from 'simple-git'
-import { defaultBranch, gitAuthorEmail, gitAuthorName } from '../config'
+import { defaultBranch, gitAuthorEmail, gitAuthorName } from '../config.js'
 import { execa } from 'execa'
 
 export class GitService {

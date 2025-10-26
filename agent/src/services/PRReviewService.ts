@@ -1,5 +1,5 @@
-import { octokit } from '../config'
-import type { RepoRef } from '../types'
+import { octokit } from '../config.js'
+import type { RepoRef } from '../types.js'
 
 export type PRReviewDecision = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT'
 

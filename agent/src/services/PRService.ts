@@ -1,5 +1,5 @@
-import { octokit } from '../config'
-import type { RepoRef, TestResult } from '../types'
+import { octokit } from '../config.js'
+import type { RepoRef, TestResult } from '../types.js'
 import fs from 'node:fs'
 
 export class PRService {
