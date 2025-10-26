@@ -8,7 +8,7 @@ RUN npm install -g pnpm
 
 # Copy package files
 COPY agent/package*.json ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 # Copy source code
 COPY agent/src ./src
@@ -19,7 +19,7 @@ COPY policy.yaml ./
 RUN pnpm run build
 
 # Install runtime dependencies
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod
 
 # Set up git
 RUN apk add --no-cache git
