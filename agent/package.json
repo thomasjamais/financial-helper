@@ -1,0 +1,8 @@
+{
+    "name": "ai-agent",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "octokit": "^3.2.1"
+    }
+}

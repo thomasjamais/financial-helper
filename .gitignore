@@ -134,3 +134,6 @@ secrets/
 *.secret
 *.private
 credentials/
+
+.turbo/
+

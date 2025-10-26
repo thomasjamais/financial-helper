@@ -8,6 +8,29 @@ data "aws_iam_policy_document" "task_assume" {
   }
 }
 
+# Policy doc: allow the EXECUTION role to read our secrets for container injection
+data "aws_iam_policy_document" "exec_can_read_secrets" {
+  statement {
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      aws_secretsmanager_secret.github_app_id.arn,
+      aws_secretsmanager_secret.github_private_key.arn,
+      aws_secretsmanager_secret.openai.arn,
+      aws_secretsmanager_secret.anthropic.arn,
+      aws_secretsmanager_secret.repo_slug.arn,
+      aws_secretsmanager_secret.issue_labels.arn,
+      aws_secretsmanager_secret.policy_yaml.arn
+    ]
+  }
+}
+
+# Attach that policy to the EXECUTION role
+resource "aws_iam_role_policy" "task_exec_read_secrets" {
+  name   = "${var.project}-task-exec-read-secrets"
+  role   = aws_iam_role.task_execution.id
+  policy = data.aws_iam_policy_document.exec_can_read_secrets.json
+}
+
 resource "aws_iam_role" "task_execution" {
   name               = "${var.project}-task-exec"
   assume_role_policy = data.aws_iam_policy_document.task_assume.json
