@@ -11,7 +11,7 @@
     "containerDefinitions": [
         {
             "name": "programmer-agent",
-                    "image": "641870364246.dkr.ecr.eu-west-3.amazonaws.com/financial-helper-agent:fixed",
+            "image": "641870364246.dkr.ecr.eu-west-3.amazonaws.com/financial-helper-agent:fixed",
             "essential": true,
             "logConfiguration": {
                 "logDriver": "awslogs",

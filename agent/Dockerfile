@@ -27,6 +27,12 @@ RUN apk add --no-cache git
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S agent -u 1001
+
+# Initialize git for the agent user
+RUN git config --global user.name "AI Agent" && \
+    git config --global user.email "agent@financial-helper.com" && \
+    git config --global init.defaultBranch main
+
 USER agent
 
 CMD ["node", "dist/src/index.js"]
