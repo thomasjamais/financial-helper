@@ -29,7 +29,7 @@ const run = async () => {
   const prReview = new PRReviewService(repoRef)
 
   // Clone the repository first
-  const repoUrl = `https://${githubToken}@github.com/${context.owner}/${context.repo}.git`
+  const repoUrl = `https://x-access-token:${githubToken}@github.com/${context.owner}/${context.repo}.git`
   await git.cloneRepository(repoUrl, defaultBranch)
   await git.ensureConfig()
 

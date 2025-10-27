@@ -14,6 +14,10 @@ export class GitService {
   async ensureConfig() {
     await this.git.addConfig('user.name', gitAuthorName)
     await this.git.addConfig('user.email', gitAuthorEmail)
+    
+    // Configure git to use token authentication
+    await this.git.addConfig('credential.helper', 'store')
+    await this.git.addConfig('credential.https://github.com.username', 'x-access-token')
   }
 
   async cloneRepository(repoUrl: string, branch: string = defaultBranch) {
