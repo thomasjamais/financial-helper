@@ -19,7 +19,40 @@ export class GitService {
   async cloneRepository(repoUrl: string, branch: string = defaultBranch) {
     // Clone the repository if it doesn't exist
     if (!fs.existsSync(path.join(this.workdir, '.git'))) {
-      await this.git.clone(repoUrl, this.workdir, ['--branch', branch, '--single-branch'])
+      // If workspace is not empty, clone to a subdirectory and move files
+      const tempDir = path.join(this.workdir, 'repo-temp')
+      await this.git.clone(repoUrl, tempDir, [
+        '--branch',
+        branch,
+        '--single-branch',
+      ])
+      
+      // Move all files from temp directory to workspace
+      const files = fs.readdirSync(tempDir)
+      for (const file of files) {
+        if (file !== '.git') {
+          const srcPath = path.join(tempDir, file)
+          const destPath = path.join(this.workdir, file)
+          if (fs.statSync(srcPath).isDirectory()) {
+            if (fs.existsSync(destPath)) {
+              fs.rmSync(destPath, { recursive: true, force: true })
+            }
+            fs.renameSync(srcPath, destPath)
+          } else {
+            fs.copyFileSync(srcPath, destPath)
+          }
+        }
+      }
+      
+      // Move .git directory
+      const gitSrc = path.join(tempDir, '.git')
+      const gitDest = path.join(this.workdir, '.git')
+      if (fs.existsSync(gitSrc)) {
+        fs.renameSync(gitSrc, gitDest)
+      }
+      
+      // Clean up temp directory
+      fs.rmSync(tempDir, { recursive: true, force: true })
     }
   }
 
