@@ -29,19 +29,19 @@ tests:
   unit_threshold: 0.9
   suites:
     - name: typecheck
-      cmd: "pnpm -w tsc -b"
+      cmd: "turbo run build"
       timeout: 180
     - name: lint
-      cmd: "pnpm -w lint"
+      cmd: "turbo run lint"
       timeout: 120
     - name: unit
-      cmd: "pnpm -w test -- --run"
+      cmd: "turbo run test"
       timeout: 600
     - name: integration
-      cmd: "docker compose -f infra/compose.yaml up -d && pnpm -w test -- --grep @integration"
+      cmd: "docker compose -f infra/compose.yaml up -d && turbo run test -- --grep @integration"
       timeout: 900
     - name: e2e-min
-      cmd: "pnpm --filter @apps/web test -- --grep @e2e:smoke"
+      cmd: "turbo run test -- --grep @e2e:smoke"
       timeout: 900
     - name: semgrep
       cmd: "semgrep scan --error --config p/owasp-top-ten"
