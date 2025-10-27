@@ -29,13 +29,13 @@ tests:
   unit_threshold: 0.9
   suites:
     - name: typecheck
-      cmd: "cd apps/api && npx tsc --noEmit"
+      cmd: "cd apps/api && pnpm exec tsc --noEmit"
       timeout: 60
     - name: lint
-      cmd: "cd apps/api && npx eslint . --ext .ts"
+      cmd: "cd apps/api && pnpm exec eslint . --ext .ts"
       timeout: 60
     - name: unit
-      cmd: "cd apps/api && npx vitest run"
+      cmd: "cd apps/api && pnpm exec vitest run"
       timeout: 120
     - name: semgrep
       cmd: "semgrep scan --error --config p/owasp-top-ten"
