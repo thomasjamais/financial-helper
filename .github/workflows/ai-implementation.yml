@@ -2,7 +2,7 @@ name: AI Implementation Agent
 
 on:
   pull_request:
-    types: [labeled]
+    types: [opened, labeled]
 
 permissions:
   id-token: write
@@ -17,7 +17,9 @@ concurrency:
 jobs:
   implementation-agent:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'plan-approved'
+    if: |
+      (github.event.action == 'opened' && contains(github.event.pull_request.labels.*.name, 'plan-approved')) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'plan-approved')
     
     steps:
       - name: Debug GitHub context
