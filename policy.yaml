@@ -29,13 +29,13 @@ tests:
   unit_threshold: 0.9
   suites:
     - name: typecheck
-      cmd: "pnpm install --yes && pnpm --filter @apps/api build"
+      cmd: "PNPM_FORCE=true pnpm install && pnpm --filter @apps/api build"
       timeout: 300
     - name: lint
-      cmd: "pnpm install --yes && pnpm --filter @apps/api lint"
+      cmd: "PNPM_FORCE=true pnpm install && pnpm --filter @apps/api lint"
       timeout: 300
     - name: unit
-      cmd: "pnpm install --yes && pnpm --filter @apps/api test"
+      cmd: "PNPM_FORCE=true pnpm install && pnpm --filter @apps/api test"
       timeout: 600
     - name: semgrep
       cmd: "semgrep scan --error --config p/owasp-top-ten"
