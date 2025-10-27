@@ -27,6 +27,10 @@ const run = async () => {
   const issues = new IssueService(repoRef)
   const git = new GitService()
   const prReview = new PRReviewService(repoRef)
+  
+  // Clone the repository first
+  const repoUrl = `https://${githubToken}@github.com/${context.owner}/${context.repo}.git`
+  await git.cloneRepository(repoUrl, defaultBranch)
   await git.ensureConfig()
 
   const policy = new PolicyService(context.policyPath).getPolicy()

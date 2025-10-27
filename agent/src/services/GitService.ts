@@ -1,6 +1,8 @@
 import simpleGit, { SimpleGit } from 'simple-git'
 import { defaultBranch, gitAuthorEmail, gitAuthorName } from '../config.js'
 import { execa } from 'execa'
+import path from 'node:path'
+import fs from 'node:fs'
 
 export class GitService {
   private git: SimpleGit
@@ -12,6 +14,13 @@ export class GitService {
   async ensureConfig() {
     await this.git.addConfig('user.name', gitAuthorName)
     await this.git.addConfig('user.email', gitAuthorEmail)
+  }
+
+  async cloneRepository(repoUrl: string, branch: string = defaultBranch) {
+    // Clone the repository if it doesn't exist
+    if (!fs.existsSync(path.join(this.workdir, '.git'))) {
+      await this.git.clone(repoUrl, this.workdir, ['--branch', branch, '--single-branch'])
+    }
   }
 
   async fetchDefault() {
