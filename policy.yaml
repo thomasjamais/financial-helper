@@ -29,14 +29,14 @@ tests:
   unit_threshold: 0.9
   suites:
     - name: typecheck
-      cmd: "PNPM_FORCE=true pnpm install && pnpm --filter @apps/api build"
-      timeout: 300
+      cmd: "cd apps/api && npx tsc --noEmit"
+      timeout: 60
     - name: lint
-      cmd: "PNPM_FORCE=true pnpm install && pnpm --filter @apps/api lint"
-      timeout: 300
+      cmd: "cd apps/api && npx eslint . --ext .ts"
+      timeout: 60
     - name: unit
-      cmd: "PNPM_FORCE=true pnpm install && pnpm --filter @apps/api test"
-      timeout: 600
+      cmd: "cd apps/api && npx vitest run"
+      timeout: 120
     - name: semgrep
       cmd: "semgrep scan --error --config p/owasp-top-ten"
       timeout: 300
