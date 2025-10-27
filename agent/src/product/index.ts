@@ -24,8 +24,6 @@ const run = async () => {
   const git = new GitService()
   const testService = new TestService(policy)
 
-  await git.ensureConfig()
-
   const prDetails = await prReview.getPRDetails(prNumber)
   const prLabels = prDetails.labels.map((l) => l.name)
 
@@ -34,6 +32,8 @@ const run = async () => {
     await handlePlanReview(prNumber, prDetails, prReview)
     return
   }
+
+  await git.ensureConfig()
 
   const validationResults = await validatePR(policy, prDetails, prLabels)
   const testResults = await testService.runSuites()
