@@ -1,0 +1,96 @@
+name: AI Implementation Agent
+
+on:
+  pull_request:
+    types: [opened, labeled]
+
+permissions:
+  id-token: write
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ai-implementation-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  implementation-agent:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event.action == 'opened' && contains(github.event.pull_request.labels.*.name, 'plan-approved')) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'plan-approved')
+    
+    steps:
+      - name: Debug GitHub context
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Action: ${{ github.event.action }}"
+          echo "PR number: ${{ github.event.pull_request.number }}"
+          echo "Label name: ${{ github.event.label.name }}"
+          echo "PR labels: ${{ toJson(github.event.pull_request.labels) }}"
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run Implementation Agent
+        run: |
+          # Extract issue number from PR body (looks for "Closes #123")
+          ISSUE_NUMBER=$(echo "${{ github.event.pull_request.body }}" | grep -o "Closes #[0-9]*" | grep -o "[0-9]*" | head -1)
+          
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "Could not extract issue number from PR body"
+            exit 1
+          fi
+          
+          echo "Extracted issue number: $ISSUE_NUMBER"
+          
+          # Create container overrides with environment variables
+          CONTAINER_OVERRIDES=$(jq --arg token "${{ secrets.GITHUB_TOKEN }}" --arg owner "${{ github.repository_owner }}" --arg repo "${{ github.event.repository.name }}" --arg issue "$ISSUE_NUMBER" '
+            [{
+              "name": "programmer-agent",
+              "environment": [
+                {"name": "NODE_ENV", "value": "production"},
+                {"name": "GITHUB_TOKEN", "value": $token},
+                {"name": "GH_OWNER", "value": $owner},
+                {"name": "GH_REPO", "value": $repo},
+                {"name": "ISSUE_NUMBER", "value": $issue},
+                {"name": "ASSIGNEE", "value": "thomasjamais"},
+                {"name": "DEFAULT_BRANCH", "value": "main"},
+                {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"},
+                {"name": "AGENT_MODE", "value": "new-issue"}
+              ]
+            }]
+          ' <<< '{}')
+          
+          # Run the task
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ secrets.ECS_CLUSTER }} \
+            --task-definition financial-helper-programmer-agent \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNET_IDS }}],securityGroups=[${{ secrets.SECURITY_GROUP_IDS }}],assignPublicIp=ENABLED}" \
+            --overrides "{\"containerOverrides\":$CONTAINER_OVERRIDES}" \
+            --region ${{ secrets.AWS_REGION }} \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          
+          echo "Task started: $TASK_ARN"
+          
+          # Wait for task to complete
+          echo "Waiting for task to complete..."
+          aws ecs wait tasks-stopped --cluster ${{ secrets.ECS_CLUSTER }} --tasks "$TASK_ARN" --region ${{ secrets.AWS_REGION }}
+          
+          # Get task exit code
+          EXIT_CODE=$(aws ecs describe-tasks --cluster ${{ secrets.ECS_CLUSTER }} --tasks "$TASK_ARN" --region ${{ secrets.AWS_REGION }} --query 'tasks[0].containers[0].exitCode' --output text)
+          
+          echo "Task completed with exit code: $EXIT_CODE"
+          
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Task failed with exit code: $EXIT_CODE"
+            exit 1
+          fi
