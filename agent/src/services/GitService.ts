@@ -26,7 +26,7 @@ export class GitService {
         branch,
         '--single-branch',
       ])
-      
+
       // Move all files from temp directory to workspace
       const files = fs.readdirSync(tempDir)
       for (const file of files) {
@@ -43,14 +43,14 @@ export class GitService {
           }
         }
       }
-      
+
       // Move .git directory
       const gitSrc = path.join(tempDir, '.git')
       const gitDest = path.join(this.workdir, '.git')
       if (fs.existsSync(gitSrc)) {
         fs.renameSync(gitSrc, gitDest)
       }
-      
+
       // Clean up temp directory
       fs.rmSync(tempDir, { recursive: true, force: true })
     }

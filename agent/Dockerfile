@@ -33,6 +33,9 @@ RUN git config --global user.name "AI Agent" && \
     git config --global user.email "agent@financial-helper.com" && \
     git config --global init.defaultBranch main
 
+# Ensure agent user owns the workspace directory
+RUN chown -R agent:nodejs /workspace
+
 USER agent
 
 CMD ["node", "dist/src/index.js"]
