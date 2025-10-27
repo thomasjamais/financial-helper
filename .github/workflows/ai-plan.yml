@@ -1,4 +1,4 @@
-name: AI Programmer Agent
+name: AI Plan Agent
 
 on:
   issues:
@@ -11,17 +11,16 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ai-programmer-${{ github.event.issue.number }}
+  group: ai-plan-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
-  programmer-agent:
+  plan-agent:
     runs-on: ubuntu-latest
     if: |
-      (github.event.action == 'opened' || 
-       github.event.action == 'reopened' || 
-       (github.event.action == 'labeled' && github.event.label.name == 'ai')) &&
-      !contains(github.event.issue.labels.*.name, 'plan')
+      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'plan')) || 
+      (github.event.action == 'reopened' && contains(github.event.issue.labels.*.name, 'plan')) || 
+      (github.event.action == 'labeled' && github.event.label.name == 'plan')
     
     steps:
       - name: Debug GitHub context
@@ -30,6 +29,9 @@ jobs:
           echo "Event: ${{ github.event_name }}"
           echo "Action: ${{ github.event.action }}"
           echo "Issue number: ${{ github.event.issue.number }}"
+          echo "Issue labels: ${{ toJson(github.event.issue.labels) }}"
+          echo "Label names: ${{ github.event.issue.labels.*.name }}"
+          echo "Contains plan label: ${{ contains(github.event.issue.labels.*.name, 'plan') }}"
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -38,7 +40,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Run Programmer Agent
+      - name: Run Plan Agent
         run: |
           # Create container overrides with environment variables
           CONTAINER_OVERRIDES=$(jq --arg token "${{ secrets.GITHUB_TOKEN }}" --arg owner "${{ github.repository_owner }}" --arg repo "${{ github.event.repository.name }}" --arg issue "${{ github.event.issue.number }}" '
@@ -52,7 +54,8 @@ jobs:
                 {"name": "ISSUE_NUMBER", "value": $issue},
                 {"name": "ASSIGNEE", "value": "ai-bot"},
                 {"name": "DEFAULT_BRANCH", "value": "main"},
-                {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"}
+                {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"},
+                {"name": "AGENT_MODE", "value": "plan-only"}
               ]
             }]
           ' <<< '{}')

@@ -29,6 +29,12 @@ const run = async () => {
   const prDetails = await prReview.getPRDetails(prNumber)
   const prLabels = prDetails.labels.map((l) => l.name)
 
+  // Check if this is a plan review PR
+  if (prLabels.includes('plan-review')) {
+    await handlePlanReview(prNumber, prDetails, prReview)
+    return
+  }
+
   const validationResults = await validatePR(policy, prDetails, prLabels)
   const testResults = await testService.runSuites()
   const overallTestResult = mergeTestResults(testResults)
@@ -64,6 +70,132 @@ const run = async () => {
     })
     await prReview.addLabel(prNumber, 'needs-fixes')
   }
+}
+
+const handlePlanReview = async (
+  prNumber: number,
+  prDetails: any,
+  prReview: PRReviewService,
+) => {
+  const planValidation = validatePlan(prDetails)
+
+  const reviewBody = buildPlanReviewBody(planValidation)
+
+  if (planValidation.isValid) {
+    await prReview.postReview(prNumber, {
+      decision: 'APPROVE',
+      body: reviewBody,
+      event: 'APPROVE',
+    })
+
+    // Add plan-approved label
+    await prReview.addLabel(prNumber, 'plan-approved')
+    await prReview.removeLabel(prNumber, 'plan-review')
+
+    // Comment on the original issue
+    const issueNumber = extractIssueNumberFromPR(prDetails)
+    if (issueNumber) {
+      await prReview.comment(
+        prNumber,
+        `✅ Plan approved! The programmer agent will now create the implementation PR.`,
+      )
+    }
+  } else {
+    await prReview.postReview(prNumber, {
+      decision: 'REQUEST_CHANGES',
+      body: reviewBody,
+      event: 'REQUEST_CHANGES',
+    })
+  }
+}
+
+const validatePlan = (prDetails: any) => {
+  const issues: string[] = []
+
+  // Check if plan.md exists
+  const planFile = prDetails.files.find((f: any) => f.filename === 'plan.md')
+  if (!planFile) {
+    issues.push('Plan file (plan.md) is missing')
+  }
+
+  // Check if plan has proper structure
+  if (planFile && planFile.patch) {
+    const planContent = planFile.patch
+    if (!planContent.includes('## Implementation Plan')) {
+      issues.push('Plan missing "Implementation Plan" section')
+    }
+    if (!planContent.includes('## Technical Steps')) {
+      issues.push('Plan missing "Technical Steps" section')
+    }
+    if (!planContent.includes('## Acceptance Criteria')) {
+      issues.push('Plan missing "Acceptance Criteria" section')
+    }
+  }
+
+  // Check if plan is not just a copy of the issue
+  if (planFile && planFile.patch) {
+    const planContent = planFile.patch.toLowerCase()
+    if (
+      planContent.includes('## context') &&
+      planContent.includes('## steps')
+    ) {
+      issues.push(
+        'Plan appears to be a copy-paste of the issue rather than a proper implementation plan',
+      )
+    }
+  }
+
+  return {
+    isValid: issues.length === 0,
+    issues,
+  }
+}
+
+const buildPlanReviewBody = (validation: {
+  isValid: boolean
+  issues: string[]
+}) => {
+  if (validation.isValid) {
+    return [
+      '## 📋 Plan Review',
+      '',
+      '✅ **Plan Structure**: All required sections present',
+      '✅ **Implementation Steps**: Clear and actionable',
+      '✅ **Technical Approach**: Well-defined',
+      '',
+      '## ✅ Plan Approved!',
+      '',
+      'This plan looks good and is ready for implementation. The programmer agent will now create the actual implementation PR.',
+      '',
+      '**Next Steps:**',
+      '1. Implementation PR will be created automatically',
+      '2. Code changes will be applied according to this plan',
+      '3. Tests will be run to validate the implementation',
+    ].join('\n')
+  } else {
+    return [
+      '## 📋 Plan Review',
+      '',
+      '❌ **Plan Issues Found:**',
+      '',
+      ...validation.issues.map((issue) => `- ${issue}`),
+      '',
+      '## ❌ Plan Needs Revision',
+      '',
+      'Please address the issues above and update the plan. The programmer agent will need to create a revised plan.',
+      '',
+      '**Required Actions:**',
+      '1. Fix the identified plan issues',
+      '2. Ensure the plan provides clear implementation guidance',
+      '3. Update the plan PR with corrections',
+    ].join('\n')
+  }
+}
+
+const extractIssueNumberFromPR = (prDetails: any): number | null => {
+  const body = prDetails.body || ''
+  const match = body.match(/Closes #(\d+)/)
+  return match ? parseInt(match[1], 10) : null
 }
 
 type ValidationResult = {

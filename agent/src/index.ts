@@ -37,6 +37,8 @@ const run = async () => {
 
   if (context.mode === 'new-issue') {
     await runNewIssueMode(context, issues, git, policy, repoRef)
+  } else if (context.mode === 'plan-only') {
+    await runPlanOnlyMode(context, issues, git, policy, repoRef)
   } else {
     await runFixMode(context, issues, git, policy, repoRef, prReview)
   }
@@ -62,8 +64,10 @@ const parseAgentContext = (): AgentContext => {
   }
 
   if (issueNumber && !Number.isNaN(issueNumber)) {
+    const mode =
+      process.env.AGENT_MODE === 'plan-only' ? 'plan-only' : 'new-issue'
     return {
-      mode: 'new-issue',
+      mode,
       issueNumber,
       owner,
       repo,
@@ -104,7 +108,21 @@ const runNewIssueMode = async (
   await issues.claimIssue(issueNumber!, assignee, ['in-progress'])
 
   const slug = toSlug(issue.title || `issue-${issueNumber}`)
-  const branch = `ai/${issueNumber}-${slug}`
+  let branch = `ai/${issueNumber}-${slug}`
+
+  // Check if a PR already exists for this issue
+  const prService = new PRService(repoRef)
+  const existingPRs = await prService.findPRsForIssue(issueNumber!)
+
+  if (existingPRs.length > 0) {
+    // Create V2 branch if PR already exists
+    const version = existingPRs.length + 1
+    branch = `ai/${issueNumber}-${slug}-v${version}`
+    console.log(
+      `PR already exists for issue #${issueNumber}, creating V${version} branch: ${branch}`,
+    )
+  }
+
   await git.createBranch(branch)
 
   const planPath = path.join(process.cwd(), 'plan.md')
@@ -113,6 +131,8 @@ const runNewIssueMode = async (
     issueTitle: issue.title || '',
     issueBody: issue.body || '',
     branch,
+    iterationNumber:
+      existingPRs.length > 0 ? existingPRs.length + 1 : undefined,
   }
   fs.writeFileSync(planPath, renderPlan(planCtx), 'utf8')
 
@@ -138,7 +158,7 @@ const runNewIssueMode = async (
   const prUrl = await pr.openPR({
     branch,
     base: defaultBranch,
-    title: `AI: ${issue.title || `Issue #${issueNumber}`}`,
+    title: `AI: ${issue.title || `Issue #${issueNumber}`}${existingPRs.length > 0 ? ` (V${existingPRs.length + 1})` : ''}`,
     issueNumber: issueNumber!,
     testResult: overall,
     planPath,
@@ -147,6 +167,56 @@ const runNewIssueMode = async (
   await issues.comment(
     issueNumber!,
     `Plan and edits pushed to \`${branch}\`. PR opened: ${prUrl}`,
+  )
+}
+
+const runPlanOnlyMode = async (
+  context: AgentContext,
+  issues: IssueService,
+  git: GitService,
+  policy: Policy,
+  repoRef: RepoRef,
+) => {
+  const { issueNumber, assignee } = context
+
+  const issue = await issues.readIssue(issueNumber!)
+  const issueLabels = (issue.labels || []).map((l: any) =>
+    typeof l === 'string' ? l : l.name,
+  ) as string[]
+
+  await issues.claimIssue(issueNumber!, assignee, ['planning'])
+
+  const slug = toSlug(issue.title || `issue-${issueNumber}`)
+  const branch = `plan/${issueNumber}-${slug}`
+
+  await git.createBranch(branch)
+
+  const planPath = path.join(process.cwd(), 'plan.md')
+  const planCtx: PlanContext = {
+    issueNumber: issueNumber!,
+    issueTitle: issue.title || '',
+    issueBody: issue.body || '',
+    branch,
+  }
+  fs.writeFileSync(planPath, renderPlan(planCtx), 'utf8')
+
+  const committed = await git.addAllAndCommit(
+    `chore(ai): plan for #${issueNumber}`,
+  )
+  if (committed) await git.pushBranch(branch)
+
+  const pr = new PRService(repoRef)
+  const prUrl = await pr.openPlanPR({
+    branch,
+    base: defaultBranch,
+    title: `📋 Plan: ${issue.title || `Issue #${issueNumber}`}`,
+    issueNumber: issueNumber!,
+    planPath,
+  })
+
+  await issues.comment(
+    issueNumber!,
+    `📋 Plan created and pushed to \`${branch}\`. Plan PR opened: ${prUrl}\n\nPlease review the plan and approve to proceed with implementation.`,
   )
 }
 
@@ -291,13 +361,21 @@ const mergeResults = (
 }
 
 const renderPlan = (ctx: PlanContext) => {
+  const versionSuffix = ctx.iterationNumber ? ` (V${ctx.iterationNumber})` : ''
+
+  // Generate a proper plan based on the issue content
+  const planSteps = generatePlanSteps(ctx.issueTitle, ctx.issueBody)
+
   const lines = [
-    `# Plan for #${ctx.issueNumber}: ${ctx.issueTitle}`,
+    `# Plan for #${ctx.issueNumber}: ${ctx.issueTitle}${versionSuffix}`,
     '',
-    '## Context',
-    ctx.issueBody || '(no body)',
+    '## Issue Summary',
+    ctx.issueBody || '(no description provided)',
     '',
-    '## Steps',
+    '## Implementation Plan',
+    ...planSteps.map((step) => `- ${step}`),
+    '',
+    '## Technical Steps',
     '- Claim the issue and set status to in-progress',
     `- Create branch \`${ctx.branch}\``,
     '- Apply constrained edits according to policy.yaml',
@@ -308,8 +386,93 @@ const renderPlan = (ctx: PlanContext) => {
     '- All edits are within allowed paths and deny rules',
     '- All policy test suites are successful',
     '- PR links back to the issue and includes outputs',
+    '- Implementation matches the requirements in the issue',
   ]
   return lines.join('\n')
+}
+
+const generatePlanSteps = (title: string, body: string): string[] => {
+  const content = `${title}\n${body}`.toLowerCase()
+  const steps: string[] = []
+
+  // Analyze the issue content to generate relevant steps
+  if (content.includes('api') || content.includes('endpoint')) {
+    steps.push('Implement API endpoint with proper validation using Zod')
+    steps.push('Add comprehensive error handling and status codes')
+    steps.push('Update API documentation if required')
+  }
+
+  if (
+    content.includes('database') ||
+    content.includes('db') ||
+    content.includes('migration')
+  ) {
+    steps.push('Create database migration if schema changes needed')
+    steps.push('Update database models and types')
+    steps.push('Add proper database error handling')
+  }
+
+  if (content.includes('test') || content.includes('testing')) {
+    steps.push('Write unit tests for new functionality')
+    steps.push('Add integration tests for API endpoints')
+    steps.push('Ensure test coverage meets policy requirements')
+  }
+
+  if (
+    content.includes('ui') ||
+    content.includes('frontend') ||
+    content.includes('component')
+  ) {
+    steps.push('Implement UI components with proper TypeScript types')
+    steps.push('Add responsive design considerations')
+    steps.push('Include accessibility features where applicable')
+  }
+
+  if (
+    content.includes('security') ||
+    content.includes('auth') ||
+    content.includes('permission')
+  ) {
+    steps.push('Implement proper authentication and authorization')
+    steps.push('Add input validation and sanitization')
+    steps.push('Ensure secure data handling practices')
+  }
+
+  if (content.includes('performance') || content.includes('optimization')) {
+    steps.push('Implement performance optimizations')
+    steps.push('Add caching mechanisms where appropriate')
+    steps.push('Monitor and measure performance improvements')
+  }
+
+  if (
+    content.includes('bug') ||
+    content.includes('fix') ||
+    content.includes('error')
+  ) {
+    steps.push('Identify root cause of the issue')
+    steps.push('Implement targeted fix with minimal impact')
+    steps.push('Add regression tests to prevent future occurrences')
+  }
+
+  if (
+    content.includes('feature') ||
+    content.includes('new') ||
+    content.includes('add')
+  ) {
+    steps.push('Design feature architecture following domain-driven principles')
+    steps.push('Implement feature with proper separation of concerns')
+    steps.push('Add comprehensive documentation and examples')
+  }
+
+  // Default steps if no specific patterns are detected
+  if (steps.length === 0) {
+    steps.push('Analyze requirements and design solution architecture')
+    steps.push('Implement core functionality with proper error handling')
+    steps.push('Add appropriate tests and documentation')
+    steps.push('Ensure compliance with project policies and standards')
+  }
+
+  return steps
 }
 
 const renderFixIterationPlan = (ctx: PlanContext) => {

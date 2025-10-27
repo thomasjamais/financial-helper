@@ -49,7 +49,7 @@ export type PlanContext = {
   iterationNumber?: number
 }
 
-export type AgentMode = 'new-issue' | 'fix-iteration'
+export type AgentMode = 'new-issue' | 'plan-only' | 'fix-iteration'
 
 export type AgentContext = {
   mode: AgentMode
