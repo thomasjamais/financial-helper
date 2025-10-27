@@ -69,20 +69,58 @@ export class GitService {
 
   async createBranch(branch: string) {
     await this.fetchDefault()
-    await this.git.checkout(`origin/${defaultBranch}`)
-    await this.git.checkoutLocalBranch(branch)
+
+    // Check if branch already exists on remote
+    try {
+      await this.git.fetch(['origin', branch])
+      // Branch exists on remote, checkout and update it
+      await this.git.checkout(`origin/${branch}`)
+      await this.git.checkoutLocalBranch(branch)
+    } catch {
+      // Branch doesn't exist on remote, create new one
+      await this.git.checkout(`origin/${defaultBranch}`)
+      await this.git.checkoutLocalBranch(branch)
+    }
   }
 
   async addAllAndCommit(message: string) {
-    await this.git.add(['.'])
+    // Only add files that are part of the repository, not agent source code
     const status = await this.git.status()
-    if (status.files.length === 0) return false
+    const filesToAdd = status.files
+      .map(f => f.path)
+      .filter(path => 
+        // Exclude agent source files
+        !path.startsWith('src/') &&
+        !path.startsWith('dist/') &&
+        !path.startsWith('node_modules/') &&
+        !path.startsWith('package.json') &&
+        !path.startsWith('package-lock.json') &&
+        !path.startsWith('tsconfig.json') &&
+        // Include plan.md and other generated files
+        (path === 'plan.md' || 
+         path.startsWith('apps/') ||
+         path.startsWith('packages/') ||
+         path.startsWith('infra/') ||
+         path.startsWith('.github/') ||
+         path === 'README.md' ||
+         path === 'policy.yaml')
+      )
+    
+    if (filesToAdd.length === 0) return false
+    
+    await this.git.add(filesToAdd)
     await this.git.commit(message)
     return true
   }
 
   async pushBranch(branch: string) {
-    await this.git.push('origin', branch, ['-u'])
+    try {
+      await this.git.push('origin', branch, ['-u'])
+    } catch (error) {
+      // If push fails due to conflicts, force push
+      console.log(`Push failed, attempting force push for branch: ${branch}`)
+      await this.git.push('origin', branch, ['-u', '--force'])
+    }
   }
 
   async diffStatsAgainstBase(base = `origin/${defaultBranch}`) {

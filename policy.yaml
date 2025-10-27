@@ -55,3 +55,38 @@ guards:
     LIVE_TRADING_ENABLED: "false"
     BITGET_ENV: "paper"
   allowed_symbols: ["BTCUSDT","ETHUSDT","BNBUSDT"]
+
+edits:
+  # Add GET /v1/ping endpoint
+  - glob: "apps/api/src/index.ts"
+    strategy: "append"
+    replace: |
+      
+      // Ping endpoint
+      app.get('/v1/ping', (req, res) => {
+        res.json({ ok: true })
+      })
+  
+  # Add unit test for ping endpoint
+  - glob: "apps/api/tests/ping.spec.ts"
+    strategy: "replace"
+    replace: |
+      import request from 'supertest'
+      import { app } from '../src/index'
+      
+      describe('GET /v1/ping', () => {
+        it('should return { ok: true }', async () => {
+          const response = await request(app)
+            .get('/v1/ping')
+            .expect(200)
+          
+          expect(response.body).toEqual({ ok: true })
+        })
+      })
+  
+  # Update README with new endpoint
+  - glob: "README.md"
+    strategy: "regex-replace"
+    search: "(## API Endpoints.*?)(?=##|$)"
+    replace: "$1\n- `GET /v1/ping` - Health check endpoint\n\n"
+    regexFlags: "s"
