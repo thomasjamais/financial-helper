@@ -1,13 +1,24 @@
-import { createRedis, xadd } from '@pkg/event-bus'
-const redis = createRedis()
+import 'dotenv/config'
+import express from 'express'
+import cors from 'cors'
+import pino from 'pino'
+import pinoHttp from 'pino-http'
 
-async function main() {
-  console.log('Bot online. Redis ok.')
-  // Example: emit a heartbeat
-  await xadd(redis, { stream: 'bot.heartbeat', values: { ts: new Date().toISOString() } })
-}
+const app = express()
+const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' })
+app.use(pinoHttp({ logger }))
+app.use(cors())
+app.use(express.json())
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
+// Status endpoint
+app.get('/status', (req, res) => {
+  logger.info({ endpoint: '/status' }, 'Status endpoint called')
+  res.json({ ok: true })
 })
+
+const port = Number(process.env.PORT ?? 8081)
+app.listen(port, () => {
+  logger.info({ port }, 'Bot service listening')
+})
+
+export { app }
