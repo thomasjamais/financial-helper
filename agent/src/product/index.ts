@@ -24,8 +24,6 @@ const run = async () => {
   const git = new GitService()
   const testService = new TestService(policy)
 
-  await git.ensureConfig()
-
   const prDetails = await prReview.getPRDetails(prNumber)
   const prLabels = prDetails.labels.map((l) => l.name)
 
@@ -34,6 +32,8 @@ const run = async () => {
     await handlePlanReview(prNumber, prDetails, prReview)
     return
   }
+
+  await git.ensureConfig()
 
   const validationResults = await validatePR(policy, prDetails, prLabels)
   const testResults = await testService.runSuites()
@@ -82,24 +82,15 @@ const handlePlanReview = async (
   const reviewBody = buildPlanReviewBody(planValidation)
 
   if (planValidation.isValid) {
-    await prReview.postReview(prNumber, {
-      decision: 'APPROVE',
-      body: reviewBody,
-      event: 'APPROVE',
-    })
-
-    // Add plan-approved label
+    // For plan PRs, we can't approve our own PR, so just add the label
     await prReview.addLabel(prNumber, 'plan-approved')
     await prReview.removeLabel(prNumber, 'plan-review')
 
-    // Comment on the original issue
-    const issueNumber = extractIssueNumberFromPR(prDetails)
-    if (issueNumber) {
-      await prReview.comment(
-        prNumber,
-        `✅ Plan approved! The programmer agent will now create the implementation PR.`,
-      )
-    }
+    // Comment on the PR to indicate plan was approved
+    await prReview.comment(
+      prNumber,
+      `✅ Plan approved! The programmer agent will now create the implementation PR.`,
+    )
   } else {
     await prReview.postReview(prNumber, {
       decision: 'REQUEST_CHANGES',
