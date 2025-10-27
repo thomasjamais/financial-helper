@@ -60,7 +60,7 @@ jobs:
           # Run the task
           TASK_ARN=$(aws ecs run-task \
             --cluster ${{ secrets.ECS_CLUSTER }} \
-            --task-definition ${{ secrets.PROGRAMMER_TASK_DEFINITION }} \
+            --task-definition financial-helper-programmer-agent \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.SUBNET_IDS }}],securityGroups=[${{ secrets.SECURITY_GROUP_IDS }}],assignPublicIp=ENABLED}" \
             --overrides "{\"containerOverrides\":$CONTAINER_OVERRIDES}" \
