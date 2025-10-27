@@ -50,7 +50,7 @@ jobs:
                 {"name": "GH_OWNER", "value": $owner},
                 {"name": "GH_REPO", "value": $repo},
                 {"name": "ISSUE_NUMBER", "value": $issue},
-                {"name": "ASSIGNEE", "value": "ai-bot"},
+                {"name": "ASSIGNEE", "value": "thomasjamais"},
                 {"name": "DEFAULT_BRANCH", "value": "main"},
                 {"name": "POLICY_PATH", "value": "/workspace/policy.yaml"}
               ]
