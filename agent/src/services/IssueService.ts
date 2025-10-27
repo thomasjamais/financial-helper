@@ -20,12 +20,20 @@ export class IssueService {
     labelsToAdd: string[] = ['in-progress'],
   ) {
     const { owner, repo } = this.repoRef
-    await octokit.issues.addAssignees({
-      owner,
-      repo,
-      issue_number: issueNumber,
-      assignees: [assignee],
-    })
+    
+    // Try to assign the issue, but don't fail if assignee doesn't exist
+    try {
+      await octokit.issues.addAssignees({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        assignees: [assignee],
+      })
+    } catch (error: any) {
+      console.log(`Could not assign issue to ${assignee}: ${error.message}`)
+      // Continue without failing - assignment is optional
+    }
+    
     if (labelsToAdd.length > 0) {
       await octokit.issues.addLabels({
         owner,
