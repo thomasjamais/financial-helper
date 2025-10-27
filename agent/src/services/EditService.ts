@@ -10,9 +10,29 @@ export class EditService {
     const edits = this.policy.edits || []
     let applied = 0
     for (const rule of edits) {
+      // For replace strategy, create the file if it doesn't exist
+      if (rule.strategy === 'replace') {
+        const targetFile = path.join(repoRoot, rule.glob)
+        if (!this.isAllowed(targetFile)) continue
+        
+        // Ensure directory exists
+        const dir = path.dirname(targetFile)
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true })
+        }
+        
+        // Create the file with the replacement content
+        fs.writeFileSync(targetFile, rule.replace || '', 'utf8')
+        applied += 1
+        if (rule.once) break
+        continue
+      }
+      
+      // For other strategies, scan existing files
       const targetFiles = this.scan(repoRoot, rule.glob)
       for (const f of targetFiles) {
         if (!this.isAllowed(f)) continue
+        
         const content = fs.readFileSync(f, 'utf8')
         const updated = this.transform(content, rule)
         if (updated !== content) {

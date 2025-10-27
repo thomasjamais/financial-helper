@@ -67,7 +67,7 @@ edits:
         res.json({ ok: true })
       })
   
-  # Add unit test for ping endpoint
+  # Create unit test for ping endpoint
   - glob: "apps/api/tests/ping.spec.ts"
     strategy: "replace"
     replace: |
@@ -84,9 +84,16 @@ edits:
         })
       })
   
-  # Update README with new endpoint
+  # Create README with API endpoints
   - glob: "README.md"
-    strategy: "regex-replace"
-    search: "(## API Endpoints.*?)(?=##|$)"
-    replace: "$1\n- `GET /v1/ping` - Health check endpoint\n\n"
-    regexFlags: "s"
+    strategy: "replace"
+    replace: |
+      # Financial Helper
+      
+      A financial trading helper application with AI-powered automation.
+      
+      ## API Endpoints
+      
+      - `GET /healthz` - Health check endpoint
+      - `GET /v1/ping` - Health check endpoint
+      - `POST /v1/exchanges` - Link exchange credentials
