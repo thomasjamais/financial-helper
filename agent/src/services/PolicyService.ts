@@ -17,9 +17,14 @@ export class PolicyService {
   }
 
   private loadPolicy(): Policy {
+    console.log(`PolicyService: Loading policy from ${this.policyPath}`)
     const raw = fs.readFileSync(this.policyPath, 'utf8')
+    console.log(`PolicyService: Policy file size: ${raw.length} bytes`)
     const parsed = yaml.load(raw) as any
-    return parsed.agent || parsed
+    console.log(
+      `PolicyService: Parsed policy has ${parsed.edits?.length || 0} edit rules`,
+    )
+    return parsed
   }
 
   getPolicy() {

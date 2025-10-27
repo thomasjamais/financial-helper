@@ -11,6 +11,7 @@ allow:
     - "apps/bot/**"
     - "packages/**"
     - "infra/**"
+    - "plan.md"
   languages: ["ts", "tsx", "json", "yml", "yaml", "sql", "md"]
   ci_changes_label: "ci-change"
 

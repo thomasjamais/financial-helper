@@ -8,37 +8,48 @@ export class EditService {
 
   applyEditsInRepo(repoRoot = process.cwd()) {
     const edits = this.policy.edits || []
+    console.log(`EditService: Found ${edits.length} edit rules`)
+    console.log(`EditService: Working directory: ${repoRoot}`)
     let applied = 0
     for (const rule of edits) {
+      console.log(
+        `EditService: Processing rule for ${rule.glob} with strategy ${rule.strategy}`,
+      )
       // For replace strategy, create the file if it doesn't exist
       if (rule.strategy === 'replace') {
         const targetFile = path.join(repoRoot, rule.glob)
         if (!this.isAllowed(targetFile)) continue
-        
+
         // Ensure directory exists
         const dir = path.dirname(targetFile)
         if (!fs.existsSync(dir)) {
           fs.mkdirSync(dir, { recursive: true })
         }
-        
+
         // Create the file with the replacement content
+        console.log(`EditService: Writing file ${targetFile}`)
         fs.writeFileSync(targetFile, rule.replace || '', 'utf8')
+        console.log(`EditService: Successfully wrote file ${targetFile}`)
         applied += 1
         if (rule.once) break
         continue
       }
-      
+
       // For other strategies, scan existing files
       const targetFiles = this.scan(repoRoot, rule.glob)
       for (const f of targetFiles) {
         if (!this.isAllowed(f)) continue
-        
+
         const content = fs.readFileSync(f, 'utf8')
         const updated = this.transform(content, rule)
         if (updated !== content) {
+          console.log(`EditService: Updating file ${f}`)
           fs.writeFileSync(f, updated, 'utf8')
+          console.log(`EditService: Successfully updated file ${f}`)
           applied += 1
           if (rule.once) break
+        } else {
+          console.log(`EditService: No changes needed for file ${f}`)
         }
       }
     }
@@ -48,10 +59,17 @@ export class EditService {
   private isAllowed(filePath: string) {
     const allowPaths = this.policy.allow?.paths || ['**/*']
     const denyPaths = this.policy.deny?.paths || []
-    return (
-      micromatch.isMatch(filePath, allowPaths) &&
-      !micromatch.isMatch(filePath, denyPaths)
-    )
+
+    // Convert absolute path to relative path for matching
+    const relativePath = path.relative(process.cwd(), filePath)
+
+    const isAllowed = micromatch.isMatch(relativePath, allowPaths)
+    const isDenied = micromatch.isMatch(relativePath, denyPaths)
+
+    console.log(`EditService: Checking ${filePath} -> ${relativePath}`)
+    console.log(`EditService: Allowed: ${isAllowed}, Denied: ${isDenied}`)
+
+    return isAllowed && !isDenied
   }
 
   private scan(root: string, globPattern: string) {
