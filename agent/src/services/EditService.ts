@@ -17,13 +17,15 @@ export class EditService {
   applyTasks(tasks: EditTask[], repoRoot = process.cwd()) {
     console.log(`EditService: Applying ${tasks.length} tasks in free-edit mode`)
     console.log(`EditService: Working directory: ${repoRoot}`)
-    
+
     let applied = 0
     for (const task of tasks) {
       const fullPath = path.join(repoRoot, task.filePath)
-      
+
       if (!this.isAllowed(fullPath)) {
-        console.log(`EditService: Skipping ${task.filePath} - not allowed by policy`)
+        console.log(
+          `EditService: Skipping ${task.filePath} - not allowed by policy`,
+        )
         continue
       }
 
@@ -43,20 +45,27 @@ export class EditService {
           fs.writeFileSync(fullPath, task.content, 'utf8')
           console.log(`EditService: Successfully updated file ${task.filePath}`)
         } else if (task.operation === 'append') {
-          const existingContent = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf8') : ''
-          const newContent = existingContent.endsWith('\n') 
+          const existingContent = fs.existsSync(fullPath)
+            ? fs.readFileSync(fullPath, 'utf8')
+            : ''
+          const newContent = existingContent.endsWith('\n')
             ? existingContent + task.content
             : existingContent + '\n' + task.content
           fs.writeFileSync(fullPath, newContent, 'utf8')
-          console.log(`EditService: Successfully appended to file ${task.filePath}`)
+          console.log(
+            `EditService: Successfully appended to file ${task.filePath}`,
+          )
         }
-        
+
         applied += 1
       } catch (error) {
-        console.error(`EditService: Failed to apply task for ${task.filePath}:`, error)
+        console.error(
+          `EditService: Failed to apply task for ${task.filePath}:`,
+          error,
+        )
       }
     }
-    
+
     return applied
   }
 
@@ -65,12 +74,12 @@ export class EditService {
     const edits = this.policy.edits || []
     console.log(`EditService: Found ${edits.length} edit rules`)
     console.log(`EditService: Working directory: ${repoRoot}`)
-    
+
     if (edits.length === 0) {
       console.log(`EditService: No static edits found - free-edit mode enabled`)
       return 0
     }
-    
+
     let applied = 0
     for (const rule of edits) {
       console.log(

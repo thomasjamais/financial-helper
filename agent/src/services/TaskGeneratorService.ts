@@ -10,64 +10,95 @@ export class TaskGeneratorService {
   generateTasksFromSpec(context: SpecContext): EditTask[] {
     const tasks: EditTask[] = []
     const { issueTitle, issueBody, specContent } = context
-    
+
     // Analyze the issue and spec to generate concrete tasks
     const content = `${issueTitle}\n${issueBody}\n${specContent}`.toLowerCase()
-    
+
     // API Endpoint Tasks
-    if (content.includes('api') || content.includes('endpoint') || content.includes('route')) {
+    if (
+      content.includes('api') ||
+      content.includes('endpoint') ||
+      content.includes('route')
+    ) {
       tasks.push(...this.generateApiTasks(content))
     }
-    
+
     // Database Tasks
-    if (content.includes('database') || content.includes('db') || content.includes('migration')) {
+    if (
+      content.includes('database') ||
+      content.includes('db') ||
+      content.includes('migration')
+    ) {
       tasks.push(...this.generateDatabaseTasks(content))
     }
-    
+
     // Bot Service Tasks
-    if (content.includes('bot') || content.includes('microservice') || content.includes('service')) {
+    if (
+      content.includes('bot') ||
+      content.includes('microservice') ||
+      content.includes('service')
+    ) {
       tasks.push(...this.generateBotTasks(content))
     }
-    
+
     // Test Tasks
-    if (content.includes('test') || content.includes('testing') || content.includes('unit test')) {
+    if (
+      content.includes('test') ||
+      content.includes('testing') ||
+      content.includes('unit test')
+    ) {
       tasks.push(...this.generateTestTasks(content))
     }
-    
+
     // UI/Frontend Tasks
-    if (content.includes('ui') || content.includes('frontend') || content.includes('component') || content.includes('react')) {
+    if (
+      content.includes('ui') ||
+      content.includes('frontend') ||
+      content.includes('component') ||
+      content.includes('react')
+    ) {
       tasks.push(...this.generateUITasks(content))
     }
-    
+
     // Configuration Tasks
-    if (content.includes('config') || content.includes('package.json') || content.includes('tsconfig')) {
+    if (
+      content.includes('config') ||
+      content.includes('package.json') ||
+      content.includes('tsconfig')
+    ) {
       tasks.push(...this.generateConfigTasks(content))
     }
-    
+
     // Documentation Tasks
-    if (content.includes('readme') || content.includes('documentation') || content.includes('docs')) {
+    if (
+      content.includes('readme') ||
+      content.includes('documentation') ||
+      content.includes('docs')
+    ) {
       tasks.push(...this.generateDocTasks(content))
     }
-    
+
     // If no specific patterns found, generate generic tasks
     if (tasks.length === 0) {
       tasks.push(...this.generateGenericTasks(content))
     }
-    
+
     return tasks
   }
-  
+
   private generateApiTasks(content: string): EditTask[] {
     const tasks: EditTask[] = []
-    
+
     // Extract endpoint patterns
-    const endpointMatches = content.match(/(get|post|put|delete|patch)\s+\/([a-zA-Z0-9\/\-_]+)/g)
-    
+    const endpointMatches = content.match(
+      /(get|post|put|delete|patch)\s+\/([a-zA-Z0-9\/\-_]+)/g,
+    )
+
     if (endpointMatches) {
       for (const match of endpointMatches) {
         const [method, path] = match.split(' ')
         const endpointName = path.replace(/\//g, '-').replace(/^-/, '')
-        
+
         // Add endpoint to API
         tasks.push({
           filePath: 'apps/api/src/index.ts',
@@ -77,9 +108,9 @@ export class TaskGeneratorService {
 app.${method.toLowerCase()}('${path}', (req, res) => {
   res.json({ ok: true, message: '${method.toUpperCase()} ${path} endpoint' })
 })`,
-          description: `Add ${method.toUpperCase()} ${path} endpoint to API`
+          description: `Add ${method.toUpperCase()} ${path} endpoint to API`,
         })
-        
+
         // Create test for endpoint
         tasks.push({
           filePath: `apps/api/tests/${endpointName}.spec.ts`,
@@ -96,20 +127,23 @@ describe('${method.toUpperCase()} ${path}', () => {
     expect(response.body).toEqual({ ok: true, message: '${method.toUpperCase()} ${path} endpoint' })
   })
 })`,
-          description: `Create test for ${method.toUpperCase()} ${path} endpoint`
+          description: `Create test for ${method.toUpperCase()} ${path} endpoint`,
         })
       }
     }
-    
+
     return tasks
   }
-  
+
   private generateDatabaseTasks(content: string): EditTask[] {
     const tasks: EditTask[] = []
-    
+
     // Create migration if mentioned
     if (content.includes('migration')) {
-      const timestamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0]
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[-:]/g, '')
+        .split('.')[0]
       tasks.push({
         filePath: `packages/db/migrations/${timestamp}_add_feature.sql`,
         operation: 'create',
@@ -123,16 +157,16 @@ describe('${method.toUpperCase()} ${path}', () => {
 --   name VARCHAR(255) NOT NULL,
 --   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 -- );`,
-        description: 'Create database migration for new feature'
+        description: 'Create database migration for new feature',
       })
     }
-    
+
     return tasks
   }
-  
+
   private generateBotTasks(content: string): EditTask[] {
     const tasks: EditTask[] = []
-    
+
     // Bot microservice setup
     if (content.includes('bot') && content.includes('microservice')) {
       tasks.push({
@@ -170,9 +204,9 @@ describe('${method.toUpperCase()} ${path}', () => {
     "@typescript-eslint/parser": "^7.18.0"
   }
 }`,
-        description: 'Update bot microservice package.json'
+        description: 'Update bot microservice package.json',
       })
-      
+
       tasks.push({
         filePath: 'apps/bot/src/index.ts',
         operation: 'update',
@@ -200,16 +234,16 @@ app.listen(port, () => {
 })
 
 export { app }`,
-        description: 'Update bot microservice main file'
+        description: 'Update bot microservice main file',
       })
     }
-    
+
     return tasks
   }
-  
+
   private generateTestTasks(content: string): EditTask[] {
     const tasks: EditTask[] = []
-    
+
     // Generate test files based on content
     if (content.includes('unit test')) {
       tasks.push({
@@ -222,16 +256,16 @@ describe('Generated Tests', () => {
     expect(true).toBe(true)
   })
 })`,
-        description: 'Create generated unit tests'
+        description: 'Create generated unit tests',
       })
     }
-    
+
     return tasks
   }
-  
+
   private generateUITasks(content: string): EditTask[] {
     const tasks: EditTask[] = []
-    
+
     // React component tasks
     if (content.includes('react') || content.includes('component')) {
       tasks.push({
@@ -251,16 +285,16 @@ export const GeneratedComponent: React.FC<GeneratedComponentProps> = ({ title })
     </div>
   )
 }`,
-        description: 'Create generated React component'
+        description: 'Create generated React component',
       })
     }
-    
+
     return tasks
   }
-  
+
   private generateConfigTasks(content: string): EditTask[] {
     const tasks: EditTask[] = []
-    
+
     // TypeScript config updates
     if (content.includes('typescript') || content.includes('tsconfig')) {
       tasks.push({
@@ -283,16 +317,16 @@ export const GeneratedComponent: React.FC<GeneratedComponentProps> = ({ title })
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
 }`,
-        description: 'Update TypeScript configuration'
+        description: 'Update TypeScript configuration',
       })
     }
-    
+
     return tasks
   }
-  
+
   private generateDocTasks(content: string): EditTask[] {
     const tasks: EditTask[] = []
-    
+
     // README updates
     if (content.includes('readme') || content.includes('documentation')) {
       tasks.push({
@@ -337,16 +371,16 @@ The \`policy.yaml\` file defines:
 - Test requirements
 - Security patterns
 - Development standards`,
-        description: 'Update README with current features'
+        description: 'Update README with current features',
       })
     }
-    
+
     return tasks
   }
-  
+
   private generateGenericTasks(content: string): EditTask[] {
     const tasks: EditTask[] = []
-    
+
     // Generic implementation tasks
     tasks.push({
       filePath: 'apps/api/src/generated-feature.ts',
@@ -363,9 +397,9 @@ export class GeneratedFeature {
     return 'Feature processed successfully'
   }
 }`,
-      description: 'Create generic feature implementation'
+      description: 'Create generic feature implementation',
     })
-    
+
     tasks.push({
       filePath: 'apps/api/tests/generated-feature.spec.ts',
       operation: 'create',
@@ -379,9 +413,9 @@ describe('GeneratedFeature', () => {
     expect(result).toBe('Feature processed successfully')
   })
 })`,
-      description: 'Create test for generated feature'
+      description: 'Create test for generated feature',
     })
-    
+
     return tasks
   }
 }
