@@ -25,38 +25,44 @@ export function calculateMaxPositionSize(params: {
   leverage?: number
   stopLossPercent?: number
 }): PositionSizingResult {
-  const { balance, price, riskConfig, leverage = 1, stopLossPercent = 0.02 } = params
-  
+  const {
+    balance,
+    price,
+    riskConfig,
+    leverage = 1,
+    stopLossPercent = 0.02,
+  } = params
+
   // Calculate maximum notional based on balance and max position size
   const maxNotionalFromBalance = balance * riskConfig.maxPositionSize
-  
+
   // Calculate maximum notional based on leverage
   const maxNotionalFromLeverage = balance * leverage
-  
+
   // Use the smaller of the two
   const maxNotional = Math.min(maxNotionalFromBalance, maxNotionalFromLeverage)
-  
+
   // Calculate maximum quantity
   const maxQuantity = maxNotional / price
-  
+
   // Calculate risk amount (stop loss)
   const riskAmount = maxNotional * stopLossPercent
-  
+
   // Calculate recommended position size based on risk per trade
   const maxRiskAmount = balance * riskConfig.maxRiskPerTrade
   const riskRatio = Math.min(1, maxRiskAmount / riskAmount)
-  
+
   const recommendedNotional = maxNotional * riskRatio
   const recommendedQuantity = recommendedNotional / price
-  
+
   // Ensure quantities are within min/max order size
   const finalQuantity = Math.max(
     riskConfig.minOrderSize,
-    Math.min(riskConfig.maxOrderSize, recommendedQuantity)
+    Math.min(riskConfig.maxOrderSize, recommendedQuantity),
   )
-  
+
   const finalNotional = finalQuantity * price
-  
+
   return {
     maxQuantity,
     maxNotional,
@@ -70,7 +76,10 @@ export function calculateMaxPositionSize(params: {
 /**
  * Validate leverage against maximum allowed
  */
-export function validateLeverage(leverage: number, riskConfig: RiskConfig): boolean {
+export function validateLeverage(
+  leverage: number,
+  riskConfig: RiskConfig,
+): boolean {
   return leverage <= riskConfig.maxLeverage && leverage > 0
 }
 
@@ -82,12 +91,14 @@ export function calculateFuturesPositionSize(
   price: number,
   riskConfig: RiskConfig,
   leverage: number,
-  stopLossPercent = 0.02
+  stopLossPercent = 0.02,
 ): PositionSizingResult {
   if (!validateLeverage(leverage, riskConfig)) {
-    throw new Error(`Leverage ${leverage} exceeds maximum ${riskConfig.maxLeverage}`)
+    throw new Error(
+      `Leverage ${leverage} exceeds maximum ${riskConfig.maxLeverage}`,
+    )
   }
-  
+
   return calculateMaxPositionSize({
     balance,
     price,
