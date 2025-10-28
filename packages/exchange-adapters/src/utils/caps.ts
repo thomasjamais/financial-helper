@@ -1,18 +1,3 @@
-export type UUID = string
-
-export type Money = {
-  amount: number // in base currency units
-  currency: string
-}
-
-export function assert(condition: any, msg: string): asserts condition {
-  if (!condition) throw new Error(msg)
-}
-
-export function correlationId(): string {
-  return `corr_${crypto.randomUUID()}`
-}
-
 export type CapsConfig = {
   maxOrderUSDT: number
   maxPositionUSDT: number
@@ -42,26 +27,29 @@ export function enforceCaps(params: {
 }) {
   const symbol = params.symbol.toUpperCase()
   if (params.caps.symbolWhitelist.length > 0) {
-    assert(
-      params.caps.symbolWhitelist.includes(symbol),
-      `Symbol ${symbol} not whitelisted`,
-    )
+    if (!params.caps.symbolWhitelist.includes(symbol)) {
+      throw new Error(`Symbol ${symbol} not whitelisted`)
+    }
   }
 
   if (params.orderNotionalUSDT != null && params.caps.maxOrderUSDT > 0) {
-    assert(
-      params.orderNotionalUSDT <= params.caps.maxOrderUSDT,
-      `Order notional ${params.orderNotionalUSDT} exceeds max ${params.caps.maxOrderUSDT}`,
-    )
+    if (params.orderNotionalUSDT > params.caps.maxOrderUSDT) {
+      throw new Error(
+        `Order notional ${params.orderNotionalUSDT} exceeds max ${params.caps.maxOrderUSDT}`,
+      )
+    }
   }
 
   if (
     params.positionNotionalUSDT != null &&
     params.caps.maxPositionUSDT > 0
   ) {
-    assert(
-      params.positionNotionalUSDT <= params.caps.maxPositionUSDT,
-      `Position notional ${params.positionNotionalUSDT} exceeds max ${params.caps.maxPositionUSDT}`,
-    )
+    if (params.positionNotionalUSDT > params.caps.maxPositionUSDT) {
+      throw new Error(
+        `Position notional ${params.positionNotionalUSDT} exceeds max ${params.caps.maxPositionUSDT}`,
+      )
+    }
   }
 }
+
+
