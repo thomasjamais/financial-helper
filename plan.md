@@ -1,19 +1,22 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #48: Observability: structured logs and metrics (CloudWatch)
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- Pino logs with fields: correlation_id, event, symbol, notional.
+- Basic metrics: orders_placed, pnl, rebalance_count, errors.
+
+Acceptance Criteria:
+- [ ] Log fields standardized
+- [ ] Metrics exported
+- [ ] Dashboards documented
 
 ## Implementation Plan
-- Write unit tests for new functionality
-- Add integration tests for API endpoints
-- Ensure test coverage meets policy requirements
-- Design feature architecture following domain-driven principles
-- Implement feature with proper separation of concerns
-- Add comprehensive documentation and examples
+- Identify root cause of the issue
+- Implement targeted fix with minimal impact
+- Add regression tests to prevent future occurrences
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/48-observability-structured-logs-and-metrics-cloudwatch`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
