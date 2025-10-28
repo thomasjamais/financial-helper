@@ -18,8 +18,8 @@ jobs:
   implementation-agent:
     runs-on: ubuntu-latest
     if: |
-      (github.event.action == 'opened' && contains(github.event.pull_request.labels.*.name, 'plan-approved')) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'plan-approved')
+      (github.event.action == 'opened' && (contains(github.event.pull_request.labels.*.name, 'plan-approved') || contains(github.event.pull_request.labels.*.name, 'spec-approved'))) ||
+      (github.event.action == 'labeled' && (github.event.label.name == 'plan-approved' || github.event.label.name == 'spec-approved'))
     
     steps:
       - name: Debug GitHub context

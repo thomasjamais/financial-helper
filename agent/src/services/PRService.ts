@@ -87,19 +87,19 @@ export class PRService {
     })
     const pr = r.data
 
-    // Add plan-review label
+    // Add spec-review label (keep legacy plan-review for backward compatibility)
     await octokit.issues.addLabels({
       owner,
       repo,
       issue_number: pr.number,
-      labels: ['plan-review'],
+      labels: ['spec-review', 'plan-review'],
     })
 
     await octokit.issues.createComment({
       owner,
       repo,
       issue_number: params.issueNumber,
-      body: `📋 Plan PR #${pr.number} opened for review.`,
+      body: `📋 Technical Spec PR #${pr.number} opened for review.`,
     })
 
     return pr.html_url
@@ -137,22 +137,22 @@ export class PRService {
     return [
       `Closes #${issueNumber}`,
       '',
-      `## 📋 Implementation Plan`,
+      `## 📋 Technical Specification`,
       '',
-      'This PR contains the implementation plan for the issue. Please review the plan and approve to proceed with implementation.',
+      'This PR contains the technical specification derived from the issue. Please review and approve to proceed to implementation.',
       '',
       plan,
       '',
       `## ✅ Next Steps`,
       '',
-      '1. **Review the plan** - Ensure the implementation approach is correct',
-      '2. **Approve the plan** - Add `plan-approved` label to proceed',
-      '3. **Implementation** - The programmer agent will create the actual implementation PR',
+      '1. **Review the spec** - Ensure the implementation approach is correct',
+      '2. **Approve the spec** - Add `spec-approved` (legacy: `plan-approved`) to proceed',
+      '3. **Implementation** - The programmer agent will create the implementation PR',
       '',
       `## 🏷️ Labels`,
       '',
-      '- `plan-review` - This PR is for plan review only',
-      '- `plan-approved` - Plan has been approved and ready for implementation',
+      '- `spec-review` (legacy: `plan-review`) - Spec review only',
+      '- `spec-approved` (legacy: `plan-approved`) - Spec approved and ready for implementation',
     ].join('\n')
   }
 }

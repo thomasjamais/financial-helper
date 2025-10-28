@@ -2,7 +2,7 @@ name: AI Product Agent
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, labeled]
 
 permissions:
   id-token: write

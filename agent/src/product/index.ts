@@ -27,8 +27,8 @@ const run = async () => {
   const prDetails = await prReview.getPRDetails(prNumber)
   const prLabels = prDetails.labels.map((l) => l.name)
 
-  // Check if this is a plan review PR
-  if (prLabels.includes('plan-review')) {
+  // Check if this is a spec/plan review PR (support legacy label)
+  if (prLabels.includes('spec-review') || prLabels.includes('plan-review')) {
     await handlePlanReview(prNumber, prDetails, prReview)
     return
   }
@@ -82,14 +82,17 @@ const handlePlanReview = async (
   const reviewBody = buildPlanReviewBody(planValidation)
 
   if (planValidation.isValid) {
-    // For plan PRs, we can't approve our own PR, so just add the label
+    // For spec PRs, we can't approve our own PR, so just add labels
+    await prReview.addLabel(prNumber, 'spec-approved')
+    await prReview.removeLabel(prNumber, 'spec-review')
+    // Backward compatibility
     await prReview.addLabel(prNumber, 'plan-approved')
     await prReview.removeLabel(prNumber, 'plan-review')
 
     // Comment on the PR to indicate plan was approved
     await prReview.comment(
       prNumber,
-      `✅ Plan approved! The programmer agent will now create the implementation PR.`,
+      `✅ Spec approved! The programmer agent will now create the implementation PR.`,
     )
   } else {
     await prReview.postReview(prNumber, {
