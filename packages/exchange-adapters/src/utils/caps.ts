@@ -40,10 +40,7 @@ export function enforceCaps(params: {
     }
   }
 
-  if (
-    params.positionNotionalUSDT != null &&
-    params.caps.maxPositionUSDT > 0
-  ) {
+  if (params.positionNotionalUSDT != null && params.caps.maxPositionUSDT > 0) {
     if (params.positionNotionalUSDT > params.caps.maxPositionUSDT) {
       throw new Error(
         `Position notional ${params.positionNotionalUSDT} exceeds max ${params.caps.maxPositionUSDT}`,
@@ -51,5 +48,3 @@ export function enforceCaps(params: {
     }
   }
 }
-
-

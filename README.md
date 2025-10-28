@@ -112,3 +112,11 @@ Bitget adapter includes:
 - `SYMBOL_WHITELIST`: comma-separated symbols (e.g., `BTCUSDT,ETHUSDT,BNBUSDT`)
 - `MAX_ORDER_USDT`: max order notional in USDT (0 disables)
 - `MAX_POSITION_USDT`: max position notional in USDT (0 disables)
+
+### Risk Management
+
+- `MAX_LEVERAGE`: maximum leverage allowed (default: 10)
+- `MAX_RISK_PER_TRADE`: max risk per trade as percentage (default: 0.02 = 2%)
+- `MAX_POSITION_SIZE`: max position size as percentage of balance (default: 0.1 = 10%)
+- `MIN_ORDER_SIZE`: minimum order size (default: 0.001)
+- `MAX_ORDER_SIZE`: maximum order size (default: 1000)
