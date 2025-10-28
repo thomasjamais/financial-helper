@@ -13,7 +13,7 @@ export class BitgetAdapter implements ExchangePort {
     env?: 'paper' | 'live'
     baseUrl?: string
     httpConfig?: Partial<BitgetHttpClientConfig>
-  }) {
+  }, httpInstance?: BitgetHttpClient) {
     this.cfg = BitgetConfigSchema.parse(opts)
     
     const httpConfig: BitgetHttpClientConfig = {
@@ -23,7 +23,7 @@ export class BitgetAdapter implements ExchangePort {
       ...opts.httpConfig,
     }
     
-    this.http = new BitgetHttpClient(this.cfg, httpConfig)
+    this.http = httpInstance ?? new BitgetHttpClient(this.cfg, httpConfig)
   }
 
   async getBalances(kind: 'spot' | 'futures'): Promise<Balance[]> {
