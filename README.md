@@ -96,3 +96,19 @@ Agents read configuration from `policy.yaml`:
 - **Deployment**: AWS ECS Fargate with GitHub Actions OIDC
 - **Policy-driven**: All actions constrained by root policy.yaml
 - **Idempotent**: Concurrency controls prevent duplicate runs
+
+## Exchange Adapters
+
+Bitget adapter includes:
+
+- Zod-validated config (paper by default; live gated by env)
+- Per-endpoint rate limiting with jittered backoff
+- Circuit breaker (CLOSED/OPEN/HALF_OPEN)
+- Strict balance normalization (spot and futures)
+- Env-based caps and symbol whitelist enforcement
+
+### Environment Caps
+
+- `SYMBOL_WHITELIST`: comma-separated symbols (e.g., `BTCUSDT,ETHUSDT,BNBUSDT`)
+- `MAX_ORDER_USDT`: max order notional in USDT (0 disables)
+- `MAX_POSITION_USDT`: max position notional in USDT (0 disables)

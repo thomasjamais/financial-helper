@@ -1,6 +1,7 @@
 import type { ExchangePort, Balance, Position, Order } from '../types'
 import { BitgetConfigSchema, type BitgetConfig } from '../config'
 import { BitgetHttpClient, type BitgetHttpClientConfig } from '../http/bitgetHttpClient'
+import { enforceCaps, parseCapsFromEnv } from '../utils/caps'
 
 export class BitgetAdapter implements ExchangePort {
   private readonly cfg: BitgetConfig
@@ -52,6 +53,9 @@ export class BitgetAdapter implements ExchangePort {
   }
 
   async placeOrder(o: Omit<Order, 'id' | 'status'>): Promise<Order> {
+    const caps = parseCapsFromEnv()
+    const notional = (o.price ?? 0) * o.qty
+    enforceCaps({ symbol: o.symbol, orderNotionalUSDT: notional, caps })
     return { ...o, id: 'TBD', status: 'NEW' }
   }
 
