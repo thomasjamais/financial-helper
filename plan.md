@@ -1,7 +1,14 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #34: Add Redis Streams event-bus with DLQ and idempotent workers
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- Create packages/event-bus with Redis Streams.
+- Standardize event envelopes with correlation_id and audit fields.
+- Add DLQ and poison message handling; workers idempotent by event id.
+
+Acceptance Criteria:
+- [ ] Publish/consume helpers
+- [ ] DLQ pipeline and visibility timeout
+- [ ] Idempotency tests
 
 ## Implementation Plan
 - Write unit tests for new functionality
@@ -13,7 +20,7 @@ Testing the new plan-first workflow to ensure it creates proper implementation p
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/34-add-redis-streams-event-bus-with-dlq-and-idempotent-workers`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
