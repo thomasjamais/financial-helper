@@ -33,3 +33,33 @@ const port = Number(process.env.PORT ?? 8080)
 app.listen(port, () => {
   logger.info({ port }, 'API listening')
 })
+
+// GET /healthz endpoint
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true, message: 'GET /healthz endpoint' })
+})
+
+// GET /v1/balances endpoint
+app.get('/v1/balances', (req, res) => {
+  res.json({ ok: true, message: 'GET /v1/balances endpoint' })
+})
+
+// POST /v1/rebalance endpoint
+app.post('/v1/rebalance', (req, res) => {
+  res.json({ ok: true, message: 'POST /v1/rebalance endpoint' })
+})
+
+// GET /healthz endpoint
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true, message: 'GET /healthz endpoint' })
+})
+
+// GET /v1/balances endpoint
+app.get('/v1/balances', (req, res) => {
+  res.json({ ok: true, message: 'GET /v1/balances endpoint' })
+})
+
+// POST /v1/rebalance endpoint
+app.post('/v1/rebalance', (req, res) => {
+  res.json({ ok: true, message: 'POST /v1/rebalance endpoint' })
+})
