@@ -1,19 +1,25 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #50: CI workflows: build, lint, unit, integration (no live)
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- GitHub Actions: pnpm install, build all, lint, unit tests.
+- Optional docker compose integration tests; never live.
+
+Acceptance Criteria:
+- [ ] Badges and required checks
+- [ ] Caching for pnpm
+- [ ] Example .http files
 
 ## Implementation Plan
 - Write unit tests for new functionality
 - Add integration tests for API endpoints
 - Ensure test coverage meets policy requirements
-- Design feature architecture following domain-driven principles
-- Implement feature with proper separation of concerns
-- Add comprehensive documentation and examples
+- Implement UI components with proper TypeScript types
+- Add responsive design considerations
+- Include accessibility features where applicable
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/50-ci-workflows-build-lint-unit-integration-no-live`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
