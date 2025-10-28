@@ -1,19 +1,28 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #46: Bot service: status and manual trigger endpoints
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- apps/bot: GET /status, POST /trigger/rebalance, POST /trigger/strategy.
+- Auth via token env; rate-limited.
+
+Acceptance Criteria:
+- [ ] Unit tests
+- [ ] Logging with correlation_id
+- [ ] 429 handling
 
 ## Implementation Plan
+- Implement API endpoint with proper validation using Zod
+- Add comprehensive error handling and status codes
+- Update API documentation if required
 - Write unit tests for new functionality
 - Add integration tests for API endpoints
 - Ensure test coverage meets policy requirements
-- Design feature architecture following domain-driven principles
-- Implement feature with proper separation of concerns
-- Add comprehensive documentation and examples
+- Implement proper authentication and authorization
+- Add input validation and sanitization
+- Ensure secure data handling practices
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/46-bot-service-status-and-manual-trigger-endpoints`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
