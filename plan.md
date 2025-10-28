@@ -1,19 +1,30 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #30: Set up Bitget API client and credentials (paper mode by default)
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- Add Bitget REST and WebSocket clients in .
+- Load API keys from env; encrypt at rest; never log secrets.
+- Support paper trading by default; live only with  and  set.
+- Add rate-limiting and exponential backoff to all requests.
+- Provide Zod-validated config schema.
+
+Acceptance Criteria:
+- [ ] Encrypted secret storage
+- [ ] Paper mode default, live gated by envs
+- [ ] Typed client with retries/backoff
+- [ ] Zod config validation
+
 
 ## Implementation Plan
-- Write unit tests for new functionality
-- Add integration tests for API endpoints
-- Ensure test coverage meets policy requirements
+- Implement API endpoint with proper validation using Zod
+- Add comprehensive error handling and status codes
+- Update API documentation if required
 - Design feature architecture following domain-driven principles
 - Implement feature with proper separation of concerns
 - Add comprehensive documentation and examples
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `plan/30-set-up-bitget-api-client-and-credentials-paper-mode-by-defau`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
