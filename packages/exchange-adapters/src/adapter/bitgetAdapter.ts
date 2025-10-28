@@ -1,25 +1,29 @@
 import type { ExchangePort, Balance, Position, Order } from '../types'
 import { BitgetConfigSchema, type BitgetConfig } from '../config'
-import { BitgetHttpClient } from '../http/bitgetHttpClient'
+import { BitgetHttpClient, type BitgetHttpClientConfig } from '../http/bitgetHttpClient'
 
 export class BitgetAdapter implements ExchangePort {
   private readonly cfg: BitgetConfig
   private readonly http: BitgetHttpClient
+  
   constructor(opts: {
     key: string
     secret: string
     passphrase: string
     env?: 'paper' | 'live'
     baseUrl?: string
-    backoffAttempts?: number
-    backoffBaseMs?: number
+    httpConfig?: Partial<BitgetHttpClientConfig>
   }) {
-    const { backoffAttempts, backoffBaseMs, ...rest } = opts as any
-    this.cfg = BitgetConfigSchema.parse({ ...rest })
-    this.http = new BitgetHttpClient(this.cfg, {
-      attempts: backoffAttempts ?? 5,
-      baseMs: backoffBaseMs ?? 200,
-    })
+    this.cfg = BitgetConfigSchema.parse(opts)
+    
+    const httpConfig: BitgetHttpClientConfig = {
+      rateLimit: { capacity: 10, refillPerSec: 10 },
+      circuitBreaker: { failureThreshold: 5, recoveryTimeout: 30000, successThreshold: 2 },
+      backoff: { attempts: 5, baseMs: 200 },
+      ...opts.httpConfig,
+    }
+    
+    this.http = new BitgetHttpClient(this.cfg, httpConfig)
   }
 
   async getBalances(kind: 'spot' | 'futures'): Promise<Balance[]> {
@@ -52,4 +56,21 @@ export class BitgetAdapter implements ExchangePort {
   }
 
   async cancelOrder(idOrClientOid: string): Promise<void> {}
+
+  // Additional monitoring methods
+  getCircuitState() {
+    return this.http.getCircuitState()
+  }
+
+  getFailureCount() {
+    return this.http.getFailureCount()
+  }
+
+  getRateLimitTokens(endpoint: string) {
+    return this.http.getRateLimitTokens(endpoint)
+  }
+
+  resetCircuitBreaker() {
+    this.http.resetCircuitBreaker()
+  }
 }

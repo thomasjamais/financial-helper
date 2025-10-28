@@ -21,8 +21,9 @@ describe('BitgetAdapter balances (stubbed)', () => {
       passphrase: 'p',
       env: 'paper',
       baseUrl: 'https://example.invalid',
-      backoffAttempts: 1,
-      backoffBaseMs: 1,
+      httpConfig: {
+        backoff: { attempts: 1, baseMs: 1 },
+      },
     })
     const spot = await adapter.getBalances('spot')
     expect(Array.isArray(spot)).toBe(true)
