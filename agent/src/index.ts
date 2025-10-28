@@ -5,6 +5,7 @@ import { IssueService } from './services/IssueService.js'
 import { GitService } from './services/GitService.js'
 import { PolicyService } from './services/PolicyService.js'
 import { EditService } from './services/EditService.js'
+import { TaskGeneratorService } from './services/TaskGeneratorService.js'
 import { TestService } from './services/TestService.js'
 import { PRService } from './services/PRService.js'
 import { PRReviewService } from './services/PRReviewService.js'
@@ -137,7 +138,28 @@ const runNewIssueMode = async (
   fs.writeFileSync(planPath, renderPlan(planCtx), 'utf8')
 
   const editor = new EditService(policy as any)
-  const appliedEdits = editor.applyEditsInRepo(process.cwd())
+  
+  // Try free-edit mode first (generate tasks from spec)
+  const taskGenerator = new TaskGeneratorService()
+  const specContext = {
+    issueTitle: issue.title || '',
+    issueBody: issue.body || '',
+    specContent: fs.readFileSync(planPath, 'utf8')
+  }
+  
+  const tasks = taskGenerator.generateTasksFromSpec(specContext)
+  console.log(`Generated ${tasks.length} tasks from spec`)
+  
+  let appliedEdits = 0
+  if (tasks.length > 0) {
+    // Free-edit mode: Apply tasks generated from spec
+    appliedEdits = editor.applyTasks(tasks, process.cwd())
+    console.log(`Applied ${appliedEdits} tasks in free-edit mode`)
+  } else {
+    // Fallback to legacy mode: Apply static edits from policy
+    appliedEdits = editor.applyEditsInRepo(process.cwd())
+    console.log(`Applied ${appliedEdits} edits in legacy mode`)
+  }
 
   await preflightEnforce(policy, git, issueLabels)
 

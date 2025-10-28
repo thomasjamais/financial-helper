@@ -3,13 +3,74 @@ import path from 'node:path'
 import micromatch from 'micromatch'
 import type { Policy } from '../types.js'
 
+export interface EditTask {
+  filePath: string
+  operation: 'create' | 'update' | 'append'
+  content: string
+  description: string
+}
+
 export class EditService {
   constructor(private policy: Policy) {}
 
+  // Free-edit mode: Apply tasks generated from spec
+  applyTasks(tasks: EditTask[], repoRoot = process.cwd()) {
+    console.log(`EditService: Applying ${tasks.length} tasks in free-edit mode`)
+    console.log(`EditService: Working directory: ${repoRoot}`)
+    
+    let applied = 0
+    for (const task of tasks) {
+      const fullPath = path.join(repoRoot, task.filePath)
+      
+      if (!this.isAllowed(fullPath)) {
+        console.log(`EditService: Skipping ${task.filePath} - not allowed by policy`)
+        continue
+      }
+
+      try {
+        // Ensure directory exists
+        const dir = path.dirname(fullPath)
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true })
+        }
+
+        if (task.operation === 'create') {
+          console.log(`EditService: Creating file ${task.filePath}`)
+          fs.writeFileSync(fullPath, task.content, 'utf8')
+          console.log(`EditService: Successfully created file ${task.filePath}`)
+        } else if (task.operation === 'update') {
+          console.log(`EditService: Updating file ${task.filePath}`)
+          fs.writeFileSync(fullPath, task.content, 'utf8')
+          console.log(`EditService: Successfully updated file ${task.filePath}`)
+        } else if (task.operation === 'append') {
+          const existingContent = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf8') : ''
+          const newContent = existingContent.endsWith('\n') 
+            ? existingContent + task.content
+            : existingContent + '\n' + task.content
+          fs.writeFileSync(fullPath, newContent, 'utf8')
+          console.log(`EditService: Successfully appended to file ${task.filePath}`)
+        }
+        
+        applied += 1
+      } catch (error) {
+        console.error(`EditService: Failed to apply task for ${task.filePath}:`, error)
+      }
+    }
+    
+    return applied
+  }
+
+  // Legacy mode: Apply static edits from policy
   applyEditsInRepo(repoRoot = process.cwd()) {
     const edits = this.policy.edits || []
     console.log(`EditService: Found ${edits.length} edit rules`)
     console.log(`EditService: Working directory: ${repoRoot}`)
+    
+    if (edits.length === 0) {
+      console.log(`EditService: No static edits found - free-edit mode enabled`)
+      return 0
+    }
+    
     let applied = 0
     for (const rule of edits) {
       console.log(
