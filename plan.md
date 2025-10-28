@@ -1,9 +1,18 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #44: DB schema and migrations for audit_log and positions
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- packages/db with migrations: audit_log, positions, orders, executions.
+- Add SQL and type-safe queries.
+
+Acceptance Criteria:
+- [ ] 0002_audit_positions.sql
+- [ ] Repo README updated with migration steps
+- [ ] Integration tests (sqlite or dockerized)
 
 ## Implementation Plan
+- Create database migration if schema changes needed
+- Update database models and types
+- Add proper database error handling
 - Write unit tests for new functionality
 - Add integration tests for API endpoints
 - Ensure test coverage meets policy requirements
@@ -13,7 +22,7 @@ Testing the new plan-first workflow to ensure it creates proper implementation p
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/44-db-schema-and-migrations-for-audit-log-and-positions`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
