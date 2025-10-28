@@ -1,5 +1,5 @@
 {
-  "name": "@pkg/exchange-adapters",
+  "name": "@pkg/risk-engine",
   "version": "0.0.1",
   "type": "module",
   "main": "src/index.ts",
@@ -13,10 +13,5 @@
     "typescript": "^5.6.2",
     "vitest": "^1.6.0",
     "@types/node": "^22.9.0"
-  },
-  "dependencies": {
-    "zod": "^3.23.8",
-    "undici": "^6.19.8",
-    "@pkg/risk-engine": "workspace:*"
   }
 }

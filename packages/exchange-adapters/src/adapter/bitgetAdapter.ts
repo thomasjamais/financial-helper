@@ -2,6 +2,11 @@ import type { ExchangePort, Balance, Position, Order } from '../types'
 import { BitgetConfigSchema, type BitgetConfig } from '../config'
 import { BitgetHttpClient, type BitgetHttpClientConfig } from '../http/bitgetHttpClient'
 import { enforceCaps, parseCapsFromEnv } from '../utils/caps'
+import { 
+  calculateFuturesPositionSize, 
+  parseRiskConfigFromEnv,
+  type RiskConfig 
+} from '../utils/riskEngine'
 
 export class BitgetAdapter implements ExchangePort {
   private readonly cfg: BitgetConfig
@@ -54,8 +59,36 @@ export class BitgetAdapter implements ExchangePort {
 
   async placeOrder(o: Omit<Order, 'id' | 'status'>): Promise<Order> {
     const caps = parseCapsFromEnv()
+    const riskConfig = parseRiskConfigFromEnv()
+    
+    // Calculate position size based on order type
     const notional = (o.price ?? 0) * o.qty
+    
+    // Apply caps guard
     enforceCaps({ symbol: o.symbol, orderNotionalUSDT: notional, caps })
+    
+    // Apply risk sizing for futures orders
+    if (o.type === 'MARKET' || o.type === 'LIMIT') {
+      // Get current balance for risk calculation
+      const balances = await this.getBalances('futures')
+      const usdtBalance = balances.find(b => b.asset === 'USDT')?.free ?? 0
+      
+      if (usdtBalance > 0) {
+        const leverage = Math.min(5, riskConfig.maxLeverage) // Use min of 5 or max leverage
+        const sizing = calculateFuturesPositionSize(
+          usdtBalance,
+          o.price ?? 0,
+          riskConfig,
+          leverage
+        )
+        
+        // Adjust quantity if it exceeds risk limits
+        if (o.qty > sizing.recommendedQuantity) {
+          o.qty = sizing.recommendedQuantity
+        }
+      }
+    }
+    
     return { ...o, id: 'TBD', status: 'NEW' }
   }
 
