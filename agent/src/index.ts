@@ -138,18 +138,18 @@ const runNewIssueMode = async (
   fs.writeFileSync(planPath, renderPlan(planCtx), 'utf8')
 
   const editor = new EditService(policy as any)
-  
+
   // Try free-edit mode first (generate tasks from spec)
   const taskGenerator = new TaskGeneratorService()
   const specContext = {
     issueTitle: issue.title || '',
     issueBody: issue.body || '',
-    specContent: fs.readFileSync(planPath, 'utf8')
+    specContent: fs.readFileSync(planPath, 'utf8'),
   }
-  
+
   const tasks = taskGenerator.generateTasksFromSpec(specContext)
   console.log(`Generated ${tasks.length} tasks from spec`)
-  
+
   let appliedEdits = 0
   if (tasks.length > 0) {
     // Free-edit mode: Apply tasks generated from spec
