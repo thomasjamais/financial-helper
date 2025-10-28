@@ -1,19 +1,22 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #42: Baseline futures strategy (trend-following) in ai-engine
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- Simple moving average crossover with risk controls.
+- Signals publish TradeSignal events; executor places orders.
+
+Acceptance Criteria:
+- [ ] SMA crossover pure functions
+- [ ] Backtestable interfaces
+- [ ] Integration path to executor
 
 ## Implementation Plan
 - Write unit tests for new functionality
 - Add integration tests for API endpoints
 - Ensure test coverage meets policy requirements
-- Design feature architecture following domain-driven principles
-- Implement feature with proper separation of concerns
-- Add comprehensive documentation and examples
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/42-baseline-futures-strategy-trend-following-in-ai-engine`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
