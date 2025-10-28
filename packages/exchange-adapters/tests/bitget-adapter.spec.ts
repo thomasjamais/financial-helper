@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BitgetAdapter, BitgetConfigSchema } from '../src/index'
+import { BitgetAdapter, BitgetConfigSchema } from '../src'
 
 describe('BitgetAdapter config', () => {
   it('validates config with zod', () => {
