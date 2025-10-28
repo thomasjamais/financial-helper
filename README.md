@@ -114,6 +114,22 @@ Bitget adapter includes:
 - `MAX_POSITION_USDT`: max position notional in USDT (0 disables)
 
 ### Risk Management
+## API
+
+- `apps/api` exposes:
+  - `GET /healthz`
+  - `POST /v1/bitget/config` to set temporary Bitget credentials (paper/live)
+  - `GET /v1/balances` for spot and futures
+  - `GET /v1/positions`
+  - `POST /v1/orders` with Zod validation and caps/risk enforcement
+
+## Dashboard
+
+- `apps/web` includes a minimal dashboard to:
+  - Set Bitget config
+  - View spot and futures balances
+  - See API health
+
 
 - `MAX_LEVERAGE`: maximum leverage allowed (default: 10)
 - `MAX_RISK_PER_TRADE`: max risk per trade as percentage (default: 0.02 = 2%)
