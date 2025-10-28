@@ -1,19 +1,22 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #49: Security hardening: secret handling and no-secrets-in-logs
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- KMS or SSM Parameter Store for secrets; redact logs.
+- Secrets never included in PR diffs.
+
+Acceptance Criteria:
+- [ ] Secrets tooling wired
+- [ ] Lint rule preventing secret logging
+- [ ] Semgrep policy (can be disabled in CI initially)
 
 ## Implementation Plan
-- Write unit tests for new functionality
-- Add integration tests for API endpoints
-- Ensure test coverage meets policy requirements
-- Design feature architecture following domain-driven principles
-- Implement feature with proper separation of concerns
-- Add comprehensive documentation and examples
+- Implement proper authentication and authorization
+- Add input validation and sanitization
+- Ensure secure data handling practices
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/49-security-hardening-secret-handling-and-no-secrets-in-logs`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
