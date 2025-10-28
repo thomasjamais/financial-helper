@@ -1,9 +1,19 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #35: Fetch account balances (spot and futures) with strict types
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- Exchange adapter: add getSpotBalances and getFuturesBalances.
+- Normalize result to shared-kernel types.
+- Add caching with TTL to avoid API bursts.
+
+Acceptance Criteria:
+- [ ] Types in shared-kernel
+- [ ] Unit + integration tests (paper)
+- [ ] Cache layer with TTL
 
 ## Implementation Plan
+- Implement API endpoint with proper validation using Zod
+- Add comprehensive error handling and status codes
+- Update API documentation if required
 - Write unit tests for new functionality
 - Add integration tests for API endpoints
 - Ensure test coverage meets policy requirements
@@ -13,7 +23,7 @@ Testing the new plan-first workflow to ensure it creates proper implementation p
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/35-fetch-account-balances-spot-and-futures-with-strict-types`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
