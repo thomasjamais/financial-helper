@@ -33,3 +33,13 @@ const port = Number(process.env.PORT ?? 8080)
 app.listen(port, () => {
   logger.info({ port }, 'API listening')
 })
+
+// GET /v1/users endpoint
+app.get('/v1/users', (req, res) => {
+  res.json({ ok: true, message: 'GET /v1/users endpoint' })
+})
+
+// GET /v1/users endpoint
+app.get('/v1/users', (req, res) => {
+  res.json({ ok: true, message: 'GET /v1/users endpoint' })
+})
