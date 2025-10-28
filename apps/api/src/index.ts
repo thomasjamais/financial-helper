@@ -33,3 +33,33 @@ const port = Number(process.env.PORT ?? 8080)
 app.listen(port, () => {
   logger.info({ port }, 'API listening')
 })
+
+// GET /status endpoint
+app.get('/status', (req, res) => {
+  res.json({ ok: true, message: 'GET /status endpoint' })
+})
+
+// POST /trigger/rebalance endpoint
+app.post('/trigger/rebalance', (req, res) => {
+  res.json({ ok: true, message: 'POST /trigger/rebalance endpoint' })
+})
+
+// POST /trigger/strategy endpoint
+app.post('/trigger/strategy', (req, res) => {
+  res.json({ ok: true, message: 'POST /trigger/strategy endpoint' })
+})
+
+// GET /status endpoint
+app.get('/status', (req, res) => {
+  res.json({ ok: true, message: 'GET /status endpoint' })
+})
+
+// POST /trigger/rebalance endpoint
+app.post('/trigger/rebalance', (req, res) => {
+  res.json({ ok: true, message: 'POST /trigger/rebalance endpoint' })
+})
+
+// POST /trigger/strategy endpoint
+app.post('/trigger/strategy', (req, res) => {
+  res.json({ ok: true, message: 'POST /trigger/strategy endpoint' })
+})
