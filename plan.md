@@ -1,7 +1,7 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #24: Test New Spec Workflow (V2)
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+This is a test issue to verify the new Spec→Validation→Implementation→Review workflow works correctly. The issue should create a technical specification, get validated, then implemented.
 
 ## Implementation Plan
 - Write unit tests for new functionality
@@ -13,7 +13,7 @@ Testing the new plan-first workflow to ensure it creates proper implementation p
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/24-test-new-spec-workflow-v2`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
