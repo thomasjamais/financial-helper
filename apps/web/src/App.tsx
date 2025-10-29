@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { ExchangeConfigManager } from './components/ExchangeConfigManager'
 import { BinancePortfolio } from './components/BinancePortfolio'
-import { BinanceSpotOverview } from './components/BinanceSpotOverview'
+import { BinanceEarn } from './components/BinanceEarn'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
@@ -98,7 +98,7 @@ export default function App() {
 }
 
 function PortfolioTab() {
-  const [subTab, setSubTab] = useState<'full' | 'spot'>('full')
+  const [subTab, setSubTab] = useState<'full' | 'earn'>('full')
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
@@ -113,17 +113,18 @@ function PortfolioTab() {
           Full Overview
         </button>
         <button
-          onClick={() => setSubTab('spot')}
+          onClick={() => setSubTab('earn')}
           className={`px-3 py-2 text-sm rounded ${
-            subTab === 'spot'
+            subTab === 'earn'
               ? 'bg-blue-600 text-white'
               : 'bg-slate-800 text-slate-300'
           }`}
         >
-          Spot Overview
+          Earn
         </button>
       </div>
-      {subTab === 'full' ? <BinancePortfolio /> : <BinanceSpotOverview />}
+      {subTab === 'full' && <BinancePortfolio />}
+      {subTab === 'earn' && <BinanceEarn />}
     </div>
   )
 }

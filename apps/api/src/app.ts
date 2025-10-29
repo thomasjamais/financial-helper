@@ -6,6 +6,7 @@ import { exchangesRouter } from './routes/exchanges'
 import { bitgetRouter } from './routes/bitget'
 import { binanceRouter } from './routes/binance'
 import { exchangeConfigsRouter } from './routes/exchangeConfigs'
+import { binanceEarnRouter } from './routes/binanceEarn'
 import { Kysely } from 'kysely'
 import type { Logger } from './logger'
 import { correlationIdMiddleware } from './middleware/correlationId'
@@ -43,6 +44,7 @@ export function createApp(
   app.use(exchangesRouter())
   app.use(bitgetRouter(db, logger, encKey))
   app.use(binanceRouter(db, logger, encKey))
+  app.use(binanceEarnRouter(db, logger))
   app.use(exchangeConfigsRouter(db, logger, encKey))
 
   app.use(errorHandler(logger))
