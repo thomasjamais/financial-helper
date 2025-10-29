@@ -6,15 +6,19 @@ import { exchangesRouter } from './routes/exchanges'
 import { bitgetRouter } from './routes/bitget'
 import { binanceRouter } from './routes/binance'
 import { exchangeConfigsRouter } from './routes/exchangeConfigs'
-import { Kysely } from 'kysely'
+import { authRouter } from './routes/auth'
+import type { Kysely } from 'kysely'
+import type { DB } from '@pkg/db'
 import type { Logger } from './logger'
 import { correlationIdMiddleware } from './middleware/correlationId'
 import { errorHandler } from './middleware/errorHandler'
 
 export function createApp(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   logger: Logger,
   encKey: string,
+  jwtSecret: string,
+  jwtRefreshSecret: string,
 ): Express {
   const app = express()
 
@@ -40,6 +44,7 @@ export function createApp(
   app.use(express.json())
 
   app.use(healthRouter())
+  app.use(authRouter(db, logger, jwtSecret, jwtRefreshSecret))
   app.use(exchangesRouter())
   app.use(bitgetRouter(db, logger, encKey))
   app.use(binanceRouter(db, logger, encKey))

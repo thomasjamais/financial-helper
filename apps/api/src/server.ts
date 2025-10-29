@@ -37,7 +37,7 @@ async function main() {
     process.exit(1)
   }
 
-  const app = createApp(db, logger, env.API_ENC_KEY)
+  const app = createApp(db, logger, env.API_ENC_KEY, env.JWT_SECRET, env.JWT_REFRESH_SECRET)
   const port = Number(env.PORT ?? 8080)
   app.listen(port, () => {
     logger.info({ port }, 'API listening')
