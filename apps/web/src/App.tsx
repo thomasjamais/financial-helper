@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { ExchangeConfigManager } from './components/ExchangeConfigManager'
 import { BinancePortfolio } from './components/BinancePortfolio'
+import { BinanceEarn } from './components/BinanceEarn'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
@@ -85,17 +86,45 @@ export default function App() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         {activeTab === 'dashboard' && <DashboardView />}
-        {activeTab === 'portfolio' && (
-          <div>
-            <BinancePortfolio />
-          </div>
-        )}
+        {activeTab === 'portfolio' && <PortfolioTab />}
         {activeTab === 'configs' && (
           <div>
             <ExchangeConfigManager />
           </div>
         )}
       </main>
+    </div>
+  )
+}
+
+function PortfolioTab() {
+  const [subTab, setSubTab] = useState<'full' | 'earn'>('full')
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <button
+          onClick={() => setSubTab('full')}
+          className={`px-3 py-2 text-sm rounded ${
+            subTab === 'full'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-800 text-slate-300'
+          }`}
+        >
+          Full Overview
+        </button>
+        <button
+          onClick={() => setSubTab('earn')}
+          className={`px-3 py-2 text-sm rounded ${
+            subTab === 'earn'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-800 text-slate-300'
+          }`}
+        >
+          Earn
+        </button>
+      </div>
+      {subTab === 'full' && <BinancePortfolio />}
+      {subTab === 'earn' && <BinanceEarn />}
     </div>
   )
 }
