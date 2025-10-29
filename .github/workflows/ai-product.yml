@@ -1,8 +1,7 @@
-name: AI Product Agent
+name: AI Product Agent (disabled)
 
 on:
-  pull_request:
-    types: [opened, synchronize, labeled]
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -16,7 +15,7 @@ concurrency:
 jobs:
   product-agent:
     runs-on: ubuntu-latest
-    
+    if: false
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
