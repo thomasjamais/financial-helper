@@ -97,3 +97,8 @@ const port = Number(process.env.PORT ?? 8080)
 app.listen(port, () => {
   logger.info({ port }, 'API listening')
 })
+
+// Ping endpoint
+app.get('/v1/ping', (req, res) => {
+  res.json({ ok: true })
+})
