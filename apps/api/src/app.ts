@@ -43,7 +43,6 @@ export function createApp(
   app.use(exchangesRouter())
   app.use(bitgetRouter(db, logger, encKey))
   app.use(binanceRouter(db, logger, encKey))
-  app.use(exchangeConfigsRouter(db, logger, encKey))
 
   app.use(errorHandler(logger))
 
