@@ -5,6 +5,7 @@ import { PolicyService } from '../services/PolicyService.js'
 import { TestService } from '../services/TestService.js'
 import { PRReviewService } from '../services/PRReviewService.js'
 import { GitService } from '../services/GitService.js'
+import { InteractionLogger } from '../services/InteractionLogger.js'
 import type { Policy, RepoRef, TestResult } from '../types.js'
 
 const run = async () => {
@@ -19,10 +20,18 @@ const run = async () => {
   }
 
   const repoRef: RepoRef = { owner, repo }
+  const ilog = new InteractionLogger({
+    apiUrl: process.env.AGENT_LOG_API_URL,
+    repoRef,
+    agentRole: 'product',
+    correlationId: process.env.CORRELATION_ID || String(prNumber),
+  })
   const policy = new PolicyService(policyPath).getPolicy()
   const prReview = new PRReviewService(repoRef)
   const git = new GitService()
   const testService = new TestService(policy)
+
+  await ilog.log({ direction: 'system', content: 'Product agent start', prNumber })
 
   const prDetails = await prReview.getPRDetails(prNumber)
   const prLabels = prDetails.labels.map((l) => l.name)
@@ -62,6 +71,7 @@ const run = async () => {
       event: 'APPROVE',
     })
     await prReview.removeLabel(prNumber, 'needs-fixes')
+    await ilog.log({ direction: 'event', content: 'PR approved by product agent', prNumber })
   } else {
     await prReview.postReview(prNumber, {
       decision: 'REQUEST_CHANGES',
@@ -69,7 +79,9 @@ const run = async () => {
       event: 'REQUEST_CHANGES',
     })
     await prReview.addLabel(prNumber, 'needs-fixes')
+    await ilog.log({ direction: 'event', content: 'Requested changes on PR', prNumber })
   }
+  await ilog.log({ direction: 'system', content: 'Product agent finished', prNumber })
 }
 
 const handlePlanReview = async (

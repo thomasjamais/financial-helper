@@ -1,0 +1,28 @@
+{
+  "family": "financial-helper-ceo-agent",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "ceo-agent",
+      "image": "641870364246.dkr.ecr.eu-west-3.amazonaws.com/financial-helper-agent:ceo-agent-latest",
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/financial-helper-agent",
+          "awslogs-region": "eu-west-3",
+          "awslogs-stream-prefix": "ceo-agent"
+        }
+      },
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "POLICY_PATH", "value": "/workspace/policy.yaml" }
+      ]
+    }
+  ]
+}

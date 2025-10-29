@@ -10,6 +10,7 @@ import { TestService } from './services/TestService.js'
 import { PRService } from './services/PRService.js'
 import { PRReviewService } from './services/PRReviewService.js'
 import { defaultBranch, githubToken } from './config.js'
+import { InteractionLogger } from './services/InteractionLogger.js'
 import { toSlug } from './utils/slug.js'
 import type {
   RepoRef,
@@ -24,6 +25,13 @@ const run = async () => {
 
   const context = parseAgentContext()
   const repoRef: RepoRef = { owner: context.owner, repo: context.repo }
+  const interactionLogger = new InteractionLogger({
+    apiUrl: process.env.AGENT_LOG_API_URL,
+    repoRef,
+    agentRole: 'programmer',
+    correlationId:
+      process.env.CORRELATION_ID || String(context.issueNumber || context.prNumber || ''),
+  })
 
   const issues = new IssueService(repoRef)
   const git = new GitService()
@@ -36,6 +44,13 @@ const run = async () => {
 
   const policy = new PolicyService(context.policyPath).getPolicy()
 
+  await interactionLogger.log({
+    direction: 'system',
+    content: `Programmer agent start: mode=${context.mode}`,
+    issueNumber: context.issueNumber,
+    prNumber: context.prNumber,
+  })
+
   if (context.mode === 'new-issue') {
     await runNewIssueMode(context, issues, git, policy, repoRef)
   } else if (context.mode === 'plan-only') {
@@ -43,6 +58,13 @@ const run = async () => {
   } else {
     await runFixMode(context, issues, git, policy, repoRef, prReview)
   }
+
+  await interactionLogger.log({
+    direction: 'system',
+    content: `Programmer agent finished: mode=${context.mode}`,
+    issueNumber: context.issueNumber,
+    prNumber: context.prNumber,
+  })
 }
 
 const parseAgentContext = (): AgentContext => {
