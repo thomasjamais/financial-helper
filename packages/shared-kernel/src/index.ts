@@ -5,6 +5,8 @@ export type Money = {
   currency: string
 }
 
+export * from './priceService'
+
 export function assert(condition: any, msg: string): asserts condition {
   if (!condition) throw new Error(msg)
 }
@@ -55,10 +57,7 @@ export function enforceCaps(params: {
     )
   }
 
-  if (
-    params.positionNotionalUSDT != null &&
-    params.caps.maxPositionUSDT > 0
-  ) {
+  if (params.positionNotionalUSDT != null && params.caps.maxPositionUSDT > 0) {
     assert(
       params.positionNotionalUSDT <= params.caps.maxPositionUSDT,
       `Position notional ${params.positionNotionalUSDT} exceeds max ${params.caps.maxPositionUSDT}`,

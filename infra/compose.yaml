@@ -4,10 +4,12 @@ services:
     image: postgres:16
     container_name: ctd-postgres
     restart: unless-stopped
+    env_file:
+      - ../.env
     environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
-      POSTGRES_DB: app
+      POSTGRES_USER: ${POSTGRES_USER:-financial}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-financial}
+      POSTGRES_DB: ${POSTGRES_DB:-financial-helper}
     ports: ["5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
