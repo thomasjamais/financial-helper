@@ -12,7 +12,11 @@
     "lint": "turbo run lint",
     "agent:build": "tsc -p agent/tsconfig.json",
     "agent:dev:programmer": "tsx agent/src/index.ts",
-    "agent:dev:product": "tsx agent/src/product/index.ts"
+    "agent:dev:product": "tsx agent/src/product/index.ts",
+    "db:up": "docker compose -f infra/compose.yaml up -d postgres redis",
+    "db:down": "docker compose -f infra/compose.yaml down",
+    "db:logs": "docker compose -f infra/compose.yaml logs -f postgres",
+    "db:reset": "docker compose -f infra/compose.yaml down -v && docker compose -f infra/compose.yaml up -d postgres redis"
   },
   "devDependencies": {
     "turbo": "2.1.3",

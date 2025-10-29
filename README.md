@@ -130,6 +130,67 @@ Bitget adapter includes:
   - View spot and futures balances
   - See API health
 
+## Getting Started Locally
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm 9+
+
+### Install dependencies (monorepo)
+
+```bash
+pnpm install
+```
+
+### Run API (terminal 1)
+
+```bash
+cd apps/api
+pnpm dev
+# API listens on http://localhost:8080
+```
+
+Optional: create a `.env` file in `apps/api`:
+
+```bash
+PORT=8080
+LOG_LEVEL=info
+```
+
+### Run Web Dashboard (terminal 2)
+
+```bash
+cd apps/web
+VITE_API_URL=http://localhost:8080 pnpm dev
+# Dashboard on http://localhost:5173 (Vite default)
+```
+
+### Configure Bitget (paper) via API
+
+```bash
+curl -X POST \
+  -H 'content-type: application/json' \
+  -d '{
+    "key": "YOUR_API_KEY",
+    "secret": "YOUR_API_SECRET",
+    "passphrase": "YOUR_PASSPHRASE",
+    "env": "paper"
+  }' \
+  http://localhost:8080/v1/bitget/config
+```
+
+Then fetch balances:
+
+```bash
+curl http://localhost:8080/v1/balances
+```
+
+### Notes
+
+- Live trading requires explicit configuration and is disabled by default.
+- Env caps and risk management apply to order placement: `SYMBOL_WHITELIST`, `MAX_ORDER_USDT`, `MAX_POSITION_USDT`, `MAX_LEVERAGE`, `MAX_RISK_PER_TRADE`, `MAX_POSITION_SIZE`, `MIN_ORDER_SIZE`, `MAX_ORDER_SIZE`.
+
 
 - `MAX_LEVERAGE`: maximum leverage allowed (default: 10)
 - `MAX_RISK_PER_TRADE`: max risk per trade as percentage (default: 0.02 = 2%)

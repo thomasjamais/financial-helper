@@ -1,0 +1,186 @@
+# Coding Guidelines & Standards
+
+This file defines coding standards and practices for this project. Follow these rules when writing or modifying code.
+
+## General Principles
+
+1. **TypeScript Strict Mode**: Always use strict TypeScript with explicit types. Never use `any` unless absolutely necessary.
+2. **Single Responsibility**: Each function/class should do one thing well.
+3. **Test-Driven Development**: Write unit tests for all domain logic, integration tests for API/DB interactions.
+4. **Error Handling**: All errors must be caught, logged with correlation IDs, and returned as Problem+JSON responses.
+5. **Security**: Never log secrets, always encrypt sensitive data at rest.
+6. **Build Safety**: The codebase MUST build and run successfully after every task completion. Never commit code that breaks the build.
+7. **Branch Management**: After completing a task, push code to a new branch (up to date with main). Only use the same branch for additional commits if the task needs adjustments/fixes.
+
+## Architecture
+
+### Domain Logic
+- Domain logic belongs in packages (`shared-kernel`, `risk-engine`, etc.), never in Express route handlers.
+- API handlers are thin: validate input → call domain → map errors to Problem+JSON.
+- Use dependency injection for testability.
+
+### Database
+- All mutations produce an audit_log entry with correlation_id.
+- Use Kysely with explicit types, never raw SQL in routes.
+- Migrations must be idempotent.
+
+### API Design
+- Validate all inputs/outputs with Zod at the API boundary.
+- Use proper HTTP status codes (400 for validation, 500 for server errors).
+- Include correlation IDs in all responses.
+- Return Problem+JSON format for errors.
+
+## Code Quality
+
+### Naming
+- Use long, descriptive identifiers. Prefer clarity over brevity.
+- Functions: verb phrases (`fetchBalances`, `calculateRisk`)
+- Classes: noun phrases (`BitgetAdapter`, `RiskEngine`)
+- Types/Interfaces: noun phrases, PascalCase (`Balance`, `ConfigSchema`)
+
+### Comments
+- No comments in production code. Communicate intent via naming and small functions.
+- Only exception: complex algorithms require brief inline documentation.
+
+### Functions
+- Keep functions small (< 50 lines preferred, < 100 max).
+- Functions should be pure when possible (no side effects).
+- Extract magic numbers and strings into named constants.
+
+### Error Handling
+```typescript
+// Good: Explicit error handling with context
+try {
+  const result = await riskyOperation()
+  return { success: true, data: result }
+} catch (err) {
+  logger.error({ err, context: 'operation-name' }, 'Operation failed')
+  throw new Error(`Operation failed: ${err instanceof Error ? err.message : String(err)}`)
+}
+
+// Bad: Silent failures or generic errors
+try {
+  await riskyOperation()
+} catch {}
+```
+
+## Testing
+
+### Unit Tests
+- Test pure functions first (no side effects).
+- One test per behavior, not per function.
+- Use descriptive test names: `should return empty array when no balances exist`
+
+### Integration Tests
+- Test API endpoints with actual database/Redis.
+- Use test fixtures and cleanup after each test.
+- Mock external APIs.
+
+### Test Structure
+```typescript
+describe('ClassName', () => {
+  describe('methodName', () => {
+    it('should do X when condition Y', () => {
+      // Arrange
+      const input = { ... }
+      
+      // Act
+      const result = method(input)
+      
+      // Assert
+      expect(result).toEqual(expected)
+    })
+  })
+})
+```
+
+## Security
+
+1. **Secrets**: Never log or commit secrets. Use environment variables and encryption.
+2. **Input Validation**: Validate and sanitize all user inputs at API boundaries.
+3. **Rate Limiting**: All external API calls must have rate limiting and circuit breakers.
+4. **Idempotency**: All mutations must be idempotent (use correlation IDs).
+
+## Dependencies
+
+- Prefer small, focused packages over monoliths.
+- Keep dependencies up-to-date.
+- Review all new dependencies for security vulnerabilities.
+
+## Build and Branch Rules
+
+### Build Requirements
+1. **Always Verify Build**: Before marking a task complete, run `pnpm build` or equivalent and ensure it succeeds.
+2. **Fix Build Errors Immediately**: If the build fails, fix errors before proceeding or completing the task.
+3. **Run Checks**: TypeScript compilation, linting, and tests should pass.
+4. **No Broken Code**: Never leave the codebase in a state where it cannot build or run.
+
+### Branch Strategy
+1. **New Branch Per Task**: After completing a task, create a new branch from the latest `main` branch:
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/task-description
+   git push -u origin feature/task-description
+   ```
+
+2. **Same Branch for Adjustments**: If a completed task needs fixes or adjustments:
+   - Stay on the same branch
+   - Make additional commits to fix issues
+   - Push updated commits to the same branch
+
+3. **Branch Naming**: Use descriptive branch names:
+   - `feature/portfolio-management`
+   - `fix/binance-api-error`
+   - `refactor/code-organization`
+
+4. **Before Creating Branch**: Always ensure:
+   - Code builds successfully (`pnpm build`)
+   - All tests pass (if applicable)
+   - No TypeScript errors
+   - No linting errors
+
+## Commit Messages
+
+Follow Conventional Commits. Keep messages explicit and descriptive of the changes made.
+
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+- Format: `<type>(optional scope): <short description>`
+- Description: all lowercase, concise, under 60 characters
+- Use additional `-m` paragraphs if needed for details or multiple changes
+- Prefer a focused scope (e.g., `api`, `web`, `exchange-adapters`, `db`)
+- Reference issues when applicable (e.g., `refs #123`, `fixes #123`) in a footer paragraph
+
+Examples:
+
+```text
+fix(api): load active binance config from db when missing
+
+ensure endpoints fallback to active db config and set in-memory cache
+```
+
+```text
+feat(web): add exchange config manager ui
+
+create crud for exchange configs with activation and labels
+```
+
+Commit command guidance (ready to paste):
+
+```text
+git add -A && git commit -m "fix(api): improve binance config fallback" -m "load active db config when not set in memory; default baseUrl; add warnings"
+```
+
+## Documentation
+
+- README files for each package explaining its purpose.
+- Complex algorithms require explanation.
+- API endpoints must have example requests/responses.
+
+## References
+
+- Clean Code by Robert C. Martin
+- Domain-Driven Design by Eric Evans
+- Building Microservices by Sam Newman
+- Google TypeScript Style Guide
+- Airbnb JavaScript Style Guide (adapted for TypeScript)
