@@ -1,4 +1,6 @@
-import { Kysely, sql } from 'kysely'
+import type { Kysely } from 'kysely'
+import { sql } from 'kysely'
+import type { DB } from './index'
 import { readdir, readFile } from 'fs/promises'
 import { basename, extname } from 'path'
 
@@ -13,7 +15,7 @@ function extractVersion(filename: string): string {
   return idx > 0 ? dotless.slice(0, idx) : dotless
 }
 
-export async function runMigrations(db: Kysely<unknown>): Promise<void> {
+export async function runMigrations(db: Kysely<DB>): Promise<void> {
   await sql`
     create table if not exists schema_migrations(
       version text primary key,

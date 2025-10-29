@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { Kysely } from 'kysely'
+import type { Kysely } from 'kysely'
+import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
 import {
   listExchangeConfigs,
@@ -14,7 +15,7 @@ import { setBitgetConfig } from '../services/bitgetState'
 import { setBinanceConfig } from '../services/binanceState'
 
 export function exchangeConfigsRouter(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   logger: Logger,
   encKey: string,
 ): Router {

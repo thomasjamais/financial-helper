@@ -1,4 +1,6 @@
-import { Kysely, sql } from 'kysely'
+import type { Kysely } from 'kysely'
+import { sql } from 'kysely'
+import type { DB } from '@pkg/db'
 import { makeEncryptDecrypt } from './crypto'
 
 function makeDecrypt(encKey: string) {
@@ -40,7 +42,7 @@ export type UpdateExchangeConfigInput = Partial<
 }
 
 export async function listExchangeConfigs(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   encKey: string,
 ): Promise<ExchangeConfig[]> {
   const rows = await sql<{
@@ -71,7 +73,7 @@ export async function listExchangeConfigs(
 }
 
 export async function getExchangeConfig(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   encKey: string,
   id: number,
 ): Promise<ExchangeConfigWithSecrets | null> {
@@ -116,7 +118,7 @@ export async function getExchangeConfig(
 }
 
 export async function createExchangeConfig(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   encKey: string,
   input: CreateExchangeConfigInput,
 ): Promise<ExchangeConfig> {
@@ -159,7 +161,7 @@ export async function createExchangeConfig(
 }
 
 export async function updateExchangeConfig(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   encKey: string,
   id: number,
   input: UpdateExchangeConfigInput,
@@ -283,7 +285,7 @@ export async function updateExchangeConfig(
 }
 
 export async function deleteExchangeConfig(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   id: number,
 ): Promise<boolean> {
   const result = await sql<{ id: number }>`
@@ -296,7 +298,7 @@ export async function deleteExchangeConfig(
 }
 
 export async function activateExchangeConfig(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   encKey: string,
   id: number,
 ): Promise<ExchangeConfigWithSecrets | null> {
@@ -324,7 +326,7 @@ export async function activateExchangeConfig(
 }
 
 export async function getActiveExchangeConfig(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   encKey: string,
   exchange: 'bitget' | 'binance',
 ): Promise<ExchangeConfigWithSecrets | null> {

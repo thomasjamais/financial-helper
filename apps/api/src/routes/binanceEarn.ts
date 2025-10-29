@@ -1,11 +1,12 @@
 import { Router, type Request, type Response } from 'express'
 import type { Kysely } from 'kysely'
+import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
 import { z } from 'zod'
 import { scoreOpportunity } from '@pkg/shared-kernel/src/opportunityScoring'
 
 export function binanceEarnRouter(
-  _db: Kysely<unknown>,
+  _db: Kysely<DB>,
   logger: Logger,
 ): Router {
   const r = Router()

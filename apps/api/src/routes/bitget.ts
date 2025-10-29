@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { BitgetAdapter, type BitgetConfig } from '@pkg/exchange-adapters'
-import { Kysely, sql } from 'kysely'
+import type { Kysely } from 'kysely'
+import type { DB } from '@pkg/db'
+import { sql } from 'kysely'
 import { makeEncryptDecrypt } from '../services/crypto'
 import { getBitgetConfig, setBitgetConfig } from '../services/bitgetState'
 import { getActiveExchangeConfig } from '../services/exchangeConfigService'
@@ -9,7 +11,7 @@ import { filterBalances } from '../services/balanceFilter'
 import type { Logger } from '../logger'
 
 export function bitgetRouter(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   logger: Logger,
   encKey: string,
 ): Router {
