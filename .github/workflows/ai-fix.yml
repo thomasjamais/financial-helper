@@ -1,8 +1,7 @@
-name: AI Fix Agent
+name: AI Fix Agent (disabled)
 
 on:
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -17,7 +16,7 @@ concurrency:
 jobs:
   fix-agent:
     runs-on: ubuntu-latest
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/ai:fix')
+    if: false
     
     steps:
       - name: Configure AWS credentials

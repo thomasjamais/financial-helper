@@ -1,8 +1,7 @@
-name: AI Programmer Agent
+name: AI Programmer Agent (disabled)
 
 on:
-  issues:
-    types: [opened, reopened, labeled]
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -17,11 +16,7 @@ concurrency:
 jobs:
   programmer-agent:
     runs-on: ubuntu-latest
-    if: |
-      (github.event.action == 'opened' || 
-       github.event.action == 'reopened' || 
-       (github.event.action == 'labeled' && github.event.label.name == 'ai')) &&
-      !contains(github.event.issue.labels.*.name, 'plan')
+    if: false
     
     steps:
       - name: Debug GitHub context

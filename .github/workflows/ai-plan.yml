@@ -1,8 +1,7 @@
-name: AI Plan Agent
+name: AI Plan Agent (disabled)
 
 on:
-  issues:
-    types: [opened, reopened, labeled]
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -17,10 +16,7 @@ concurrency:
 jobs:
   plan-agent:
     runs-on: ubuntu-latest
-    if: |
-      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'plan')) || 
-      (github.event.action == 'reopened' && contains(github.event.issue.labels.*.name, 'plan')) || 
-      (github.event.action == 'labeled' && github.event.label.name == 'plan')
+    if: false
     
     steps:
       - name: Debug GitHub context

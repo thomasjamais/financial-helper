@@ -2,25 +2,13 @@
 
 A comprehensive financial trading and portfolio management system built with TypeScript and deployed on AWS ECS Fargate.
 
-## AI Agents
+## Current Scope (AI workflows disabled)
 
-This repository includes automated AI agents for issue processing and PR review:
+The previous AI agent workflows have been disabled and are no longer part of the active system. The monorepo now focuses on:
 
-### Programmer Agent
-- **Trigger**: Issues labeled with `ai` or new issues
-- **Function**: Claims issues, creates branches, applies edits, runs tests, opens PRs
-- **Modes**:
-  - `new-issue`: Creates new branch and PR from issue
-  - `fix-iteration`: Iterates on existing PR branch
-
-### Product Agent  
-- **Trigger**: PR opened or synchronized
-- **Function**: Validates PR against policy, runs tests, posts reviews
-- **Actions**: Approves passing PRs, requests changes for failures
-
-### Fix Agent
-- **Trigger**: `/ai:fix` comment on PR
-- **Function**: Runs programmer agent in fix mode to iterate on PR
+- `apps/api`: Express API with Bitget and Binance integrations
+- `apps/web`: Vite + React dashboard for balances, portfolio, conversions, and rebalancing advice
+- `packages`: Domain libraries (`exchange-adapters`, `shared-kernel`, `risk-engine`, `db`)
 
 ## Environment Variables
 
@@ -68,17 +56,8 @@ PR_NUMBER=456 pnpm agent:dev:product
 
 ## Workflows
 
-### `.github/workflows/ai-programmer.yml`
-- Triggers on issues with `ai` label or new issues
-- Runs programmer agent in new-issue mode
-
-### `.github/workflows/ai-product.yml`  
-- Triggers on PR opened/synchronized
-- Runs product agent for PR review
-
-### `.github/workflows/ai-fix.yml`
-- Triggers on `/ai:fix` comment
-- Runs programmer agent in fix mode
+- `.github/workflows/continuous-checks.yml`: Lint and test on PRs
+- AI workflows (`ai-*.yml`) are retained but disabled for archival purposes
 
 ## Policy Configuration
 
@@ -116,19 +95,28 @@ Bitget adapter includes:
 ### Risk Management
 ## API
 
-- `apps/api` exposes:
-  - `GET /healthz`
-  - `POST /v1/bitget/config` to set temporary Bitget credentials (paper/live)
-  - `GET /v1/balances` for spot and futures
+`apps/api` exposes:
+
+- `GET /healthz`
+- Bitget:
+  - `POST /v1/bitget/config`
+  - `GET /v1/balances`
   - `GET /v1/positions`
-  - `POST /v1/orders` with Zod validation and caps/risk enforcement
+  - `GET /v1/orders`
+- Binance (Spot only):
+  - `POST /v1/binance/config`
+  - `GET /v1/binance/balances`
+  - `GET /v1/binance/portfolio`
+  - `POST /v1/binance/convert`
+  - `POST /v1/binance/rebalance`
+  - `GET /v1/binance/orders`
 
-## Dashboard
+## Dashboard (apps/web)
 
-- `apps/web` includes a minimal dashboard to:
-  - Set Bitget config
-  - View spot and futures balances
-  - See API health
+- Config management and activation (Binance, Bitget)
+- Balances (spot/futures per exchange)
+- Binance portfolio (USD/EUR), conversions to BTC/BNB/ETH, AI rebalancing
+- Mobile-friendly, Tailwind UI
 
 ## Getting Started Locally
 
