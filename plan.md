@@ -1,19 +1,24 @@
-# Plan for #6: Test Plan Workflow
+# Plan for #38: Implement rebalance-engine for spot USDT across BTC/ETH/BNB
 
 ## Issue Summary
-Testing the new plan-first workflow to ensure it creates proper implementation plans instead of copy-pasting the issue description.
+- Target allocation: BTC/ETH/BNB split via env (default 33/33/34).
+- Compute diffs and place market orders within slippage tolerance.
+- Idempotent and auditable.
+
+Acceptance Criteria:
+- [ ] Deterministic plan calculation
+- [ ] Dry-run mode
+- [ ] Audit log entries
 
 ## Implementation Plan
-- Write unit tests for new functionality
-- Add integration tests for API endpoints
-- Ensure test coverage meets policy requirements
-- Design feature architecture following domain-driven principles
-- Implement feature with proper separation of concerns
-- Add comprehensive documentation and examples
+- Analyze requirements and design solution architecture
+- Implement core functionality with proper error handling
+- Add appropriate tests and documentation
+- Ensure compliance with project policies and standards
 
 ## Technical Steps
 - Claim the issue and set status to in-progress
-- Create branch `plan/6-test-plan-workflow`
+- Create branch `ai/38-implement-rebalance-engine-for-spot-usdt-across-btc-eth-bnb`
 - Apply constrained edits according to policy.yaml
 - Run all policy-defined test suites
 - Open PR linking this plan and attaching suite outputs
