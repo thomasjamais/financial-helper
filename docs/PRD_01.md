@@ -268,7 +268,7 @@ To provide cryptocurrency traders with a secure, intelligent, and unified platfo
 
 ## Technical Architecture
 
-### System Overview
+### System Overview (AI-Centric Architecture)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -285,13 +285,45 @@ To provide cryptocurrency traders with a secure, intelligent, and unified platfo
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
 └──────────────────────────┬──────────────────────────────────┘
                            │
-┌──────────────────────────▼──────────────────────────────────┐
-│                      Domain Services                         │
-│  ┌────────────────┐  ┌─────────────┐  ┌─────────────┐      │
-│  │   Portfolio    │  │ Conversion  │  │ AI Predict  │      │
-│  │   Service      │  │  Service    │  │  Service    │      │
-│  └────────────────┘  └─────────────┘  └─────────────┘      │
-└──────────────────────────┬──────────────────────────────────┘
+            ┌──────────────┴──────────────┐
+            │                             │
+┌───────────▼────────────┐   ┌───────────▼─────────────────┐
+│   Domain Services      │   │   AI Trading Bot            │
+│                        │   │   (Event-Driven)            │
+│ • Portfolio Service    │   │ • Strategy Adjustment       │
+│ • Conversion Service   │   │ • News Analysis             │
+│ • Risk Service         │   │ • Auto Execution            │
+└───────────┬────────────┘   └───────────┬─────────────────┘
+            │                            │
+            └──────────────┬─────────────┘
+                           │
+          ┌────────────────▼─────────────────────┐
+          │      🤖 AI INTELLIGENCE CORE 🤖      │
+          │                                      │
+          │  ┌────────────────────────────────┐  │
+          │  │   GPT-4 / Custom Fine-Tuned    │  │
+          │  │      Trading Model (LLM)       │  │
+          │  └────────────────────────────────┘  │
+          │                                      │
+          │  ┌──────────┐  ┌──────────────────┐ │
+          │  │  News    │  │  Pattern         │ │
+          │  │ Surfing  │  │ Recognition      │ │
+          │  │ Agent    │  │ (Technical AI)   │ │
+          │  └──────────┘  └──────────────────┘ │
+          │                                      │
+          │  ┌──────────┐  ┌──────────────────┐ │
+          │  │Portfolio │  │  Risk Scoring    │ │
+          │  │Rebalance │  │  (ML Model)      │ │
+          │  │  Agent   │  └──────────────────┘ │
+          │  └──────────┘                        │
+          │                                      │
+          │  ┌────────────────────────────────┐  │
+          │  │  Learning & Training Pipeline  │  │
+          │  │  • Collect interactions        │  │
+          │  │  • Train custom models         │  │
+          │  │  • A/B test strategies         │  │
+          │  └────────────────────────────────┘  │
+          └────────────────┬─────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
 │                    Shared Packages                           │
@@ -303,10 +335,16 @@ To provide cryptocurrency traders with a secure, intelligent, and unified platfo
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
 │                   External Services                          │
-│  ┌────────────┐  ┌─────────┐  ┌────────────┐  ┌─────────┐ │
-│  │  Binance   │  │ Bitget  │  │  OpenAI    │  │ Postgres│ │
-│  │    API     │  │   API   │  │    API     │  │  Redis  │ │
-│  └────────────┘  └─────────┘  └────────────┘  └─────────┘ │
+│  ┌──────────┐ ┌────────┐ ┌──────────┐ ┌────────┐ ┌──────┐ │
+│  │ Binance  │ │Bitget  │ │ OpenAI   │ │Postgres│ │Redis │ │
+│  │   API    │ │  API   │ │   API    │ │   DB   │ │Cache │ │
+│  └──────────┘ └────────┘ └──────────┘ └────────┘ └──────┘ │
+│                                                              │
+│  ┌──────────────────┐ ┌──────────────┐ ┌─────────────────┐ │
+│  │  News APIs       │ │  Social APIs │ │  ML Training    │ │
+│  │ (Newsapi.org,    │ │  (Twitter/X, │ │  (TensorFlow,   │ │
+│  │  CryptoPanic)    │ │   Reddit)    │ │   PyTorch)      │ │
+│  └──────────────────┘ └──────────────┘ └─────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -368,14 +406,17 @@ React-based dashboard for portfolio visualization and exchange management.
 - Form handling for configurations
 - Client-side state management
 
-#### `apps/bot` (Future)
-Automated trading bot for strategy execution.
+#### `apps/bot` (AI-Powered)
+AI-driven automated trading bot for intelligent strategy execution and real-time market adaptation.
 
 **Key Responsibilities**:
-- Strategy evaluation
-- Order execution
-- Performance tracking
-- Event-driven trading
+- AI-powered strategy evaluation and adjustment
+- News sentiment analysis and trading signals
+- Automated order execution with ML-based timing
+- Performance tracking and learning from outcomes
+- Event-driven trading with predictive analytics
+- Real-time market pattern recognition
+- Custom model training on historical data
 
 #### `packages/exchange-adapters`
 Unified interface for interacting with exchange APIs.
@@ -1477,6 +1518,553 @@ Upon completion of AI analysis, the following artifacts are automatically genera
 
 ---
 
+## AI-Powered Trading Intelligence
+
+### Overview
+
+The platform's **AI Intelligence Core** is the central nervous system that powers all trading decisions, market analysis, and portfolio optimization. Unlike traditional rule-based systems, our AI continuously learns from market conditions, news events, and trading outcomes to provide adaptive, intelligent trading strategies.
+
+### Core AI Capabilities
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  AI INTELLIGENCE LAYERS                      │
+│                                                              │
+│  Layer 4: Strategy Orchestration (GPT-4 Fine-Tuned)         │
+│           ↑                                                  │
+│  Layer 3: Market Intelligence (News + Sentiment)            │
+│           ↑                                                  │
+│  Layer 2: Technical Analysis (Pattern Recognition ML)       │
+│           ↑                                                  │
+│  Layer 1: Data Collection & Feature Engineering             │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 1. AI Trading Bot (Autonomous Agent)
+
+**Status**: Development Phase  
+**Priority**: P0 (Critical for competitive advantage)  
+
+#### Architecture
+
+The AI Trading Bot operates as an autonomous agent with multiple specialized sub-agents:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AI Trading Bot                            │
+│                                                              │
+│  ┌───────────────┐  ┌───────────────┐  ┌──────────────┐    │
+│  │ News Surfing  │  │   Strategy    │  │   Execution  │    │
+│  │    Agent      │→ │  Adjustment   │→ │    Agent     │    │
+│  │               │  │    Agent      │  │              │    │
+│  └───────────────┘  └───────────────┘  └──────────────┘    │
+│         ↓                   ↓                  ↓             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │        Learning & Feedback Loop                       │  │
+│  │  • Track outcomes                                     │  │
+│  │  • Update strategy weights                            │  │
+│  │  • Retrain models                                     │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Strategy Adjustment System
+
+**Problem**: Market conditions change constantly; static strategies fail.  
+**Solution**: AI dynamically adjusts trading parameters based on:
+
+1. **Market Regime Detection**:
+   - Bull market (high aggression, long bias)
+   - Bear market (defensive, short bias, preserve capital)
+   - Sideways/Choppy (range trading, reduce frequency)
+   - High volatility (tighter stops, smaller positions)
+
+2. **Volatility Adaptation**:
+   ```python
+   # Pseudocode for AI volatility adjustment
+   current_volatility = calculate_30d_volatility(portfolio)
+   historical_avg = get_90d_avg_volatility()
+   
+   if current_volatility > historical_avg * 1.5:
+       # High volatility: reduce position sizes
+       position_multiplier = 0.5
+       stop_loss_tightening = 1.5  # 50% tighter stops
+   elif current_volatility < historical_avg * 0.7:
+       # Low volatility: increase position sizes cautiously
+       position_multiplier = 1.2
+   ```
+
+3. **Correlation Analysis**:
+   - AI detects when assets move together (high correlation)
+   - Adjusts diversification strategy
+   - Rebalances to maintain uncorrelated positions
+
+4. **Performance-Based Learning**:
+   ```python
+   # AI evaluates strategy performance weekly
+   strategy_performance = {
+       'momentum': {'win_rate': 0.65, 'profit_factor': 1.8, 'sharpe': 1.2},
+       'mean_reversion': {'win_rate': 0.55, 'profit_factor': 1.3, 'sharpe': 0.8},
+       'breakout': {'win_rate': 0.48, 'profit_factor': 2.1, 'sharpe': 1.5}
+   }
+   
+   # AI increases allocation to best-performing strategies
+   ai_model.adjust_strategy_weights(strategy_performance)
+   ```
+
+#### Example Strategy Adjustments
+
+**Scenario 1: BTC drops 15% in 24 hours**
+```
+AI Detection → High volatility + negative sentiment detected
+↓
+Strategy Adjustment:
+  • Reduce long exposure from 80% → 40%
+  • Increase cash reserves to 30%
+  • Set tighter stop-losses (10% → 5%)
+  • Increase monitoring frequency (1 min → 30 sec)
+  • Pause DCA strategies temporarily
+↓
+Execution → Sell 40% of BTC position, move to stablecoins
+↓
+Monitor → Wait for volatility to stabilize before re-entering
+```
+
+**Scenario 2: Strong positive news (ETF approval)**
+```
+AI Detection → Positive news sentiment spike + volume increase
+↓
+Strategy Adjustment:
+  • Increase long exposure from 60% → 85%
+  • Widen stop-losses (allow for pullbacks)
+  • Activate momentum strategy
+  • Increase position sizes on breakouts
+↓
+Execution → Buy BTC/ETH on pullbacks
+↓
+Monitor → Track sentiment decay, reduce exposure when hype fades
+```
+
+---
+
+### 2. News Surfing & Sentiment Analysis
+
+**Real-Time Market Intelligence**
+
+The AI News Surfing Agent continuously monitors news sources, social media, and on-chain data to generate trading signals.
+
+#### Data Sources
+
+| Source             | Type          | Update Frequency | Use Case                    |
+|--------------------|---------------|------------------|-----------------------------|
+| NewsAPI.org        | News articles | Real-time        | Major news events           |
+| CryptoPanic        | Crypto news   | Real-time        | Crypto-specific news        |
+| Twitter/X API      | Social media  | Real-time        | Sentiment, influencer posts |
+| Reddit (r/crypto)  | Social media  | Every 5 minutes  | Retail sentiment            |
+| Exchange Blogs     | Official news | Hourly           | Listings, updates           |
+| CoinGecko API      | Market data   | Every minute     | Price correlation           |
+| Whale Alert        | On-chain data | Real-time        | Large transactions          |
+
+#### News Analysis Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  News Ingestion Layer                        │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              NLP Processing (GPT-4 / BERT)                   │
+│  • Entity extraction (BTC, ETH, exchanges)                   │
+│  • Sentiment scoring (-1 to +1)                              │
+│  • Topic classification (regulation, adoption, hacks, etc.)  │
+│  • Urgency scoring (breaking vs. routine)                    │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│            Impact Prediction Model (Custom ML)               │
+│  • Predict price impact magnitude                           │
+│  • Predict duration of impact (minutes, hours, days)         │
+│  • Confidence score (0-100%)                                 │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Trading Signal Generation                   │
+│  • BUY: Positive sentiment > 0.7, high confidence            │
+│  • SELL: Negative sentiment < -0.6, high confidence          │
+│  • HOLD: Mixed sentiment or low confidence                   │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Execution via Trading Bot                       │
+│  • Validate signal against risk rules                        │
+│  • Execute trade with appropriate position sizing            │
+│  • Track outcome for learning                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Sentiment Scoring Algorithm
+
+```python
+# Pseudocode for AI sentiment analysis
+def analyze_news_sentiment(article):
+    # Extract entities
+    entities = extract_entities(article.text)  # ['BTC', 'SEC', 'ETF']
+    
+    # Sentiment analysis with context
+    sentiment = gpt4_analyze(
+        prompt=f"""
+        Analyze this crypto news article and rate sentiment for each asset.
+        
+        Article: {article.text}
+        
+        For each mentioned cryptocurrency, provide:
+        1. Sentiment score (-1 to +1)
+        2. Price impact prediction (negligible, small, medium, large)
+        3. Time horizon (immediate, hours, days, weeks)
+        4. Confidence (0-100%)
+        
+        Output as JSON.
+        """
+    )
+    
+    # Calculate aggregate sentiment
+    weighted_sentiment = 0
+    for entity in sentiment['entities']:
+        weight = entity['confidence'] * urgency_score(article)
+        weighted_sentiment += entity['sentiment'] * weight
+    
+    # Generate trading signal
+    if weighted_sentiment > 0.7 and sentiment['confidence'] > 80:
+        return {'signal': 'BUY', 'strength': weighted_sentiment}
+    elif weighted_sentiment < -0.6 and sentiment['confidence'] > 80:
+        return {'signal': 'SELL', 'strength': abs(weighted_sentiment)}
+    else:
+        return {'signal': 'HOLD', 'strength': 0}
+```
+
+#### Real-World News Impact Examples
+
+**Example 1: "SEC Approves Bitcoin ETF"**
+```json
+{
+  "headline": "SEC Approves First Bitcoin Spot ETF",
+  "source": "Bloomberg",
+  "published_at": "2024-01-10T14:23:00Z",
+  "ai_analysis": {
+    "sentiment": 0.95,
+    "entities": ["BTC", "ETH"],
+    "impact_prediction": {
+      "BTC": {
+        "price_impact": "large_positive",
+        "magnitude": "+10% to +20%",
+        "time_horizon": "immediate to days",
+        "confidence": 95
+      }
+    },
+    "trading_signal": {
+      "action": "BUY",
+      "assets": ["BTC", "ETH"],
+      "urgency": "high",
+      "position_size": "aggressive (20% of portfolio)"
+    }
+  }
+}
+```
+
+**AI Action Taken**:
+- Immediately increased BTC allocation from 40% → 60%
+- Set trailing stop-loss at 8% to protect gains
+- Monitored for profit-taking opportunities over next 48 hours
+
+**Example 2: "Exchange Hack: $100M Stolen"**
+```json
+{
+  "headline": "Major Exchange Reports $100M Hack",
+  "source": "CoinDesk",
+  "published_at": "2024-03-15T08:45:00Z",
+  "ai_analysis": {
+    "sentiment": -0.85,
+    "entities": ["BTC", "ETH", "Market"],
+    "impact_prediction": {
+      "Market": {
+        "price_impact": "medium_negative",
+        "magnitude": "-5% to -10%",
+        "time_horizon": "hours to days",
+        "confidence": 80
+      }
+    },
+    "trading_signal": {
+      "action": "REDUCE",
+      "assets": ["All"],
+      "urgency": "high",
+      "position_size": "reduce by 30%"
+    }
+  }
+}
+```
+
+**AI Action Taken**:
+- Reduced all crypto positions by 30%
+- Moved capital to stablecoins
+- Set alerts for "buying the dip" when sentiment recovers
+
+---
+
+### 3. Custom Model Training & Fine-Tuning
+
+**Vision**: Build proprietary AI models trained on our platform's unique data for superior trading performance.
+
+#### Training Data Collection
+
+The platform continuously collects data from every interaction:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Data Collection Layer                       │
+│                                                              │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────┐ │
+│  │  Trade History  │  │  News & Outcomes │  │  Portfolio │ │
+│  │                 │  │                  │  │  Changes   │ │
+│  │ • Entry price   │  │ • News event     │  │ • Before   │ │
+│  │ • Exit price    │  │ • Sentiment      │  │ • After    │ │
+│  │ • Outcome (P&L) │  │ • Price change   │  │ • Return   │ │
+│  │ • Strategy used │  │ • Time lag       │  │ • Sharpe   │ │
+│  └─────────────────┘  └──────────────────┘  └────────────┘ │
+│                                                              │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────┐ │
+│  │ Market Regime   │  │ User Preferences │  │ AI Actions │ │
+│  │                 │  │                  │  │            │ │
+│  │ • Volatility    │  │ • Risk tolerance │  │ • Signals  │ │
+│  │ • Trend         │  │ • Target assets  │  │ • Params   │ │
+│  │ • Correlation   │  │ • Time horizon   │  │ • Results  │ │
+│  └─────────────────┘  └──────────────────┘  └────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+                 Store in PostgreSQL + S3 (for ML)
+```
+
+#### Training Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Weekly Training Cycle                     │
+│                                                              │
+│  Step 1: Data Aggregation                                   │
+│    • Collect past week's trades, news, outcomes             │
+│    • Clean and normalize data                               │
+│    • Feature engineering (technical indicators, etc.)       │
+│                                                              │
+│  Step 2: Model Training                                     │
+│    • Train sentiment model (news → price impact)            │
+│    • Train strategy selector (conditions → best strategy)   │
+│    • Train risk model (portfolio → risk score)              │
+│    • Fine-tune GPT-4 on successful trade reasoning          │
+│                                                              │
+│  Step 3: Backtesting                                        │
+│    • Test new models on historical data (past 6 months)     │
+│    • Compare performance vs. current production model       │
+│    • Validate Sharpe ratio improvement                      │
+│                                                              │
+│  Step 4: A/B Testing (Shadow Mode)                          │
+│    • Run new model in parallel with production              │
+│    • Log decisions (no actual trades)                       │
+│    • Compare outcomes over 1 week                           │
+│                                                              │
+│  Step 5: Deployment (if better)                             │
+│    • If new model outperforms by >10%, promote to production│
+│    • Gradual rollout (10% → 50% → 100% traffic)            │
+│    • Monitor for regressions                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Custom Models to Train
+
+##### Model 1: Sentiment-to-Impact Predictor
+**Input**: News article text, current market state  
+**Output**: Price impact magnitude and direction  
+**Architecture**: Fine-tuned GPT-4 or BERT + MLP  
+
+**Training Data**:
+- 10,000+ labeled news events with price outcomes
+- Sentiment score → actual price change (24h, 7d)
+- Model learns which news truly matters
+
+**Evaluation Metric**: Accuracy of price direction prediction (target: >70%)
+
+##### Model 2: Strategy Selector
+**Input**: Market regime, volatility, trend indicators  
+**Output**: Best strategy to use (momentum, mean-reversion, breakout, etc.)  
+**Architecture**: Random Forest or XGBoost  
+
+**Training Data**:
+- Historical market conditions mapped to strategy performance
+- 1000+ backtests across different regimes
+- Learn when momentum works, when mean-reversion works
+
+**Evaluation Metric**: Sharpe ratio improvement vs. naive "always use one strategy"
+
+##### Model 3: Risk Scoring Model
+**Input**: Current portfolio, market conditions, recent volatility  
+**Output**: Risk score (0-100), suggested position adjustments  
+**Architecture**: Gradient Boosting (LightGBM)  
+
+**Training Data**:
+- Portfolio states before major drawdowns
+- Feature: concentration, leverage, correlation
+- Learn to predict portfolio vulnerability
+
+**Evaluation Metric**: Recall of high-risk portfolios (target: >90%)
+
+##### Model 4: Optimal Entry/Exit Timing
+**Input**: Trading signal, current price, order book depth  
+**Output**: Optimal execution time (now, wait 5 min, wait 1 hour)  
+**Architecture**: Reinforcement Learning (PPO or DQN)  
+
+**Training Data**:
+- 10,000+ trade executions with slippage outcomes
+- Learn optimal timing to minimize slippage and maximize returns
+- Reward function: actual fill price vs. best achievable price
+
+**Evaluation Metric**: Average slippage reduction vs. immediate execution
+
+#### Fine-Tuning GPT-4 for Trading
+
+**Goal**: Create a custom LLM that understands crypto trading nuances.
+
+**Dataset for Fine-Tuning**:
+```jsonl
+{"messages": [
+  {"role": "system", "content": "You are an expert crypto trading AI."},
+  {"role": "user", "content": "BTC is at $45k, RSI is 75, news says ETF approval likely. What should I do?"},
+  {"role": "assistant", "content": "Analysis: BTC is overbought (RSI > 70) but ETF news is highly bullish. Strategy: Take 50% profit now to lock gains, hold 50% with trailing stop at 8% for potential further upside. Risk: If ETF rejected, expect -15% drop. Confidence: 75%."}
+]}
+```
+
+**Fine-Tuning Process**:
+1. Collect 5,000+ examples of trade scenarios + ideal responses
+2. Format as OpenAI fine-tuning dataset
+3. Fine-tune GPT-4 via OpenAI API (cost: ~$500)
+4. Validate on held-out test set
+5. Deploy as custom model endpoint
+
+**Benefits**:
+- Faster inference (fewer tokens needed in prompt)
+- More consistent reasoning
+- Better understanding of crypto-specific jargon
+- Can encode house trading rules
+
+#### Model Performance Tracking
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│               Model Performance Dashboard                    │
+│                                                              │
+│  Model                   | Accuracy | Sharpe | P&L (30d)    │
+│  ──────────────────────────────────────────────────────────  │
+│  Sentiment Predictor v3  |   72%    |  1.4   | +12.5%       │
+│  Strategy Selector v2    |   68%    |  1.8   | +15.2%       │
+│  Risk Scoring v4         |   91%    |  N/A   | N/A          │
+│  Entry/Exit Timing v1    |   N/A    |  1.6   | +8.3%        │
+│  GPT-4 Fine-Tuned v1     |   75%    |  2.1   | +18.7% 🔥    │
+│                                                              │
+│  Production Model: GPT-4 Fine-Tuned v1 (deployed 2024-03-01)│
+│  Next Training Cycle: 2024-03-08 (weekly)                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 4. AI Learning Feedback Loop
+
+**Continuous Improvement System**
+
+Every trade is a learning opportunity for the AI:
+
+```
+Trade Executed
+      ↓
+Wait for Outcome (hours/days)
+      ↓
+Calculate P&L and Metrics
+      ↓
+Store as Training Example
+      ↓
+Weekly Model Retraining
+      ↓
+Deploy Improved Model
+      ↓
+Better Future Trades
+```
+
+#### Example Learning Scenario
+
+**Initial Trade**:
+- AI recommends: BUY BTC based on positive news sentiment (score: 0.85)
+- Confidence: 80%
+- Position size: 10% of portfolio
+
+**Outcome (24 hours later)**:
+- BTC price: +3.5% (good prediction!)
+- Outcome logged: {"news_sentiment": 0.85, "actual_return": 0.035, "direction_correct": true}
+
+**Learning**:
+- AI increases weight for "positive news sentiment → bullish" pattern
+- Next time similar news appears, confidence increases to 85%
+- Model learns that sentiment score > 0.8 typically means >3% move
+
+**Counter-Example**:
+- AI recommends: BUY ETH based on positive news (score: 0.65)
+- Outcome: ETH price: -1.2% (wrong direction!)
+- Outcome logged: {"news_sentiment": 0.65, "actual_return": -0.012, "direction_correct": false}
+
+**Learning**:
+- AI learns that sentiment 0.65 is too weak for reliable signals
+- Raises threshold to 0.75 for future BUY signals
+- Adds rule: "Sentiment 0.6-0.75 → HOLD, not BUY"
+
+---
+
+### 5. AI System Monitoring
+
+**Real-Time AI Health Dashboard**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  AI Intelligence Monitor                     │
+│                                                              │
+│  News Surfing Agent          Status: 🟢 Active              │
+│    • Articles processed/hr: 1,245                           │
+│    • Signals generated: 3 (2 HOLD, 1 BUY)                   │
+│    • Last signal: 5 minutes ago                             │
+│                                                              │
+│  Strategy Adjustment Agent   Status: 🟢 Active              │
+│    • Current regime: Bull Market (confidence: 78%)          │
+│    • Active strategy: Momentum                              │
+│    • Last adjustment: 2 hours ago                           │
+│                                                              │
+│  Model Performance                                          │
+│    • Win rate (7d): 68% (target: >60%)                      │
+│    • Sharpe ratio (30d): 1.9 (excellent!)                   │
+│    • Max drawdown (30d): -5.2% (within limits)              │
+│                                                              │
+│  OpenAI API Status           Status: 🟢 Healthy             │
+│    • Latency: 1.2s avg                                      │
+│    • Requests today: 3,245 / 10,000 limit                   │
+│    • Cost today: $12.35                                     │
+│                                                              │
+│  Next Training Cycle: March 8, 2024 (in 3 days)             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Future Roadmap
 
 ### Phase 1: Enhanced Trading (Q1 2026)
@@ -2015,6 +2603,11 @@ Upon completion of AI analysis, the following artifacts are automatically genera
 | 1.0     | 2025-10-29 | Initial PRD creation                  | System |
 | 1.1     | 2025-10-29 | Added CI/CD & Deployment Pipeline section with AWS flow-shipping strategy | System |
 | 1.1     | 2025-10-29 | Added AI-Driven Project Initiation section with prediction & analysis framework | System |
+| 1.2     | 2025-10-29 | Enhanced with AI-Powered Trading Intelligence section | System |
+| 1.2     | 2025-10-29 | Added AI trading bot with strategy adjustment capabilities | System |
+| 1.2     | 2025-10-29 | Added news surfing & sentiment analysis system | System |
+| 1.2     | 2025-10-29 | Added custom model training & fine-tuning strategy | System |
+| 1.2     | 2025-10-29 | Updated architecture to show AI Intelligence Core at center | System |
 
 ---
 
