@@ -38,7 +38,7 @@ export function EarnOpportunities() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Opportunities</h2>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-slate-400">Min score</label>
+          <label className="text-sm text-slate-400" title="Filter products by overall score (0-1). Higher means more attractive considering APR, duration and liquidity.">Min score</label>
           <input
             type="number"
             step="0.05"
@@ -46,7 +46,8 @@ export function EarnOpportunities() {
             max="1"
             value={minScore}
             onChange={(e) => setMinScore(e.target.value)}
-            className="w-24 border border-slate-600 bg-slate-800 text-white p-2 rounded"
+            placeholder="0.70"
+            className="w-28 border border-slate-600 bg-slate-800 text-white p-2 rounded"
           />
           <button
             onClick={() => refetch()
@@ -112,24 +113,28 @@ function AutoPlanPanel() {
 
   return (
     <div className="p-4 bg-slate-800 rounded border border-slate-700">
-      <div className="font-semibold text-white mb-2">Auto-Subscribe Plan (dry run)</div>
+      <div className="font-semibold text-white mb-2">Auto-Subscribe Plan (simulation)</div>
+      <div className="mb-3 text-xs text-slate-400">Build a suggested allocation; this does not move funds.</div>
       <div className="grid grid-cols-3 gap-3 mb-3 text-slate-200">
         <label className="text-sm">Min APR
-          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.001" value={minApr} onChange={(e) => setMinApr(parseFloat(e.target.value))} />
+          <div className="text-xs text-slate-400">Only include products with APR ≥ this value.</div>
+          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.001" placeholder="0.03 = 3%" value={minApr} onChange={(e) => setMinApr(parseFloat(e.target.value))} />
         </label>
-        <label className="text-sm">Total %
-          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" value={totalPct} onChange={(e) => setTotalPct(parseFloat(e.target.value))} />
+        <label className="text-sm">Total % to allocate
+          <div className="text-xs text-slate-400">Fraction of your free USDT/USDC to deploy.</div>
+          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" placeholder="0.5 = 50%" value={totalPct} onChange={(e) => setTotalPct(parseFloat(e.target.value))} />
         </label>
-        <label className="text-sm">Max/Product %
-          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" value={maxPerProductPct} onChange={(e) => setMaxPerProductPct(parseFloat(e.target.value))} />
+        <label className="text-sm">Max per product %
+          <div className="text-xs text-slate-400">Cap per product to avoid concentration.</div>
+          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" placeholder="0.2 = 20%" value={maxPerProductPct} onChange={(e) => setMaxPerProductPct(parseFloat(e.target.value))} />
         </label>
       </div>
-      <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded" onClick={async () => {
+      <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded" title="Build a suggested allocation; no funds are moved." onClick={async () => {
         const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/plan', { minApr, totalPct, maxPerProductPct })
         setResult(res.data)
       }}>Build plan</button>
       {result && (
-        <button className="ml-2 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded" onClick={async () => {
+        <button className="ml-2 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded" title="Simulate the subscribe steps; no funds are moved." onClick={async () => {
           const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/execute', { dryRun: true, plan: result.plan })
           setExecuted(res.data)
         }}>Execute (dry run)</button>
@@ -150,16 +155,19 @@ function AutoPlanPanel() {
       )}
 
       <div className="mt-6">
-        <div className="font-semibold text-white mb-2">Unsubscribe Plan (dry run)</div>
+        <div className="font-semibold text-white mb-2">Unsubscribe Plan (simulation)</div>
+        <div className="mb-3 text-xs text-slate-400">Propose redeems to free liquidity or exit low-APR positions; no funds are moved.</div>
         <div className="grid grid-cols-3 gap-3 mb-3 text-slate-200">
           <label className="text-sm">Min APR
-            <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.001" value={unsubMinApr} onChange={(e) => setUnsubMinApr(parseFloat(e.target.value))} />
+            <div className="text-xs text-slate-400">Redeem positions with APR below this value.</div>
+            <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.001" placeholder="0.02 = 2%" value={unsubMinApr} onChange={(e) => setUnsubMinApr(parseFloat(e.target.value))} />
           </label>
           <label className="text-sm">Target free amount
-            <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" value={targetFree} onChange={(e) => setTargetFree(parseFloat(e.target.value))} />
+            <div className="text-xs text-slate-400">Additional stablecoins to free in Spot (e.g., for trades).</div>
+            <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" placeholder="e.g., 500" value={targetFree} onChange={(e) => setTargetFree(parseFloat(e.target.value))} />
           </label>
         </div>
-        <button className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded" onClick={async () => {
+        <button className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded" title="Build a suggested redeem plan; no funds are moved." onClick={async () => {
           const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/unsubscribe/plan', { minApr: unsubMinApr, targetFreeAmount: targetFree })
           setResult(res.data)
         }}>Build unsubscribe plan</button>
