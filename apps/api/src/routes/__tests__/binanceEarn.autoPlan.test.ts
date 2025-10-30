@@ -14,4 +14,12 @@ describe('POST /v1/binance/earn/auto/plan', () => {
   })
 })
 
+describe('POST /v1/binance/earn/auto/execute', () => {
+  it('requires plan items', async () => {
+    const app = createApp(mockDb, mockLogger, 'enc', 'secret', 'secret2')
+    const res = await request(app).post('/v1/binance/earn/auto/execute').send({ plan: [] })
+    expect(res.status).toBe(400)
+  })
+})
+
 

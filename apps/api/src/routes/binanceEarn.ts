@@ -226,5 +226,63 @@ export function binanceEarnRouter(
     }
   })
 
+  const ExecuteSchema = z.object({
+    dryRun: z.boolean().default(true),
+    plan: z.array(z.object({
+      productId: z.string(),
+      asset: z.string(),
+      amount: z.number().positive(),
+    })).min(1),
+  })
+
+  r.post('/v1/binance/earn/auto/execute', async (req: Request, res: Response) => {
+    try {
+      const parsed = ExecuteSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return res.status(400).json({
+          type: 'https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.1',
+          title: 'Bad Request',
+          status: 400,
+          detail: 'Validation failed',
+          errors: parsed.error.errors,
+          instance: req.path,
+          correlationId: req.correlationId,
+        })
+      }
+
+      let cfg = getBinanceConfig()
+      if (!cfg) {
+        const dbConfig = await getActiveExchangeConfig(_db, (process as any).env.ENCRYPTION_KEY, 'binance')
+        if (dbConfig) {
+          cfg = {
+            key: dbConfig.key,
+            secret: dbConfig.secret,
+            env: dbConfig.env,
+            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
+          }
+          setBinanceConfig(cfg)
+        } else {
+          return res.status(400).json({ error: 'Binance config not set' })
+        }
+      }
+
+      const { dryRun, plan } = parsed.data
+      const http = new BinanceHttpClient({ key: cfg.key, secret: cfg.secret, baseUrl: cfg.baseUrl || 'https://api.binance.com', env: cfg.env || 'live' })
+      const earn = new BinanceEarnClient(http)
+
+      // NOTE: Subscription API integration can be added; for now simulate actions
+      if (dryRun) {
+        return res.json({ executed: false, dryRun: true, steps: plan.map(p => ({ action: 'subscribe', ...p })) })
+      }
+
+      // Placeholder: in real mode, iterate and call Binance Earn subscribe endpoints
+      // For safety until fully implemented, reject non-dry runs
+      return res.status(501).json({ error: 'Live execution not yet implemented. Use dryRun.' })
+    } catch (err) {
+      logger.error({ err }, 'Failed to execute auto plan')
+      return res.status(500).json({ error: 'Failed to execute auto plan' })
+    }
+  })
+
   return r
 }

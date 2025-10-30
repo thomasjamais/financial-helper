@@ -106,6 +106,7 @@ function AutoPlanPanel() {
   const [totalPct, setTotalPct] = useState(0.5)
   const [maxPerProductPct, setMaxPerProductPct] = useState(0.2)
   const [result, setResult] = useState<any | null>(null)
+  const [executed, setExecuted] = useState<any | null>(null)
 
   return (
     <div className="p-4 bg-slate-800 rounded border border-slate-700">
@@ -126,6 +127,12 @@ function AutoPlanPanel() {
         setResult(res.data)
       }}>Build plan</button>
       {result && (
+        <button className="ml-2 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded" onClick={async () => {
+          const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/execute', { dryRun: true, plan: result.plan })
+          setExecuted(res.data)
+        }}>Execute (dry run)</button>
+      )}
+      {result && (
         <div className="mt-3 text-slate-300 text-sm">
           <div>Spot Stable: {JSON.stringify(result.spotStable)}</div>
           <div className="mt-2">Plan:</div>
@@ -135,6 +142,9 @@ function AutoPlanPanel() {
             ))}
           </ul>
         </div>
+      )}
+      {executed && (
+        <div className="mt-3 text-slate-300 text-sm">Executed (dry run): {executed.steps?.length} steps</div>
       )}
     </div>
   )
