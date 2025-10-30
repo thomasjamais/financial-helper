@@ -3,6 +3,7 @@ import { useState } from 'react'
 import axios from 'axios'
 import { useCurrency } from './CurrencyContext'
 import AssetTable from './AssetTable'
+import AssetTableTotals from './AssetTableTotals'
 
 type Portfolio = {
   assets: { asset: string; amount: number; priceUSD: number; priceEUR: number; valueUSD: number; valueEUR: number }[]
@@ -54,10 +55,8 @@ export function BinanceSpotOverview() {
 
       {assets.length > 0 && (
         <>
+          <AssetTableTotals totalUSD={data!.totalValueUSD} totalEUR={data!.totalValueEUR} />
           <AssetTable assets={assets as any} />
-          <div className="text-right text-slate-300">
-            Total: {currency === 'USD' ? '$' : '€'}{(totalValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
         </>
       )}
     </div>
