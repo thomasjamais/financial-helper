@@ -72,7 +72,11 @@ async function tick() {
     }
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('Bot tick failed', err instanceof Error ? err.message : String(err))
+    if (axios.isAxiosError(err)) {
+      console.error('Bot tick failed', err.response?.status, err.response?.data || err.message)
+    } else {
+      console.error('Bot tick failed', err instanceof Error ? err.message : String(err))
+    }
   }
 }
 
