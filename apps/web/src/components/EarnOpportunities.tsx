@@ -106,6 +106,8 @@ function AutoPlanPanel() {
   const [minApr, setMinApr] = useState(0.03)
   const [totalPct, setTotalPct] = useState(0.5)
   const [maxPerProductPct, setMaxPerProductPct] = useState(0.2)
+  const [minAmount, setMinAmount] = useState(5)
+  const [roundTo, setRoundTo] = useState(0.01)
   const [result, setResult] = useState<any | null>(null)
   const [executed, setExecuted] = useState<any | null>(null)
   const [unsubMinApr, setUnsubMinApr] = useState(0.02)
@@ -128,9 +130,17 @@ function AutoPlanPanel() {
           <div className="text-xs text-slate-400">Cap per product to avoid concentration.</div>
           <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" placeholder="0.2 = 20%" value={maxPerProductPct} onChange={(e) => setMaxPerProductPct(parseFloat(e.target.value))} />
         </label>
+        <label className="text-sm">Min amount
+          <div className="text-xs text-slate-400">Drop plan lines smaller than this amount.</div>
+          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" placeholder="e.g., 5" value={minAmount} onChange={(e) => setMinAmount(parseFloat(e.target.value))} />
+        </label>
+        <label className="text-sm">Round to
+          <div className="text-xs text-slate-400">Round down amounts to this step size.</div>
+          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" placeholder="0.01" value={roundTo} onChange={(e) => setRoundTo(parseFloat(e.target.value))} />
+        </label>
       </div>
       <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded" title="Build a suggested allocation; no funds are moved." onClick={async () => {
-        const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/plan', { minApr, totalPct, maxPerProductPct })
+        const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/plan', { minApr, totalPct, maxPerProductPct, minAmount, roundTo })
         setResult(res.data)
       }}>Build plan</button>
       {result && (
@@ -142,6 +152,9 @@ function AutoPlanPanel() {
       {result && (
         <div className="mt-3 text-slate-300 text-sm">
           <div>Spot Stable: {JSON.stringify(result.spotStable)}</div>
+          {result.stats && (
+            <div className="mt-1">Total planned: {result.stats.totalPlanned}</div>
+          )}
           <div className="mt-2">Plan:</div>
           <ul className="list-disc ml-6">
             {result.plan.map((p: any) => (
