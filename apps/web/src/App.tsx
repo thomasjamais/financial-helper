@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { ExchangeConfigManager } from './components/ExchangeConfigManager'
@@ -32,18 +32,7 @@ type Tab = 'dashboard' | 'portfolio' | 'configs'
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const { data: health } = useHealth()
-<<<<<<< HEAD
-  const [route, setRoute] = useState<string>(location.hash)
-  const isAuthPage = route === '#/login' || route === '#/signup'
-
-  useEffect(() => {
-    const onHashChange = () => setRoute(location.hash)
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
-=======
   const isAuthPage = location.hash === '#/login' || location.hash === '#/signup'
->>>>>>> feat(web): gate entire app (dashboard/portfolio/configs) behind auth; login/signup public
 
   return (
     <CurrencyProvider>
@@ -51,9 +40,8 @@ export default function App() {
         <div className="min-h-screen bg-slate-950 text-white">
           {isAuthPage ? (
             <main className="container mx-auto px-4 py-6">
-<<<<<<< HEAD
-              {route === '#/login' && <Login />}
-              {route === '#/signup' && <Signup />}
+              {location.hash === '#/login' && <Login />}
+              {location.hash === '#/signup' && <Signup />}
             </main>
           ) : (
             <Protected>
@@ -130,8 +118,8 @@ export default function App() {
 
                 {/* Main Content */}
                 <main className="container mx-auto px-4 py-6">
-                  {route === '#/profile' && <Profile />}
-                  {route === '#/users' && <UsersAdmin />}
+                  {location.hash === '#/profile' && <Profile />}
+                  {location.hash === '#/users' && <UsersAdmin />}
                   {activeTab === 'dashboard' && <DashboardView />}
                   {activeTab === 'portfolio' && <PortfolioTab />}
                   {activeTab === 'configs' && (
@@ -142,98 +130,6 @@ export default function App() {
                 </main>
               </div>
             </Protected>
-=======
-              {location.hash === '#/login' && <Login />}
-              {location.hash === '#/signup' && <Signup />}
-            </main>
-          ) : (
-          <Protected>
-            <div>
-          {/* Header */}
-          <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
-            <div className="container mx-auto px-4 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center font-bold text-xl">
-                    C
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-bold">Crypto Portfolio</h1>
-                    <p className="text-xs text-slate-400">
-                      {health?.ok ? (
-                        <span className="text-green-500">● Connected</span>
-                      ) : (
-                        <span className="text-red-500">● Disconnected</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          {/* Navigation Tabs - Mobile Friendly */}
-          <nav className="bg-slate-900 border-b border-slate-800">
-            <div className="container mx-auto px-4">
-              <div className="flex gap-1 overflow-x-auto items-center justify-between">
-                <div>
-                  <button
-                    onClick={() => setActiveTab('dashboard')}
-                    className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
-                      activeTab === 'dashboard'
-                        ? 'text-blue-400 border-b-2 border-blue-400'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Dashboard
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('portfolio')}
-                    className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
-                      activeTab === 'portfolio'
-                        ? 'text-blue-400 border-b-2 border-blue-400'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Portfolio
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('configs')}
-                    className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
-                      activeTab === 'configs'
-                        ? 'text-blue-400 border-b-2 border-blue-400'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Configs
-                  </button>
-                </div>
-                <CurrencyToggle />
-              </div>
-            </div>
-          </nav>
-
-          {/* Main Content */}
-          <main className="container mx-auto px-4 py-6">
-            {location.hash === '#/profile' && (
-                <Profile />
-            )}
-            {location.hash === '#/users' && (
-                <UsersAdmin />
-            )}
-            {activeTab === 'dashboard' && (
-                <DashboardView />
-            )}
-            {activeTab === 'portfolio' && <PortfolioTab />}
-            {activeTab === 'configs' && (
-              <div>
-                <ExchangeConfigManager />
-              </div>
-            )}
-          </main>
-            </div>
-          </Protected>
->>>>>>> feat(web): gate entire app (dashboard/portfolio/configs) behind auth; login/signup public
           )}
         </div>
       </AuthProvider>
