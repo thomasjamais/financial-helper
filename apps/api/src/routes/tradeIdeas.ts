@@ -298,6 +298,18 @@ export function tradeIdeasRouter(
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
       try {
+        const userId = req.user?.userId
+        if (!userId) {
+          return res.status(401).json({
+            type: 'https://tools.ietf.org/html/rfc7231#section-6.5.1',
+            title: 'Unauthorized',
+            status: 401,
+            detail: 'Missing user context',
+            instance: req.path,
+            correlationId: req.correlationId,
+          })
+        }
+
         const rows = await _db
           .selectFrom('trades')
           .select([
@@ -317,7 +329,7 @@ export function tradeIdeasRouter(
             'pnl_usd',
             'metadata',
           ])
-          .where('user_id', '=', req.user!.userId)
+          .where('user_id', '=', userId)
           .orderBy('opened_at', 'desc')
           .limit(200)
           .execute()
@@ -364,7 +376,15 @@ export function tradeIdeasRouter(
           return res.json(fallback)
         }
       } catch (err) {
-        return res.status(500).json({ error: 'Failed to compute PnL' })
+        req.logger?.error({ err, correlationId: req.correlationId }, 'Failed to compute PnL')
+        return res.status(500).json({
+          type: 'https://datatracker.ietf.org/doc/html/rfc7231#section-6.6.1',
+          title: 'Internal Server Error',
+          status: 500,
+          detail: 'Failed to compute PnL',
+          instance: req.path,
+          correlationId: req.correlationId,
+        })
       }
     },
   )
