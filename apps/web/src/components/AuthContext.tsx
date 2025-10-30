@@ -18,7 +18,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
-    if (token) setAccessToken(token)
+    if (token) {
+      setAccessToken(token)
+      // restore user from token and normalize URL if on auth routes
+      fetch((import.meta as any).env.VITE_API_URL + '/v1/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(async (res) => {
+        if (res.ok) {
+          const data = await res.json()
+          setUser({ id: data.userId, email: data.email })
+          if (location.hash === '#/login' || location.hash === '#/signup') {
+            history.replaceState(null, '', '/')
+            location.hash = ''
+            window.dispatchEvent(new HashChangeEvent('hashchange'))
+          }
+        }
+      }).catch(() => {})
+    }
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
@@ -36,6 +52,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessToken(data.accessToken)
       localStorage.setItem('accessToken', data.accessToken)
       localStorage.setItem('refreshToken', data.refreshToken)
+      // normalize URL to dashboard root
+      history.replaceState(null, '', '/')
+      location.hash = ''
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
     },
     signup: async (email: string, password: string, name?: string) => {
       const res = await fetch((import.meta as any).env.VITE_API_URL + '/v1/auth/signup', {
