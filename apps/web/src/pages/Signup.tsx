@@ -19,8 +19,11 @@ export default function Signup() {
       <input className="w-full mb-4 p-2 rounded bg-slate-700 text-white" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       <button className="w-full bg-purple-600 hover:bg-purple-700 text-white p-2 rounded" onClick={async () => {
         setError(null)
-        try { await signup(email, password, name); setDone(true) } catch (e) { setError('Signup failed') }
+        try { await signup(email, password, name); setDone(true); setTimeout(() => { location.hash = '#/login' }, 800) } catch (e) { setError('Signup failed') }
       }}>Create account</button>
+      <div className="text-slate-300 mt-3 text-sm text-center">
+        Already have an account? <button className="text-blue-400 hover:underline" onClick={() => { location.hash = '#/login' }}>Sign in</button>
+      </div>
     </div>
   )
 }

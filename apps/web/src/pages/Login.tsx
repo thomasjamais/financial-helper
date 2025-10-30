@@ -17,6 +17,9 @@ export default function Login() {
         setError(null)
         try { await signin(email, password) } catch (e) { setError('Invalid credentials') }
       }}>Sign in</button>
+      <div className="text-slate-300 mt-3 text-sm text-center">
+        No account? <button className="text-blue-400 hover:underline" onClick={() => { location.hash = '#/signup' }}>Create one</button>
+      </div>
     </div>
   )
 }
