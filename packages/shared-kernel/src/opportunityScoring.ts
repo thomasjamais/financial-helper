@@ -7,12 +7,15 @@ export type OpportunityInput = {
 
 export function scoreOpportunity(input: OpportunityInput): number {
   const aprScore = clamp01(input.apr)
-  const durationPenalty = input.durationDays ? Math.min(input.durationDays, 90) / 90 : 0
+  const durationPenalty = input.durationDays
+    ? Math.min(input.durationDays, 90) / 90
+    : 0
   const redeemBonus = input.redeemable ? 0.1 : 0
   const liquidity = input.liquidityScore ?? 0.5
 
   // Short-term preference: penalize long lockups, favor redeemable
-  const base = aprScore * 0.6 + (1 - durationPenalty) * 0.2 + redeemBonus + liquidity * 0.1
+  const base =
+    aprScore * 0.6 + (1 - durationPenalty) * 0.2 + redeemBonus + liquidity * 0.1
   return clamp01(base)
 }
 

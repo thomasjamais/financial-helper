@@ -11,6 +11,7 @@ import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
 import { getActiveExchangeConfig } from '../services/exchangeConfigService'
 import { filterBalances } from '../services/balanceFilter'
 import { buildPortfolio } from '../services/portfolioService'
+import { fetchBinanceEarnBalances } from '../services/earnService'
 import {
   calculateConversion,
   type ConversionTarget,
@@ -327,8 +328,11 @@ export function binanceRouter(
       })
 
       log.debug('Fetching all spot balances')
-      const allBalances = await adapter.getBalances('spot')
-      log.debug({ count: allBalances.length }, 'All balances fetched')
+      const spotBalances = await adapter.getBalances('spot')
+      log.debug({ count: spotBalances.length }, 'All balances fetched')
+
+      const earnBalances = await fetchBinanceEarnBalances()
+      const allBalances = [...spotBalances, ...earnBalances]
 
       const portfolio = await buildPortfolio(allBalances)
 
