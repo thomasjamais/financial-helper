@@ -9,6 +9,7 @@ import { BinanceEarnOverview } from './components/BinanceEarnOverview'
 import StatCard from './components/StatCard'
 import { CurrencyProvider, useCurrency } from './components/CurrencyContext'
 import AiTrades from './components/AiTrades'
+import Signals from './components/Signals'
 import { AuthProvider } from './components/AuthContext'
 import Protected from './components/Protected'
 import Login from './pages/Login'
@@ -28,7 +29,7 @@ function useHealth() {
   })
 }
 
-type Tab = 'dashboard' | 'portfolio' | 'ai' | 'configs'
+type Tab = 'dashboard' | 'portfolio' | 'ai' | 'signals' | 'configs'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
@@ -119,6 +120,16 @@ export default function App() {
                           AI Trades
                         </button>
                         <button
+                          onClick={() => setActiveTab('signals')}
+                          className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
+                            activeTab === 'signals'
+                              ? 'text-blue-400 border-b-2 border-blue-400'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Signals
+                        </button>
+                        <button
                           onClick={() => setActiveTab('configs')}
                           className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
                             activeTab === 'configs'
@@ -141,6 +152,8 @@ export default function App() {
                   {activeTab === 'dashboard' && <DashboardView />}
                   {activeTab === 'portfolio' && <PortfolioTab />}
                   {activeTab === 'ai' && <AiTrades />}
+                  {activeTab === 'ai' && <AiTrades />}
+                  {activeTab === 'signals' && <Signals />}
                   {activeTab === 'configs' && (
                     <div>
                       <ExchangeConfigManager />

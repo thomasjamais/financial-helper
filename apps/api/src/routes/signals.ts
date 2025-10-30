@@ -34,12 +34,43 @@ export function signalsRouter(_db: Kysely<DB>, logger: Logger, authService: Auth
         })
       }
 
-      // For now, just log the signal. Later we can store in DB and trigger workflows.
-      log.info({ signal: parsed.data }, 'Signal received')
+      // Persist signal
+      const s = parsed.data
+      await _db
+        .insertInto('signals')
+        .values({
+          user_id: req.user!.userId,
+          source: s.source,
+          asset: s.asset,
+          action: s.action,
+          confidence: s.confidence,
+          reason: s.reason ?? null,
+          metadata: s.metadata ?? null,
+        })
+        .execute()
+
+      log.info({ signal: s }, 'Signal received')
       return res.json({ ok: true })
     } catch (err) {
       log.error({ err }, 'Failed to accept signal')
       return res.status(500).json({ error: 'Failed to accept signal' })
+    }
+  })
+
+  r.get('/v1/signals', authMiddleware(authService, logger), async (req: Request, res: Response) => {
+    const log = req.logger || logger.child({ endpoint: '/v1/signals' })
+    try {
+      const rows = await _db
+        .selectFrom('signals')
+        .select(['id', 'source', 'asset', 'action', 'confidence', 'reason', 'metadata', 'created_at'])
+        .where('user_id', '=', req.user!.userId)
+        .orderBy('created_at', 'desc')
+        .limit(200)
+        .execute()
+      return res.json(rows)
+    } catch (err) {
+      log.error({ err }, 'Failed to list signals')
+      return res.status(500).json({ error: 'Failed to list signals' })
     }
   })
 

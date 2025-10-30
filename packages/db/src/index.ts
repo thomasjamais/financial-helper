@@ -55,6 +55,18 @@ export interface ExchangeConfigTable {
   updated_at: Generated<Date>
 }
 
+export interface SignalTable {
+  id: Generated<number>
+  user_id: string
+  source: string
+  asset: string
+  action: string
+  confidence: number
+  reason: string | null
+  metadata: unknown | null
+  created_at: Generated<Date>
+}
+
 export type User = Selectable<UserTable>
 export type NewUser = Insertable<UserTable>
 export type UserUpdate = Updateable<UserTable>
@@ -75,6 +87,7 @@ export interface DB {
   refresh_tokens: RefreshTokenTable
   auth_audit_log: AuthAuditLogTable
   exchange_configs: ExchangeConfigTable
+  signals: SignalTable
 }
 
 export function createDb(connectionString?: string): Kysely<DB> {
