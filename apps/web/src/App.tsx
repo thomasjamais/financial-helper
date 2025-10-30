@@ -12,6 +12,7 @@ import AiTrades from './components/AiTrades'
 import Signals from './components/Signals'
 import TradeIdeas from './components/TradeIdeas'
 import Trades from './components/Trades'
+import TradeDetail from './components/TradeDetail'
 import { AuthProvider } from './components/AuthContext'
 import Protected from './components/Protected'
 import Login from './pages/Login'
@@ -177,6 +178,11 @@ export default function App() {
                   {activeTab === 'ai' && <AiTrades />}
                   {activeTab === 'signals' && <Signals />}
                   {activeTab === 'trades' && <Trades />}
+                  {route.startsWith('#/trade/') && (
+                    <div className="mt-6">
+                      <TradeDetail tradeId={Number(route.replace('#/trade/', ''))} />
+                    </div>
+                  )}
                   {activeTab === 'ideas' && <TradeIdeas />}
                   {activeTab === 'configs' && (
                     <div>
