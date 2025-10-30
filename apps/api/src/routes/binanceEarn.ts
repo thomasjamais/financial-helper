@@ -74,15 +74,22 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
 
         // Map, score, filter — skip incomplete rows coming from upstream
         const mapped: Array<z.infer<typeof ProductSchema>> = live
-          .filter((p) => typeof p.asset === 'string' && typeof p.name === 'string' && typeof p.apr === 'number')
+          .filter(
+            (p) =>
+              typeof p.asset === 'string' &&
+              typeof p.name === 'string' &&
+              typeof p.apr === 'number',
+          )
           .map((p) => ({
             id: p.id,
             asset: p.asset as string,
             name: p.name as string,
             type: p.type,
             apr: Number(p.apr),
-            durationDays: typeof p.durationDays === 'number' ? p.durationDays : undefined,
-            redeemable: typeof p.redeemable === 'boolean' ? p.redeemable : false,
+            durationDays:
+              typeof p.durationDays === 'number' ? p.durationDays : undefined,
+            redeemable:
+              typeof p.redeemable === 'boolean' ? p.redeemable : false,
           }))
         const scored = mapped.map((p) => ({
           ...p,
