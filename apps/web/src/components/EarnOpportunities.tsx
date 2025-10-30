@@ -107,6 +107,8 @@ function AutoPlanPanel() {
   const [maxPerProductPct, setMaxPerProductPct] = useState(0.2)
   const [result, setResult] = useState<any | null>(null)
   const [executed, setExecuted] = useState<any | null>(null)
+  const [unsubMinApr, setUnsubMinApr] = useState(0.02)
+  const [targetFree, setTargetFree] = useState(0)
 
   return (
     <div className="p-4 bg-slate-800 rounded border border-slate-700">
@@ -146,6 +148,22 @@ function AutoPlanPanel() {
       {executed && (
         <div className="mt-3 text-slate-300 text-sm">Executed (dry run): {executed.steps?.length} steps</div>
       )}
+
+      <div className="mt-6">
+        <div className="font-semibold text-white mb-2">Unsubscribe Plan (dry run)</div>
+        <div className="grid grid-cols-3 gap-3 mb-3 text-slate-200">
+          <label className="text-sm">Min APR
+            <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.001" value={unsubMinApr} onChange={(e) => setUnsubMinApr(parseFloat(e.target.value))} />
+          </label>
+          <label className="text-sm">Target free amount
+            <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" value={targetFree} onChange={(e) => setTargetFree(parseFloat(e.target.value))} />
+          </label>
+        </div>
+        <button className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded" onClick={async () => {
+          const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/unsubscribe/plan', { minApr: unsubMinApr, targetFreeAmount: targetFree })
+          setResult(res.data)
+        }}>Build unsubscribe plan</button>
+      </div>
     </div>
   )
 }
