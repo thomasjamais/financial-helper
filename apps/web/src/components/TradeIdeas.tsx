@@ -25,6 +25,15 @@ export default function TradeIdeas() {
     enabled: !!accessToken,
     refetchInterval: 60000,
   })
+  async function executeIdea(id: number) {
+    if (!confirm('Execute this idea with moderate risk TL/TP?')) return
+    await axios.post(
+      `${API_BASE}/v1/trade-ideas/${id}/execute`,
+      { confirm: true, budgetUSD: 50, risk: 'moderate' },
+      { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined },
+    )
+    await refetch()
+  }
 
   return (
     <div className="space-y-4 bg-slate-900 rounded-lg p-6">
@@ -47,6 +56,7 @@ export default function TradeIdeas() {
                 <th className="text-left p-3 text-slate-300">Side</th>
                 <th className="text-right p-3 text-slate-300">Score</th>
                 <th className="text-left p-3 text-slate-300">Reason</th>
+                <th className="text-right p-3 text-slate-300">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -58,11 +68,14 @@ export default function TradeIdeas() {
                   <td className="p-3 text-slate-300">{s.side}</td>
                   <td className="p-3 text-right text-slate-300">{(s.score*100).toFixed(0)}%</td>
                   <td className="p-3 text-slate-300">{s.reason || '-'}</td>
+                  <td className="p-3 text-right">
+                    <button onClick={() => executeIdea(s.id)} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">Execute</button>
+                  </td>
                 </tr>
               ))}
               {(!data || data.length === 0) && !isLoading && (
                 <tr>
-                  <td colSpan={6} className="p-4 text-center text-slate-400">No trade ideas</td>
+                  <td colSpan={7} className="p-4 text-center text-slate-400">No trade ideas</td>
                 </tr>
               )}
             </tbody>
