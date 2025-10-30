@@ -4,7 +4,11 @@ import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
 import { z } from 'zod'
 import { scoreOpportunity } from '@pkg/shared-kernel/src/opportunityScoring'
-import { BinanceEarnClient, BinanceHttpClient, BinanceAdapter } from '@pkg/exchange-adapters'
+import {
+  BinanceEarnClient,
+  BinanceHttpClient,
+  BinanceAdapter,
+} from '@pkg/exchange-adapters'
 import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
 import { getActiveExchangeConfig } from '../services/exchangeConfigService'
 import { buildPortfolio } from '../services/portfolioService'
@@ -291,7 +295,7 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
           amount: z.number().positive(),
         }),
       )
-      .min(1),
+      .default([]),
   })
 
   r.post(
@@ -306,6 +310,17 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
             status: 400,
             detail: 'Validation failed',
             errors: parsed.error.errors,
+            instance: req.path,
+            correlationId: req.correlationId,
+          })
+        }
+        // Require non-empty plan only when executing live
+        if (!parsed.data.dryRun && parsed.data.plan.length === 0) {
+          return res.status(400).json({
+            type: 'https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.1',
+            title: 'Bad Request',
+            status: 400,
+            detail: 'plan is required when dryRun=false',
             instance: req.path,
             correlationId: req.correlationId,
           })
