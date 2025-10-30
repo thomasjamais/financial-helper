@@ -279,6 +279,8 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
         apr: number
         amount: number
       }> = []
+      let cappedCount = 0
+      let unusedBudgetTotal = 0
       for (const asset of assetPool) {
         const free = stableFree[asset] || 0
         if (free <= 0) continue
@@ -299,8 +301,10 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
               amount: Number(amount.toFixed(2)),
             })
             remaining -= amount
+            if (amount + 1e-9 >= cap) cappedCount += 1
           }
         }
+        if (remaining > 0) unusedBudgetTotal += Number(remaining.toFixed(2))
       }
 
       const totalPlanned = plan.reduce((s, x) => s + x.amount, 0)
@@ -321,6 +325,8 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
         dryRun: true,
         stats: {
           totalPlanned,
+          unusedBudgetTotal,
+          cappedCount,
         },
       })
     } catch (err) {
