@@ -1,9 +1,16 @@
-import { Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useAuth } from './AuthContext'
 
 export default function Protected({ children }: { children: JSX.Element }) {
   const { accessToken } = useAuth()
-  if (!accessToken) return <Navigate to="/login" replace />
+  useEffect(() => {
+    if (!accessToken) {
+      if (location.hash !== '#/login') {
+        location.hash = '#/login'
+      }
+    }
+  }, [accessToken])
+  if (!accessToken) return null
   return children
 }
 
