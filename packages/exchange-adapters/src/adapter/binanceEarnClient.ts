@@ -94,21 +94,25 @@ export class BinanceEarnClient {
     return products
   }
 
-  async subscribeFlexible(params: { asset: string; amount: number }): Promise<{ success: boolean }> {
-    await this.http.call(
-      'POST',
-      '/sapi/v1/simple-earn/flexible/subscribe',
-      { asset: params.asset, amount: params.amount },
-    )
+  async subscribeFlexible(params: {
+    asset: string
+    amount: number
+  }): Promise<{ success: boolean }> {
+    await this.http.call('POST', '/sapi/v1/simple-earn/flexible/subscribe', {
+      asset: params.asset,
+      amount: params.amount,
+    })
     return { success: true }
   }
 
-  async redeemFlexible(params: { asset: string; amount: number }): Promise<{ success: boolean }> {
-    await this.http.call(
-      'POST',
-      '/sapi/v1/simple-earn/flexible/redeem',
-      { asset: params.asset, amount: params.amount },
-    )
+  async redeemFlexible(params: {
+    asset: string
+    amount: number
+  }): Promise<{ success: boolean }> {
+    await this.http.call('POST', '/sapi/v1/simple-earn/flexible/redeem', {
+      asset: params.asset,
+      amount: params.amount,
+    })
     return { success: true }
   }
 }

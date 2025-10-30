@@ -416,11 +416,14 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
         }
 
         if (!confirm) {
-          return res.status(400).json({ error: 'Confirmation required for live execution' })
+          return res
+            .status(400)
+            .json({ error: 'Confirmation required for live execution' })
         }
 
         // Live execution: subscribe to flexible products only
-        const results: Array<{ asset: string; amount: number; ok: boolean }> = []
+        const results: Array<{ asset: string; amount: number; ok: boolean }> =
+          []
         for (const p of plan) {
           try {
             await earn.subscribeFlexible({ asset: p.asset, amount: p.amount })

@@ -9,6 +9,8 @@ import { exchangeConfigsRouter } from './routes/exchangeConfigs'
 import { binanceEarnRouter } from './routes/binanceEarn'
 import { authRouter } from './routes/auth'
 import { usersRouter } from './routes/users'
+import { signalsRouter } from './routes/signals'
+import { AuthService } from './services/AuthService'
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from './logger'
@@ -53,6 +55,8 @@ export function createApp(
   app.use(binanceEarnRouter(db, logger))
   app.use(exchangeConfigsRouter(db, logger, encKey))
   app.use(usersRouter(db, logger))
+  const authService = new AuthService(db, logger, jwtSecret, jwtRefreshSecret)
+  app.use(signalsRouter(db, logger, authService))
 
   app.use(errorHandler(logger))
 

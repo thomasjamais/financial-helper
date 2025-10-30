@@ -123,6 +123,9 @@ importers:
       '@pkg/exchange-adapters':
         specifier: workspace:*
         version: link:../../packages/exchange-adapters
+      axios:
+        specifier: ^1.7.7
+        version: 1.7.7
       ioredis:
         specifier: ^5.4.1
         version: 5.4.1
@@ -1850,7 +1853,7 @@ packages:
       '@vitest/spy': 2.1.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 5.4.21(@types/node@24.9.2)
+      vite: 5.4.21(@types/node@20.11.30)
     dev: true
 
   /@vitest/pretty-format@2.1.1:
@@ -5208,6 +5211,45 @@ packages:
       - sugarss
       - supports-color
       - terser
+    dev: true
+
+  /vite@5.4.21(@types/node@20.11.30):
+    resolution: {integrity: sha512-o5a9xKjbtuhY6Bi5S3+HvbRERmouabWbyUcpXXUA1u+GNUKoROi9byOJ8M0nHbHYHkYICiMlqxkg1KkYmm25Sw==}
+    engines: {node: ^18.0.0 || >=20.0.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': ^18.0.0 || >=20.0.0
+      less: '*'
+      lightningcss: ^1.21.0
+      sass: '*'
+      sass-embedded: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.4.0
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      less:
+        optional: true
+      lightningcss:
+        optional: true
+      sass:
+        optional: true
+      sass-embedded:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+    dependencies:
+      '@types/node': 20.11.30
+      esbuild: 0.21.5
+      postcss: 8.5.6
+      rollup: 4.52.5
+    optionalDependencies:
+      fsevents: 2.3.3
     dev: true
 
   /vite@5.4.21(@types/node@22.9.0):
