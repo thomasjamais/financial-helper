@@ -112,6 +112,7 @@ function AutoPlanPanel() {
   const [executed, setExecuted] = useState<any | null>(null)
   const [unsubMinApr, setUnsubMinApr] = useState(0.02)
   const [targetFree, setTargetFree] = useState(0)
+  const [confirmLive, setConfirmLive] = useState(false)
 
   return (
     <div className="p-4 bg-slate-800 rounded border border-slate-700">
@@ -148,6 +149,18 @@ function AutoPlanPanel() {
           const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/execute', { dryRun: true, plan: result.plan })
           setExecuted(res.data)
         }}>Execute (dry run)</button>
+      )}
+      {result && (
+        <label className="ml-3 inline-flex items-center gap-2 text-slate-300 text-sm">
+          <input type="checkbox" checked={confirmLive} onChange={(e) => setConfirmLive(e.target.checked)} />
+          I confirm I want to execute subscriptions live
+        </label>
+      )}
+      {result && (
+        <button disabled={!confirmLive} className="ml-2 px-3 py-2 bg-green-600 disabled:opacity-50 hover:bg-green-700 text-white rounded" title="Execute live subscriptions on Binance Flexible Earn for the plan above." onClick={async () => {
+          const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/execute', { dryRun: false, confirm: true, plan: result.plan })
+          setExecuted(res.data)
+        }}>Execute (live)</button>
       )}
       {result && (
         <div className="mt-3 text-slate-300 text-sm">
