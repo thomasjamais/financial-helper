@@ -1,4 +1,11 @@
-import { Kysely, PostgresDialect, Insertable, Updateable, Selectable, Generated } from 'kysely'
+import {
+  Kysely,
+  PostgresDialect,
+  Insertable,
+  Updateable,
+  Selectable,
+  Generated,
+} from 'kysely'
 import pg from 'pg'
 export { runMigrations } from './migrate'
 
@@ -32,7 +39,14 @@ export interface AuthAuditLogTable {
   id: Generated<number>
   user_id: string | null
   email: string
-  event_type: 'signup' | 'signin' | 'signout' | 'refresh' | 'failed_login' | 'password_reset' | 'account_locked'
+  event_type:
+    | 'signup'
+    | 'signin'
+    | 'signout'
+    | 'refresh'
+    | 'failed_login'
+    | 'password_reset'
+    | 'account_locked'
   ip_address: string | null
   user_agent: string | null
   correlation_id: string | null
@@ -77,6 +91,7 @@ export interface TradeIdeaTable {
   reason: string | null
   metadata: unknown | null
   created_at: Generated<Date>
+  history: unknown
 }
 
 export interface TradeTable {

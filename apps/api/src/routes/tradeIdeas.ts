@@ -38,18 +38,52 @@ export function tradeIdeasRouter(_db: Kysely<DB>, logger: Logger, authService: A
       }
 
       const d = parsed.data
-      await _db
-        .insertInto('trade_ideas')
-        .values({
-          user_id: req.user!.userId,
-          exchange: d.exchange,
-          symbol: d.symbol,
-          side: d.side,
-          score: d.score,
-          reason: d.reason ?? null,
-          metadata: d.metadata ?? null,
-        })
-        .execute()
+      const existing = await _db
+        .selectFrom('trade_ideas')
+        .selectAll()
+        .where('user_id', '=', req.user!.userId)
+        .where('exchange', '=', d.exchange)
+        .where('symbol', '=', d.symbol)
+        .executeTakeFirst()
+
+      const historyEntry = {
+        ts: new Date().toISOString(),
+        side: d.side,
+        score: d.score,
+        reason: d.reason ?? null,
+        metadata: d.metadata ?? null,
+      }
+
+      if (existing) {
+        const newHistory = Array.isArray((existing as any).history)
+          ? ([...((existing as any).history as any[]), historyEntry])
+          : [historyEntry]
+        await _db
+          .updateTable('trade_ideas')
+          .set({
+            side: d.side,
+            score: d.score,
+            reason: d.reason ?? null,
+            metadata: d.metadata ?? null,
+            history: newHistory as any,
+          })
+          .where('id', '=', (existing as any).id)
+          .execute()
+      } else {
+        await _db
+          .insertInto('trade_ideas')
+          .values({
+            user_id: req.user!.userId,
+            exchange: d.exchange,
+            symbol: d.symbol,
+            side: d.side,
+            score: d.score,
+            reason: d.reason ?? null,
+            metadata: d.metadata ?? null,
+            history: [historyEntry] as any,
+          })
+          .execute()
+      }
 
       return res.json({ ok: true })
     } catch (err) {
@@ -62,7 +96,7 @@ export function tradeIdeasRouter(_db: Kysely<DB>, logger: Logger, authService: A
     try {
       const rows = await _db
         .selectFrom('trade_ideas')
-        .select(['id', 'exchange', 'symbol', 'side', 'score', 'reason', 'metadata', 'created_at'])
+        .select(['id', 'exchange', 'symbol', 'side', 'score', 'reason', 'metadata', 'created_at', 'history'])
         .where('user_id', '=', req.user!.userId)
         .orderBy('created_at', 'desc')
         .limit(200)

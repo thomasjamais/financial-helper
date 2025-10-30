@@ -32,7 +32,14 @@ function useHealth() {
   })
 }
 
-type Tab = 'dashboard' | 'portfolio' | 'ai' | 'ideas' | 'trades' | 'signals' | 'configs'
+type Tab =
+  | 'dashboard'
+  | 'portfolio'
+  | 'ai'
+  | 'ideas'
+  | 'trades'
+  | 'signals'
+  | 'configs'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
@@ -180,7 +187,9 @@ export default function App() {
                   {activeTab === 'trades' && <Trades />}
                   {route.startsWith('#/trade/') && (
                     <div className="mt-6">
-                      <TradeDetail tradeId={Number(route.replace('#/trade/', ''))} />
+                      <TradeDetail
+                        tradeId={Number(route.replace('#/trade/', ''))}
+                      />
                     </div>
                   )}
                   {activeTab === 'ideas' && <TradeIdeas />}
