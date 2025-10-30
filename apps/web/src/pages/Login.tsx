@@ -30,6 +30,10 @@ export default function Login() {
           setError(null)
           try {
             await signin(email, password)
+            // redirect to dashboard (clears auth route)
+            if (location.hash === '#/login') {
+              location.hash = ''
+            }
           } catch (e) {
             setError('Invalid credentials')
           }
