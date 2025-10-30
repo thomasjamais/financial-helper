@@ -81,7 +81,7 @@ function useRebalance() {
       (
         await axios.post<RebalanceAdvice>(
           '/v1/binance/rebalance',
-          {},
+          { mode: 'overview' },
           {
             baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
           },
@@ -98,6 +98,7 @@ export function BinancePortfolio() {
   const [convertAmount, setConvertAmount] = useState<string>('')
   const [convertTo, setConvertTo] = useState<'BTC' | 'BNB' | 'ETH'>('BTC')
   const [showRebalance, setShowRebalance] = useState(false)
+  const [rebalanceMode, setRebalanceMode] = useState<'spot' | 'earn' | 'overview'>('overview')
 
   const { data: portfolio, isLoading, error } = usePortfolio()
   const convert = useConvert()
@@ -322,8 +323,34 @@ export function BinancePortfolio() {
                   <p className="text-sm text-slate-400 mb-3">
                     Uses OpenAI API key from server environment variables.
                   </p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm text-slate-300">Mode:</span>
+                    <select
+                      className="border border-slate-600 bg-slate-700 text-white p-1 rounded"
+                      value={rebalanceMode}
+                      onChange={(e) => setRebalanceMode(e.target.value as any)}
+                    >
+                      <option value="overview">Overview</option>
+                      <option value="spot">Spot only</option>
+                      <option value="earn">Earn only</option>
+                    </select>
+                  </div>
                   <button
-                    onClick={() => rebalance.refetch()}
+                    onClick={() => {
+                      // Re-run with selected mode
+                      (rebalance as any).remove()
+                      ;(rebalance as any).refetch({
+                        queryKey: ['rebalance', 'binance', rebalanceMode],
+                        meta: undefined,
+                      })
+                      axios.post<RebalanceAdvice>(
+                        '/v1/binance/rebalance',
+                        { mode: rebalanceMode },
+                        { baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080' },
+                      ).then((r) => {
+                        (rebalance as any).data = r.data
+                      })
+                    }}
                     disabled={rebalance.isFetching}
                     className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded disabled:opacity-50 transition"
                   >

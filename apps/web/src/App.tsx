@@ -6,6 +6,7 @@ import { BinancePortfolio } from './components/BinancePortfolio'
 import { BinanceSpotOverview } from './components/BinanceSpotOverview'
 import { EarnOpportunities } from './components/EarnOpportunities'
 import { BinanceEarnOverview } from './components/BinanceEarnOverview'
+import { CurrencyProvider, useCurrency } from './components/CurrencyContext'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
@@ -23,6 +24,7 @@ export default function App() {
   const { data: health } = useHealth()
 
   return (
+    <CurrencyProvider>
     <div className="min-h-screen bg-slate-950 text-white">
       {/* Header */}
       <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
@@ -50,7 +52,8 @@ export default function App() {
       {/* Navigation Tabs - Mobile Friendly */}
       <nav className="bg-slate-900 border-b border-slate-800">
         <div className="container mx-auto px-4">
-          <div className="flex gap-1 overflow-x-auto">
+          <div className="flex gap-1 overflow-x-auto items-center justify-between">
+            <div>
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
@@ -81,6 +84,8 @@ export default function App() {
             >
               Configs
             </button>
+            </div>
+            <CurrencyToggle />
           </div>
         </div>
       </nav>
@@ -96,6 +101,7 @@ export default function App() {
         )}
       </main>
     </div>
+    </CurrencyProvider>
   )
 }
 
@@ -154,6 +160,7 @@ function PortfolioTab() {
 }
 
 function DashboardView() {
+  const { currency } = useCurrency()
   const { data: bitgetBalances } = useQuery({
     queryKey: ['balances', 'bitget'],
     queryFn: async () => (await axios.get(`${API_BASE}/v1/balances`)).data,
@@ -177,14 +184,21 @@ function DashboardView() {
     refetchInterval: 30000,
   })
 
+  const { data: earnPortfolio } = useQuery({
+    queryKey: ['portfolio', 'binance', 'earn'],
+    queryFn: async () => (await axios.get(`${API_BASE}/v1/binance/portfolio/earn`)).data,
+    retry: false,
+    refetchInterval: 30000,
+  })
+
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Portfolio"
-          value={`$${
-            portfolio?.totalValueUSD?.toLocaleString(undefined, {
+          value={`${currency === 'USD' ? '$' : '€'}${
+            (currency === 'USD' ? portfolio?.totalValueUSD : portfolio?.totalValueEUR)?.toLocaleString(undefined, {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             }) || '0.00'
@@ -246,6 +260,52 @@ function DashboardView() {
           balances={bitgetBalances}
           color="purple"
         />
+      </div>
+
+      {/* Binance Earn Snapshot */}
+      <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
+        <h3 className="text-xl font-bold mb-4">Binance Earn (Top 5)</h3>
+        <SmallPortfolioTable assets={(earnPortfolio?.assets || []).slice(0, 5)} currency={currency} />
+      </div>
+    </div>
+  )
+}
+
+function CurrencyToggle() {
+  const { currency, setCurrency } = useCurrency()
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-slate-400">Currency:</span>
+      <button onClick={() => setCurrency('USD')} className={`px-3 py-1 rounded ${currency === 'USD' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>USD</button>
+      <button onClick={() => setCurrency('EUR')} className={`px-3 py-1 rounded ${currency === 'EUR' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>EUR</button>
+    </div>
+  )
+}
+
+function SmallPortfolioTable({ assets, currency }: { assets: any[]; currency: 'USD' | 'EUR' }) {
+  return (
+    <div className="border rounded-lg overflow-hidden border-slate-700 bg-slate-800">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-slate-700">
+            <tr>
+              <th className="text-left p-3 text-slate-300">Asset</th>
+              <th className="text-right p-3 text-slate-300">Amount</th>
+              <th className="text-right p-3 text-slate-300">Price</th>
+              <th className="text-right p-3 text-slate-300">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assets.map((a) => (
+              <tr key={a.asset} className="border-t border-slate-700">
+                <td className="p-3 text-white">{a.asset}</td>
+                <td className="p-3 text-right text-slate-300">{a.amount.toFixed(6)}</td>
+                <td className="p-3 text-right text-slate-300">{currency === 'USD' ? '$' : '€'}{(currency === 'USD' ? a.priceUSD : a.priceEUR).toFixed(4)}</td>
+                <td className="p-3 text-right text-slate-300">{currency === 'USD' ? '$' : '€'}{(currency === 'USD' ? a.valueUSD : a.valueEUR).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

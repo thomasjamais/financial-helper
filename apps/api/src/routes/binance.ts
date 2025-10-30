@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import {
   BinanceAdapter,
+  BinanceHttpClient,
+  BinanceEarnClient,
   type BinanceConfig,
   type Balance,
 } from '@pkg/exchange-adapters'
@@ -11,7 +13,6 @@ import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
 import { getActiveExchangeConfig } from '../services/exchangeConfigService'
 import { filterBalances } from '../services/balanceFilter'
 import { buildPortfolio } from '../services/portfolioService'
-import { fetchBinanceEarnBalances } from '../services/earnService'
 import {
   calculateConversion,
   type ConversionTarget,
@@ -230,6 +231,41 @@ export function binanceRouter(
     }
   })
 
+  r.get('/v1/binance/portfolio/spot', async (req: Request, res: Response) => {
+    const log =
+      req.logger || logger.child({ endpoint: '/v1/binance/portfolio/spot' })
+    try {
+      let cfg = getBinanceConfig()
+      if (!cfg) {
+        const dbConfig = await getActiveExchangeConfig(db, encKey, 'binance')
+        if (dbConfig) {
+          cfg = {
+            key: dbConfig.key,
+            secret: dbConfig.secret,
+            env: dbConfig.env,
+            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
+          }
+          setBinanceConfig(cfg)
+        } else {
+          return res.status(400).json({ error: 'Binance config not set' })
+        }
+      }
+
+      const adapter = new BinanceAdapter({
+        key: cfg.key,
+        secret: cfg.secret,
+        env: cfg.env,
+        baseUrl: cfg.baseUrl,
+      })
+      const spotBalances = await adapter.getBalances('spot')
+      const portfolio = await buildPortfolio(spotBalances)
+      return res.json(portfolio)
+    } catch (err) {
+      log.error({ err }, 'Failed to build spot portfolio')
+      return res.status(500).json({ error: 'Failed to build spot portfolio' })
+    }
+  })
+
   r.get('/v1/binance/orders', async (req: Request, res: Response) => {
     const log = req.logger || logger.child({ endpoint: '/v1/binance/orders' })
     try {
@@ -331,7 +367,14 @@ export function binanceRouter(
       const spotBalances = await adapter.getBalances('spot')
       log.debug({ count: spotBalances.length }, 'All balances fetched')
 
-      const earnBalances = await fetchBinanceEarnBalances()
+      const http = new BinanceHttpClient({
+        key: cfg.key,
+        secret: cfg.secret,
+        baseUrl: cfg.baseUrl || 'https://api.binance.com',
+        env: cfg.env || 'live',
+      })
+      const earnClient = new BinanceEarnClient(http)
+      const earnBalances = await earnClient.getEarnBalances()
       const allBalances = [...spotBalances, ...earnBalances]
 
       const portfolio = await buildPortfolio(allBalances)
@@ -458,6 +501,7 @@ export function binanceRouter(
       req.logger || logger.child({ endpoint: '/v1/binance/rebalance' })
     try {
       const Schema = z.object({
+        mode: z.enum(['spot', 'earn', 'overview']).default('overview'),
         targetAllocations: z.record(z.number()).optional(),
       })
       const parsed = Schema.safeParse(req.body)
@@ -494,8 +538,23 @@ export function binanceRouter(
           error: (msg: string, data?: unknown) => log.error(data, msg),
         },
       })
-
-      const balances = await adapter.getBalances('spot')
+      const mode = parsed.success ? parsed.data.mode : 'overview'
+      let balances: Balance[] = []
+      if (mode === 'spot' || mode === 'overview') {
+        const spot = await adapter.getBalances('spot')
+        balances = spot
+      }
+      if (mode === 'earn' || mode === 'overview') {
+        const http = new BinanceHttpClient({
+          key: cfg.key,
+          secret: cfg.secret,
+          baseUrl: cfg.baseUrl || 'https://api.binance.com',
+          env: cfg.env || 'live',
+        })
+        const earnClient = new BinanceEarnClient(http)
+        const earn = await earnClient.getEarnBalances()
+        balances = mode === 'overview' ? [...balances, ...earn] : earn
+      }
       const portfolio = await buildPortfolio(balances)
 
       const portfolioData = portfolio.assets.map((asset) => ({
