@@ -6,5 +6,9 @@
   "include": [
     "src",
     "index.html"
+  ],
+  "exclude": [
+    "src/__tests__/**",
+    "src/**/*.test.*"
   ]
 }
