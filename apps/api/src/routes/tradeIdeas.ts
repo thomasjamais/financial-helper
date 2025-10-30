@@ -5,6 +5,9 @@ import type { Logger } from '../logger'
 import { authMiddleware } from '../middleware/auth'
 import type { AuthService } from '../services/AuthService'
 import { z } from 'zod'
+import { BinanceAdapter, BinanceHttpClient } from '@pkg/exchange-adapters'
+import { getActiveExchangeConfig } from '../services/exchangeConfigService'
+import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
 
 export function tradeIdeasRouter(_db: Kysely<DB>, logger: Logger, authService: AuthService): Router {
   const r = Router()
@@ -152,6 +155,43 @@ export function tradeIdeasRouter(_db: Kysely<DB>, logger: Logger, authService: A
       return res.json(rows)
     } catch (err) {
       return res.status(500).json({ error: 'Failed to list trades' })
+    }
+  })
+
+  r.get('/v1/trades/with-pnl', authMiddleware(authService, logger), async (req: Request, res: Response) => {
+    try {
+      const rows = await _db
+        .selectFrom('trades')
+        .select([ 'id','idea_id','exchange','symbol','side','budget_usd','quantity','entry_price','tp_pct','sl_pct','status','opened_at','closed_at','pnl_usd','metadata' ])
+        .where('user_id', '=', req.user!.userId)
+        .orderBy('opened_at', 'desc')
+        .limit(200)
+        .execute()
+
+      // Fetch current prices for unique symbols from Binance
+      const symbols = Array.from(new Set(rows.map(r => r.symbol)))
+      const priceMap = new Map<string, number>()
+      await Promise.all(symbols.map(async (sym) => {
+        try {
+          const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`)
+          if (resp.ok) {
+            const { price } = await resp.json() as any
+            const px = Number(price)
+            if (isFinite(px)) priceMap.set(sym, px)
+          }
+        } catch {}
+      }))
+
+      const enriched = rows.map(r => {
+        const mark = priceMap.get(r.symbol)
+        if (!mark) return { ...r, markPrice: null, pnl_unrealized: null }
+        const direction = r.side === 'BUY' ? 1 : -1
+        const pnl = direction * (mark - Number(r.entry_price)) * Number(r.quantity)
+        return { ...r, markPrice: mark, pnl_unrealized: Number(pnl.toFixed(2)) }
+      })
+      return res.json(enriched)
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to compute PnL' })
     }
   })
 

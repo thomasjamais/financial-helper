@@ -25,11 +25,16 @@ export default function TradeIdeas() {
     enabled: !!accessToken,
     refetchInterval: 60000,
   })
+  const budgetById = new Map<number, number>()
   async function executeIdea(id: number) {
+    const budgetStr = prompt('Budget in USD for this trade?', '50')
+    if (!budgetStr) return
+    const budget = Number(budgetStr)
+    if (!isFinite(budget) || budget <= 0) return
     if (!confirm('Execute this idea with moderate risk TL/TP?')) return
     await axios.post(
       `${API_BASE}/v1/trade-ideas/${id}/execute`,
-      { confirm: true, budgetUSD: 50, risk: 'moderate' },
+      { confirm: true, budgetUSD: budget, risk: 'moderate' },
       { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined },
     )
     await refetch()
