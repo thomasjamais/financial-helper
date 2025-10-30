@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useCurrency } from './CurrencyContext'
+import { formatNumber } from '../lib/format'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 
@@ -93,7 +95,7 @@ function useRebalance() {
 }
 
 export function BinancePortfolio() {
-  const [currency, setCurrency] = useState<Currency>('USD')
+  const { currency } = useCurrency()
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null)
   const [convertAmount, setConvertAmount] = useState<string>('')
   const [convertTo, setConvertTo] = useState<'BTC' | 'BNB' | 'ETH'>('BTC')
@@ -139,29 +141,6 @@ export function BinancePortfolio() {
     <div className="space-y-6 bg-slate-900 rounded-lg p-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-white">Binance Portfolio</h2>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-400">Currency:</span>
-          <button
-            onClick={() => setCurrency('USD')}
-            className={`px-3 py-1 rounded transition ${
-              currency === 'USD'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            USD
-          </button>
-          <button
-            onClick={() => setCurrency('EUR')}
-            className={`px-3 py-1 rounded transition ${
-              currency === 'EUR'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            EUR
-          </button>
-        </div>
       </div>
 
       {isLoading && <p className="text-slate-400">Loading portfolio...</p>}
@@ -177,10 +156,7 @@ export function BinancePortfolio() {
             <div className="text-sm text-blue-100">Total Portfolio Value</div>
             <div className="text-3xl font-bold text-white">
               {currency === 'USD' ? '$' : '€'}
-              {totalValue?.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatNumber(totalValue ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
 
@@ -211,27 +187,18 @@ export function BinancePortfolio() {
                           {asset.asset}
                         </td>
                         <td className="p-3 text-right text-slate-300">
-                          {asset.amount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 8,
-                          })}
+                          {formatNumber(asset.amount, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
                           {asset.amountLocked &&
                             asset.amountLocked > 0 &&
                             ` (${asset.amountLocked.toFixed(2)} locked)`}
                         </td>
                         <td className="p-3 text-right text-slate-300">
                           {currency === 'USD' ? '$' : '€'}
-                          {price.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 6,
-                          })}
+                          {formatNumber(price, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                         </td>
                         <td className="p-3 text-right font-semibold text-white">
                           {currency === 'USD' ? '$' : '€'}
-                          {value.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
+                          {formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td className="p-3 text-center">
                           <button
@@ -407,6 +374,30 @@ export function BinancePortfolio() {
                         ))}
                       </div>
                     </div>
+                    <button
+                      onClick={() => {
+                        const lines = [
+                          `AI Rebalancing Report` ,
+                          `Mode: ${rebalanceMode}`,
+                          '',
+                          `Summary: ${rebalance.data?.summary}`,
+                          `Confidence: ${(rebalance.data?.confidence * 100).toFixed(0)}%`,
+                          '',
+                          'Suggestions:',
+                          ...rebalance.data!.suggestions.map((s) => `- ${s.asset}: ${s.action} (from ${s.currentAllocation.toFixed(2)}% to ${s.recommendedAllocation.toFixed(2)}%) – ${s.reason}`),
+                        ]
+                        const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `ai-rebalancing-${rebalanceMode}-${Date.now()}.md`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      className="mt-2 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded"
+                    >
+                      Download Report
+                    </button>
                   </div>
                 )}
               </div>
