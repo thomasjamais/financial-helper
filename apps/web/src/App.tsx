@@ -116,7 +116,11 @@ export default function App() {
               <UsersAdmin />
             </Protected>
           )}
-          {activeTab === 'dashboard' && <DashboardView />}
+          {activeTab === 'dashboard' && (
+            <Protected>
+              <DashboardView />
+            </Protected>
+          )}
           {activeTab === 'portfolio' && <PortfolioTab />}
           {activeTab === 'configs' && (
             <div>
