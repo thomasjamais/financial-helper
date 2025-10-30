@@ -98,6 +98,14 @@ export interface TradeTable {
   metadata: unknown | null
 }
 
+export interface TradePnlTable {
+  id: Generated<number>
+  trade_id: number
+  ts: Generated<Date>
+  mark_price: number
+  pnl_usd: number
+}
+
 export type User = Selectable<UserTable>
 export type NewUser = Insertable<UserTable>
 export type UserUpdate = Updateable<UserTable>
@@ -121,6 +129,7 @@ export interface DB {
   signals: SignalTable
   trade_ideas: TradeIdeaTable
   trades: TradeTable
+  trade_pnl: TradePnlTable
 }
 
 export function createDb(connectionString?: string): Kysely<DB> {

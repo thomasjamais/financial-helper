@@ -158,6 +158,56 @@ export function tradeIdeasRouter(_db: Kysely<DB>, logger: Logger, authService: A
     }
   })
 
+  r.post('/v1/trades/:id/snapshot', authMiddleware(authService, logger), async (req: Request, res: Response) => {
+    try {
+      const tradeId = Number(req.params.id)
+      const trade = await _db
+        .selectFrom('trades')
+        .selectAll()
+        .where('id', '=', tradeId)
+        .where('user_id', '=', req.user!.userId)
+        .executeTakeFirst()
+      if (!trade) return res.status(404).json({ error: 'Trade not found' })
+      const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(trade.symbol)}`)
+      if (!resp.ok) return res.status(502).json({ error: 'Failed to fetch price' })
+      const { price } = (await resp.json()) as any
+      const mark = Number(price)
+      if (!isFinite(mark)) return res.status(502).json({ error: 'Invalid price' })
+      const direction = trade.side === 'BUY' ? 1 : -1
+      const pnl = direction * (mark - Number(trade.entry_price)) * Number(trade.quantity)
+      await _db
+        .insertInto('trade_pnl')
+        .values({ trade_id: tradeId, mark_price: mark, pnl_usd: pnl })
+        .execute()
+      return res.json({ ok: true, mark, pnl: Number(pnl.toFixed(2)) })
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to record snapshot' })
+    }
+  })
+
+  r.get('/v1/trades/:id', authMiddleware(authService, logger), async (req: Request, res: Response) => {
+    try {
+      const tradeId = Number(req.params.id)
+      const trade = await _db
+        .selectFrom('trades')
+        .selectAll()
+        .where('id', '=', tradeId)
+        .where('user_id', '=', req.user!.userId)
+        .executeTakeFirst()
+      if (!trade) return res.status(404).json({ error: 'Trade not found' })
+      const history = await _db
+        .selectFrom('trade_pnl')
+        .selectAll()
+        .where('trade_id', '=', tradeId)
+        .orderBy('ts', 'desc')
+        .limit(200)
+        .execute()
+      return res.json({ trade, history })
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to load trade detail' })
+    }
+  })
+
   r.get('/v1/trades/with-pnl', authMiddleware(authService, logger), async (req: Request, res: Response) => {
     try {
       const rows = await _db

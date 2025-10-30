@@ -57,6 +57,7 @@ export default function Trades() {
                 <th className="text-right p-3 text-slate-300">TP/SL</th>
                 <th className="text-right p-3 text-slate-300">Unrealized PnL</th>
                 <th className="text-left p-3 text-slate-300">Status</th>
+                <th className="text-right p-3 text-slate-300">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -72,11 +73,14 @@ export default function Trades() {
                   <td className="p-3 text-right text-slate-300">{(t.tp_pct*100).toFixed(1)}% / {(t.sl_pct*100).toFixed(1)}%</td>
                   <td className={`p-3 text-right ${((t.pnl_unrealized ?? 0) >= 0) ? 'text-green-400' : 'text-red-400'}`}>{(t.pnl_unrealized ?? 0).toFixed(2)}</td>
                   <td className="p-3 text-slate-300">{t.status}</td>
+                  <td className="p-3 text-right">
+                    <a href={`#/trade/${t.id}`} className="px-3 py-1 bg-slate-600 hover:bg-slate-500 text-white rounded text-sm">Detail</a>
+                  </td>
                 </tr>
               ))}
               {(!data || data.length === 0) && !isLoading && (
                 <tr>
-                  <td colSpan={10} className="p-4 text-center text-slate-400">No trades</td>
+                  <td colSpan={11} className="p-4 text-center text-slate-400">No trades</td>
                 </tr>
               )}
             </tbody>
