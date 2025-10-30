@@ -73,7 +73,7 @@ export class AuthService {
         password_hash: passwordHash,
         name: name ?? null,
         is_active: true,
-        email_verified: false,
+        email_verified: true,
         failed_login_attempts: 0,
       })
       .returning([

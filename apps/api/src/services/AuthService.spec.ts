@@ -47,7 +47,7 @@ describe('AuthService', () => {
         password_hash: 'hashed_password',
         name: 'Test User',
         is_active: true,
-        email_verified: false,
+        email_verified: true,
         failed_login_attempts: 0,
         locked_until: null,
         last_login_at: null,
@@ -89,7 +89,7 @@ describe('AuthService', () => {
       expect(result.email).toBe('test@example.com')
       expect(result.name).toBe('Test User')
       expect(result.is_active).toBe(true)
-      expect(result.email_verified).toBe(false)
+      expect(result.email_verified).toBe(true)
     })
 
     it('should reject invalid email format', async () => {
@@ -149,7 +149,7 @@ describe('AuthService', () => {
         password_hash: 'hash',
         name: null,
         is_active: true,
-        email_verified: false,
+        email_verified: true,
         failed_login_attempts: 0,
         locked_until: null,
         last_login_at: null,
