@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { BinanceAdapter, BinanceHttpClient } from '@pkg/exchange-adapters'
 import { getActiveExchangeConfig } from '../services/exchangeConfigService'
 import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
+import { sql } from 'kysely'
 
 export function tradeIdeasRouter(
   _db: Kysely<DB>,
@@ -45,20 +46,15 @@ export function tradeIdeasRouter(
         }
 
         const d = parsed.data
-        const existing = await _db
-          .selectFrom('trade_ideas')
-          .selectAll()
-          .where('user_id', '=', req.user!.userId)
-          .where('exchange', '=', d.exchange)
-          .where('symbol', '=', d.symbol)
-          .executeTakeFirst()
-
-        // normalize metadata to JSON object (not pre-stringified)
+        // normalize metadata
         let metadataObj: any = d.metadata ?? null
         if (typeof metadataObj === 'string') {
-          try { metadataObj = JSON.parse(metadataObj) } catch { metadataObj = null }
+          try {
+            metadataObj = JSON.parse(metadataObj)
+          } catch {
+            metadataObj = null
+          }
         }
-
         const historyEntry = {
           ts: new Date().toISOString(),
           side: d.side,
@@ -67,36 +63,19 @@ export function tradeIdeasRouter(
           metadata: metadataObj,
         }
 
-        if (existing) {
-          const newHistory = Array.isArray((existing as any).history)
-            ? [...((existing as any).history as any[]), historyEntry]
-            : [historyEntry]
-          await _db
-            .updateTable('trade_ideas')
-            .set({
-              side: d.side,
-              score: d.score,
-            reason: d.reason ?? null,
-            metadata: metadataObj,
-              history: newHistory as any,
-            })
-            .where('id', '=', (existing as any).id)
-            .execute()
-        } else {
-          await _db
-            .insertInto('trade_ideas')
-            .values({
-              user_id: req.user!.userId,
-              exchange: d.exchange,
-              symbol: d.symbol,
-              side: d.side,
-              score: d.score,
-            reason: d.reason ?? null,
-            metadata: metadataObj,
-              history: [historyEntry] as any,
-            })
-            .execute()
-        }
+        await sql`
+          insert into trade_ideas
+            (user_id, exchange, symbol, side, score, reason, metadata, history)
+          values
+            (${req.user!.userId}, ${d.exchange}, ${d.symbol}, ${d.side}, ${d.score}, ${d.reason ?? null}, ${JSON.stringify(metadataObj)}::jsonb, ${JSON.stringify([historyEntry])}::jsonb)
+          on conflict (user_id, exchange, symbol)
+          do update set
+            side = excluded.side,
+            score = excluded.score,
+            reason = excluded.reason,
+            metadata = excluded.metadata,
+            history = coalesce(trade_ideas.history, '[]'::jsonb) || excluded.history
+        `.execute(_db)
 
         return res.json({ ok: true })
       } catch (err) {
@@ -343,37 +322,47 @@ export function tradeIdeasRouter(
           .limit(200)
           .execute()
 
-        // Fetch current prices for unique symbols from Binance
-        const symbols = Array.from(new Set(rows.map((r) => r.symbol)))
-        const priceMap = new Map<string, number>()
-        await Promise.all(
-          symbols.map(async (sym) => {
-            try {
-              const resp = await fetch(
-                `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`,
-              )
-              if (resp.ok) {
-                const { price } = (await resp.json()) as any
-                const px = Number(price)
-                if (isFinite(px)) priceMap.set(sym, px)
-              }
-            } catch {}
-          }),
-        )
+        // Default response if anything fails below
+        const fallback = rows.map((r) => ({ ...r, markPrice: null, pnl_unrealized: null }))
 
-        const enriched = rows.map((r) => {
-          const mark = priceMap.get(r.symbol)
-          if (!mark) return { ...r, markPrice: null, pnl_unrealized: null }
-          const direction = r.side === 'BUY' ? 1 : -1
-          const pnl =
-            direction * (mark - Number(r.entry_price)) * Number(r.quantity)
-          return {
-            ...r,
-            markPrice: mark,
-            pnl_unrealized: Number(pnl.toFixed(2)),
-          }
-        })
-        return res.json(enriched)
+        try {
+          // Fetch current prices for unique symbols from Binance
+          const symbols = Array.from(new Set(rows.map((r) => r.symbol)))
+          const priceMap = new Map<string, number>()
+          await Promise.all(
+            symbols.map(async (sym) => {
+              try {
+                const resp = await fetch(
+                  `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`,
+                )
+                if (resp.ok) {
+                  const { price } = (await resp.json()) as any
+                  const px = Number(price)
+                  if (isFinite(px)) priceMap.set(sym, px)
+                }
+              } catch (e) {
+                // ignore per-symbol errors
+              }
+            }),
+          )
+
+          const enriched = rows.map((r) => {
+            const mark = priceMap.get(r.symbol)
+            if (!mark) return { ...r, markPrice: null, pnl_unrealized: null }
+            const direction = r.side === 'BUY' ? 1 : -1
+            const pnl =
+              direction * (mark - Number(r.entry_price)) * Number(r.quantity)
+            return {
+              ...r,
+              markPrice: mark,
+              pnl_unrealized: Number(pnl.toFixed(2)),
+            }
+          })
+          return res.json(enriched)
+        } catch (innerErr) {
+          req.logger?.warn({ err: innerErr, correlationId: req.correlationId }, 'PnL enrichment failed, returning fallback')
+          return res.json(fallback)
+        }
       } catch (err) {
         return res.status(500).json({ error: 'Failed to compute PnL' })
       }
