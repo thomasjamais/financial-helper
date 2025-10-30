@@ -375,6 +375,5 @@ export function binanceEarnRouter(
       return res.status(500).json({ error: 'Failed to build unsubscribe plan' })
     }
   })
-
   return r
 }
