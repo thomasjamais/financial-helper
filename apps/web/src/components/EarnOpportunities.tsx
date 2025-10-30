@@ -49,7 +49,8 @@ export function EarnOpportunities() {
             className="w-24 border border-slate-600 bg-slate-800 text-white p-2 rounded"
           />
           <button
-            onClick={() => refetch()}
+            onClick={() => refetch()
+            }
             disabled={isFetching}
             className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
           >
@@ -94,6 +95,47 @@ export function EarnOpportunities() {
           </table>
         </div>
       </div>
+
+      <AutoPlanPanel />
+    </div>
+  )
+}
+
+function AutoPlanPanel() {
+  const [minApr, setMinApr] = useState(0.03)
+  const [totalPct, setTotalPct] = useState(0.5)
+  const [maxPerProductPct, setMaxPerProductPct] = useState(0.2)
+  const [result, setResult] = useState<any | null>(null)
+
+  return (
+    <div className="p-4 bg-slate-800 rounded border border-slate-700">
+      <div className="font-semibold text-white mb-2">Auto-Subscribe Plan (dry run)</div>
+      <div className="grid grid-cols-3 gap-3 mb-3 text-slate-200">
+        <label className="text-sm">Min APR
+          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.001" value={minApr} onChange={(e) => setMinApr(parseFloat(e.target.value))} />
+        </label>
+        <label className="text-sm">Total %
+          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" value={totalPct} onChange={(e) => setTotalPct(parseFloat(e.target.value))} />
+        </label>
+        <label className="text-sm">Max/Product %
+          <input className="w-full mt-1 p-2 rounded bg-slate-700" type="number" step="0.01" value={maxPerProductPct} onChange={(e) => setMaxPerProductPct(parseFloat(e.target.value))} />
+        </label>
+      </div>
+      <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded" onClick={async () => {
+        const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/plan', { minApr, totalPct, maxPerProductPct })
+        setResult(res.data)
+      }}>Build plan</button>
+      {result && (
+        <div className="mt-3 text-slate-300 text-sm">
+          <div>Spot Stable: {JSON.stringify(result.spotStable)}</div>
+          <div className="mt-2">Plan:</div>
+          <ul className="list-disc ml-6">
+            {result.plan.map((p: any) => (
+              <li key={p.productId}>{p.asset} → {p.amount} (APR {(p.apr*100).toFixed(2)}%)</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
