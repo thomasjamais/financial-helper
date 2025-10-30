@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useCurrency } from './CurrencyContext'
 import { formatNumber } from '../lib/format'
+import RebalancePanel from './RebalancePanel'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 
@@ -76,21 +77,16 @@ type RebalanceAdvice = {
   confidence: number
 }
 
-function useRebalance() {
-  return useQuery({
-    queryKey: ['rebalance', 'binance'],
-    queryFn: async () =>
-      (
-        await axios.post<RebalanceAdvice>(
-          '/v1/binance/rebalance',
-          { mode: 'overview' },
-          {
-            baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
-          },
-        )
-      ).data,
-    enabled: false,
-    retry: false,
+function useRebalanceMutation() {
+  return useMutation({
+    mutationFn: async (params: { mode: 'spot' | 'earn' | 'overview' }) => {
+      const res = await axios.post<RebalanceAdvice>(
+        '/v1/binance/rebalance',
+        params,
+        { baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080' },
+      )
+      return res.data
+    },
   })
 }
 
@@ -104,7 +100,7 @@ export function BinancePortfolio() {
 
   const { data: portfolio, isLoading, error } = usePortfolio()
   const convert = useConvert()
-  const rebalance = useRebalance()
+  const rebalance = useRebalanceMutation()
 
   const totalValue =
     currency === 'USD' ? portfolio?.totalValueUSD : portfolio?.totalValueEUR
@@ -272,137 +268,7 @@ export function BinancePortfolio() {
             </div>
           )}
 
-          <div className="border rounded-lg p-4 bg-slate-800 border-slate-700">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-semibold text-white">
-                AI Portfolio Rebalancing
-              </h3>
-              <button
-                onClick={() => setShowRebalance(!showRebalance)}
-                className="text-sm px-3 py-1 bg-purple-600 text-white rounded"
-              >
-                {showRebalance ? 'Hide' : 'Show Advice'}
-              </button>
-            </div>
-            {showRebalance && (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-slate-400 mb-3">
-                    Uses OpenAI API key from server environment variables.
-                  </p>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm text-slate-300">Mode:</span>
-                    <select
-                      className="border border-slate-600 bg-slate-700 text-white p-1 rounded"
-                      value={rebalanceMode}
-                      onChange={(e) => setRebalanceMode(e.target.value as any)}
-                    >
-                      <option value="overview">Overview</option>
-                      <option value="spot">Spot only</option>
-                      <option value="earn">Earn only</option>
-                    </select>
-                  </div>
-                  <button
-                    onClick={() => {
-                      // Re-run with selected mode
-                      (rebalance as any).remove()
-                      ;(rebalance as any).refetch({
-                        queryKey: ['rebalance', 'binance', rebalanceMode],
-                        meta: undefined,
-                      })
-                      axios.post<RebalanceAdvice>(
-                        '/v1/binance/rebalance',
-                        { mode: rebalanceMode },
-                        { baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080' },
-                      ).then((r) => {
-                        (rebalance as any).data = r.data
-                      })
-                    }}
-                    disabled={rebalance.isFetching}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded disabled:opacity-50 transition"
-                  >
-                    {rebalance.isFetching
-                      ? 'Generating advice...'
-                      : 'Get Rebalancing Advice'}
-                  </button>
-                </div>
-                {rebalance.data && (
-                  <div className="mt-4 space-y-2">
-                    <div className="p-3 bg-purple-900 border border-purple-700 rounded">
-                      <div className="font-semibold mb-1 text-white">
-                        Summary
-                      </div>
-                      <div className="text-sm text-purple-200">
-                        {rebalance.data.summary}
-                      </div>
-                      <div className="text-xs text-purple-300 mt-1">
-                        Confidence:{' '}
-                        {(rebalance.data.confidence * 100).toFixed(0)}%
-                      </div>
-                    </div>
-                    <div className="border border-slate-600 rounded p-3 bg-slate-700">
-                      <div className="font-semibold mb-2 text-white">
-                        Suggestions
-                      </div>
-                      <div className="space-y-2">
-                        {rebalance.data.suggestions.map((s) => (
-                          <div
-                            key={s.asset}
-                            className="flex justify-between items-center p-2 bg-slate-800 rounded"
-                          >
-                            <div>
-                              <span className="font-medium text-white">
-                                {s.asset}
-                              </span>
-                              <span
-                                className={`ml-2 px-2 py-1 rounded text-xs ${
-                                  s.action === 'BUY'
-                                    ? 'bg-green-700 text-green-200'
-                                    : s.action === 'SELL'
-                                      ? 'bg-red-700 text-red-200'
-                                      : 'bg-slate-600 text-slate-300'
-                                }`}
-                              >
-                                {s.action}
-                              </span>
-                            </div>
-                            <div className="text-sm text-slate-300">
-                              {s.currentAllocation.toFixed(2)}% →{' '}
-                              {s.recommendedAllocation.toFixed(2)}%
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const lines = [
-                          `AI Rebalancing Report` ,
-                          `Mode: ${rebalanceMode}`,
-                          '',
-                          `Summary: ${rebalance.data?.summary}`,
-                          `Confidence: ${(rebalance.data?.confidence * 100).toFixed(0)}%`,
-                          '',
-                          'Suggestions:',
-                          ...rebalance.data!.suggestions.map((s) => `- ${s.asset}: ${s.action} (from ${s.currentAllocation.toFixed(2)}% to ${s.recommendedAllocation.toFixed(2)}%) – ${s.reason}`),
-                        ]
-                        const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = `ai-rebalancing-${rebalanceMode}-${Date.now()}.md`
-                        a.click()
-                        URL.revokeObjectURL(url)
-                      }}
-                      className="mt-2 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded"
-                    >
-                      Download Report
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <RebalancePanel />
         </>
       )}
     </div>
