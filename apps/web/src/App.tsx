@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { ExchangeConfigManager } from './components/ExchangeConfigManager'
@@ -32,7 +32,14 @@ type Tab = 'dashboard' | 'portfolio' | 'configs'
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const { data: health } = useHealth()
-  const isAuthPage = location.hash === '#/login' || location.hash === '#/signup'
+  const [route, setRoute] = useState<string>(location.hash)
+  const isAuthPage = route === '#/login' || route === '#/signup'
+
+  useEffect(() => {
+    const onHashChange = () => setRoute(location.hash)
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   return (
     <CurrencyProvider>
@@ -40,8 +47,8 @@ export default function App() {
         <div className="min-h-screen bg-slate-950 text-white">
           {isAuthPage ? (
             <main className="container mx-auto px-4 py-6">
-              {location.hash === '#/login' && <Login />}
-              {location.hash === '#/signup' && <Signup />}
+              {route === '#/login' && <Login />}
+              {route === '#/signup' && <Signup />}
             </main>
           ) : (
             <Protected>
@@ -118,8 +125,8 @@ export default function App() {
 
                 {/* Main Content */}
                 <main className="container mx-auto px-4 py-6">
-                  {location.hash === '#/profile' && <Profile />}
-                  {location.hash === '#/users' && <UsersAdmin />}
+                  {route === '#/profile' && <Profile />}
+                  {route === '#/users' && <UsersAdmin />}
                   {activeTab === 'dashboard' && <DashboardView />}
                   {activeTab === 'portfolio' && <PortfolioTab />}
                   {activeTab === 'configs' && (
