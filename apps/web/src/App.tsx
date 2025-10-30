@@ -7,6 +7,8 @@ import { BinanceSpotOverview } from './components/BinanceSpotOverview'
 import { EarnOpportunities } from './components/EarnOpportunities'
 import { BinanceEarnOverview } from './components/BinanceEarnOverview'
 import { CurrencyProvider, useCurrency } from './components/CurrencyContext'
+import { CurrencyToggle } from './components/CurrencyToggle'
+import DashboardExchangeCard from './components/DashboardExchangeCard'
 import { formatNumber } from './lib/format'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
@@ -270,70 +272,6 @@ function DashboardView() {
   )
 }
 
-function CurrencyToggle() {
-  const { currency, setCurrency } = useCurrency()
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm text-slate-400">Currency:</span>
-      <button
-        onClick={() => setCurrency('USD')}
-        className={`px-3 py-1 rounded ${currency === 'USD' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}
-      >
-        USD
-      </button>
-      <button
-        onClick={() => setCurrency('EUR')}
-        className={`px-3 py-1 rounded ${currency === 'EUR' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}
-      >
-        EUR
-      </button>
-    </div>
-  )
-}
-
-function SmallPortfolioTable({
-  assets,
-  currency,
-}: {
-  assets: any[]
-  currency: 'USD' | 'EUR'
-}) {
-  return (
-    <div className="border rounded-lg overflow-hidden border-slate-700 bg-slate-800">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-slate-700">
-            <tr>
-              <th className="text-left p-3 text-slate-300">Asset</th>
-              <th className="text-right p-3 text-slate-300">Amount</th>
-              <th className="text-right p-3 text-slate-300">Price</th>
-              <th className="text-right p-3 text-slate-300">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assets.map((a) => (
-              <tr key={a.asset} className="border-t border-slate-700">
-                <td className="p-3 text-white">{a.asset}</td>
-                <td className="p-3 text-right text-slate-300">
-                  {a.amount.toFixed(6)}
-                </td>
-                <td className="p-3 text-right text-slate-300">
-                  {currency === 'USD' ? '$' : '€'}
-                  {(currency === 'USD' ? a.priceUSD : a.priceEUR).toFixed(4)}
-                </td>
-                <td className="p-3 text-right text-slate-300">
-                  {currency === 'USD' ? '$' : '€'}
-                  {(currency === 'USD' ? a.valueUSD : a.valueEUR).toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 function StatCard({
   title,
   value,
@@ -361,18 +299,4 @@ function StatCard({
   )
 }
 
-function DashboardExchangeCard({
-  title,
-  assets,
-}: {
-  title: string
-  assets: any[]
-}) {
-  const { currency } = useCurrency()
-  return (
-    <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
-      <h3 className="text-xl font-bold mb-4">{title}</h3>
-      <SmallPortfolioTable assets={assets} currency={currency} />
-    </div>
-  )
-}
+// DashboardExchangeCard moved to components/DashboardExchangeCard
