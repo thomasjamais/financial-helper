@@ -250,6 +250,7 @@ function DashboardView() {
           value={`${currency === 'USD' ? '$' : '€'}${formatNumber((currency === 'USD' ? portfolio?.totalValueUSD : portfolio?.totalValueEUR) ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           subtitle={portfolio?.assets?.length || 0 + ' assets'}
           color="blue"
+          tooltip="Total estimated value across Spot and Earn in the selected currency."
         />
         <StatCard
           title="Binance Spot"
@@ -267,6 +268,7 @@ function DashboardView() {
               .toFixed(2) || '0'
           }
           color="green"
+          tooltip="Number of assets held in Binance Spot and total free amounts (raw units)."
         />
         <StatCard
           title="Bitget Spot"
@@ -284,12 +286,14 @@ function DashboardView() {
               .toFixed(2) || '0'
           }
           color="purple"
+          tooltip="Number of assets held in Bitget Spot and total free amounts (raw units)."
         />
         <StatCard
           title="Last Update"
           value={new Date().toLocaleTimeString()}
           subtitle="Auto-refresh: 30s"
           color="orange"
+          tooltip="Time when data was last fetched. Values refresh automatically every 30 seconds."
         />
       </div>
 
@@ -298,10 +302,12 @@ function DashboardView() {
         <DashboardExchangeCard
           title="Binance Spot (Top 5)"
           assets={(spotPortfolio?.assets || []).slice(0, 5)}
+          tooltip="Top 5 Spot assets on Binance by value."
         />
         <DashboardExchangeCard
           title="Binance Earn (Top 5)"
           assets={(earnPortfolio?.assets || []).slice(0, 5)}
+          tooltip="Top 5 Earn positions on Binance by value."
         />
       </div>
     </div>
