@@ -3,7 +3,10 @@ import type { Kysely } from 'kysely'
 import type { Logger } from '../logger'
 import { z } from 'zod'
 import { scoreOpportunity } from '@pkg/shared-kernel/src/opportunityScoring'
-import { fetchBinanceEarnBalances } from '../services/earnService'
+import { BinanceEarnClient, BinanceHttpClient } from '@pkg/exchange-adapters'
+import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
+import { getActiveExchangeConfig } from '../services/exchangeConfigService'
+import { buildPortfolio } from '../services/portfolioService'
 
 export function binanceEarnRouter(
   _db: Kysely<unknown>,
@@ -61,8 +64,68 @@ export function binanceEarnRouter(
   )
 
   r.get('/v1/binance/earn/balances', async (_req: Request, res: Response) => {
-    const balances = await fetchBinanceEarnBalances()
-    return res.json({ earn: balances })
+    try {
+      let cfg = getBinanceConfig()
+      if (!cfg) {
+        const dbConfig = await getActiveExchangeConfig(_db, (process as any).env.ENCRYPTION_KEY, 'binance')
+        if (dbConfig) {
+          cfg = {
+            key: dbConfig.key,
+            secret: dbConfig.secret,
+            env: dbConfig.env,
+            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
+          }
+          setBinanceConfig(cfg)
+        } else {
+          return res.status(400).json({ error: 'Binance config not set' })
+        }
+      }
+
+      const http = new BinanceHttpClient({
+        key: cfg.key,
+        secret: cfg.secret,
+        baseUrl: cfg.baseUrl || 'https://api.binance.com',
+        env: cfg.env || 'live',
+      })
+      const client = new BinanceEarnClient(http)
+      const earn = await client.getEarnBalances()
+      return res.json({ earn })
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to fetch earn balances' })
+    }
+  })
+
+  r.get('/v1/binance/portfolio/earn', async (_req: Request, res: Response) => {
+    try {
+      let cfg = getBinanceConfig()
+      if (!cfg) {
+        const dbConfig = await getActiveExchangeConfig(_db, (process as any).env.ENCRYPTION_KEY, 'binance')
+        if (dbConfig) {
+          cfg = {
+            key: dbConfig.key,
+            secret: dbConfig.secret,
+            env: dbConfig.env,
+            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
+          }
+          setBinanceConfig(cfg)
+        } else {
+          return res.status(400).json({ error: 'Binance config not set' })
+        }
+      }
+
+      const http = new BinanceHttpClient({
+        key: cfg.key,
+        secret: cfg.secret,
+        baseUrl: cfg.baseUrl || 'https://api.binance.com',
+        env: cfg.env || 'live',
+      })
+      const client = new BinanceEarnClient(http)
+      const earn = await client.getEarnBalances()
+      const portfolio = await buildPortfolio(earn)
+      return res.json(portfolio)
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to build earn portfolio' })
+    }
   })
 
   return r

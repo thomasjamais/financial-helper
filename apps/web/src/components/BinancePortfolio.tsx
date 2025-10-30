@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useCurrency } from './CurrencyContext'
+import { formatNumber } from '../lib/format'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 
@@ -81,7 +83,7 @@ function useRebalance() {
       (
         await axios.post<RebalanceAdvice>(
           '/v1/binance/rebalance',
-          {},
+          { mode: 'overview' },
           {
             baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
           },
@@ -93,11 +95,12 @@ function useRebalance() {
 }
 
 export function BinancePortfolio() {
-  const [currency, setCurrency] = useState<Currency>('USD')
+  const { currency } = useCurrency()
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null)
   const [convertAmount, setConvertAmount] = useState<string>('')
   const [convertTo, setConvertTo] = useState<'BTC' | 'BNB' | 'ETH'>('BTC')
   const [showRebalance, setShowRebalance] = useState(false)
+  const [rebalanceMode, setRebalanceMode] = useState<'spot' | 'earn' | 'overview'>('overview')
 
   const { data: portfolio, isLoading, error } = usePortfolio()
   const convert = useConvert()
@@ -138,29 +141,6 @@ export function BinancePortfolio() {
     <div className="space-y-6 bg-slate-900 rounded-lg p-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-white">Binance Portfolio</h2>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-400">Currency:</span>
-          <button
-            onClick={() => setCurrency('USD')}
-            className={`px-3 py-1 rounded transition ${
-              currency === 'USD'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            USD
-          </button>
-          <button
-            onClick={() => setCurrency('EUR')}
-            className={`px-3 py-1 rounded transition ${
-              currency === 'EUR'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            EUR
-          </button>
-        </div>
       </div>
 
       {isLoading && <p className="text-slate-400">Loading portfolio...</p>}
@@ -176,10 +156,7 @@ export function BinancePortfolio() {
             <div className="text-sm text-blue-100">Total Portfolio Value</div>
             <div className="text-3xl font-bold text-white">
               {currency === 'USD' ? '$' : '€'}
-              {totalValue?.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatNumber(totalValue ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
 
@@ -210,27 +187,18 @@ export function BinancePortfolio() {
                           {asset.asset}
                         </td>
                         <td className="p-3 text-right text-slate-300">
-                          {asset.amount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 8,
-                          })}
+                          {formatNumber(asset.amount, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
                           {asset.amountLocked &&
                             asset.amountLocked > 0 &&
                             ` (${asset.amountLocked.toFixed(2)} locked)`}
                         </td>
                         <td className="p-3 text-right text-slate-300">
                           {currency === 'USD' ? '$' : '€'}
-                          {price.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 6,
-                          })}
+                          {formatNumber(price, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                         </td>
                         <td className="p-3 text-right font-semibold text-white">
                           {currency === 'USD' ? '$' : '€'}
-                          {value.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
+                          {formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td className="p-3 text-center">
                           <button
@@ -322,8 +290,34 @@ export function BinancePortfolio() {
                   <p className="text-sm text-slate-400 mb-3">
                     Uses OpenAI API key from server environment variables.
                   </p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm text-slate-300">Mode:</span>
+                    <select
+                      className="border border-slate-600 bg-slate-700 text-white p-1 rounded"
+                      value={rebalanceMode}
+                      onChange={(e) => setRebalanceMode(e.target.value as any)}
+                    >
+                      <option value="overview">Overview</option>
+                      <option value="spot">Spot only</option>
+                      <option value="earn">Earn only</option>
+                    </select>
+                  </div>
                   <button
-                    onClick={() => rebalance.refetch()}
+                    onClick={() => {
+                      // Re-run with selected mode
+                      (rebalance as any).remove()
+                      ;(rebalance as any).refetch({
+                        queryKey: ['rebalance', 'binance', rebalanceMode],
+                        meta: undefined,
+                      })
+                      axios.post<RebalanceAdvice>(
+                        '/v1/binance/rebalance',
+                        { mode: rebalanceMode },
+                        { baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080' },
+                      ).then((r) => {
+                        (rebalance as any).data = r.data
+                      })
+                    }}
                     disabled={rebalance.isFetching}
                     className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded disabled:opacity-50 transition"
                   >
@@ -380,6 +374,30 @@ export function BinancePortfolio() {
                         ))}
                       </div>
                     </div>
+                    <button
+                      onClick={() => {
+                        const lines = [
+                          `AI Rebalancing Report` ,
+                          `Mode: ${rebalanceMode}`,
+                          '',
+                          `Summary: ${rebalance.data?.summary}`,
+                          `Confidence: ${(rebalance.data?.confidence * 100).toFixed(0)}%`,
+                          '',
+                          'Suggestions:',
+                          ...rebalance.data!.suggestions.map((s) => `- ${s.asset}: ${s.action} (from ${s.currentAllocation.toFixed(2)}% to ${s.recommendedAllocation.toFixed(2)}%) – ${s.reason}`),
+                        ]
+                        const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `ai-rebalancing-${rebalanceMode}-${Date.now()}.md`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      className="mt-2 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded"
+                    >
+                      Download Report
+                    </button>
                   </div>
                 )}
               </div>
