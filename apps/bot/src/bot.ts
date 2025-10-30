@@ -28,7 +28,9 @@ async function ensureAuth(): Promise<void> {
   }
 
   if (!AUTH_EMAIL || !AUTH_PASSWORD) {
-    throw new Error('Bot auth missing. Provide AUTH_EMAIL and AUTH_PASSWORD or REFRESH_TOKEN.')
+    throw new Error(
+      'Bot auth missing. Provide AUTH_EMAIL and AUTH_PASSWORD or REFRESH_TOKEN.',
+    )
   }
   const { data } = await axios.post(`${API_BASE}/v1/auth/signin`, {
     email: AUTH_EMAIL,
@@ -47,7 +49,9 @@ async function tick() {
       `${API_BASE}/v1/binance/earn/opportunities`,
       {
         params: { minScore: 0.35 },
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        headers: accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : undefined,
       },
     )
 
@@ -67,15 +71,26 @@ async function tick() {
           reason: `High score opportunity: ${o.name} APR ${(o.apr * 100).toFixed(2)}%`,
           metadata: { productId: o.id, apr: o.apr, score: o.score },
         },
-        { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined },
+        {
+          headers: accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : undefined,
+        },
       )
     }
   } catch (err) {
     // eslint-disable-next-line no-console
     if (axios.isAxiosError(err)) {
-      console.error('Bot tick failed', err.response?.status, err.response?.data || err.message)
+      console.error(
+        'Bot tick failed',
+        err.response?.status,
+        err.response?.data || err.message,
+      )
     } else {
-      console.error('Bot tick failed', err instanceof Error ? err.message : String(err))
+      console.error(
+        'Bot tick failed',
+        err instanceof Error ? err.message : String(err),
+      )
     }
   }
 }
@@ -91,5 +106,3 @@ main().catch((e) => {
   console.error(e)
   process.exit(1)
 })
-
-

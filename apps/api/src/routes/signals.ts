@@ -52,7 +52,7 @@ export function signalsRouter(_db: Kysely<DB>, logger: Logger, authService: Auth
       log.info({ signal: s }, 'Signal received')
       return res.json({ ok: true })
     } catch (err) {
-      log.error({ err }, 'Failed to accept signal')
+      log.error({ err: { message: err instanceof Error ? err.message : String(err) } }, 'Failed to accept signal')
       return res.status(500).json({ error: 'Failed to accept signal' })
     }
   })
