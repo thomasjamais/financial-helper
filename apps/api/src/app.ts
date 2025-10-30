@@ -8,6 +8,7 @@ import { binanceRouter } from './routes/binance'
 import { exchangeConfigsRouter } from './routes/exchangeConfigs'
 import { binanceEarnRouter } from './routes/binanceEarn'
 import { authRouter } from './routes/auth'
+import { usersRouter } from './routes/users'
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from './logger'
@@ -51,6 +52,7 @@ export function createApp(
   app.use(binanceRouter(db, logger, encKey))
   app.use(binanceEarnRouter(db, logger))
   app.use(exchangeConfigsRouter(db, logger, encKey))
+  app.use(usersRouter(db, logger))
 
   app.use(errorHandler(logger))
 

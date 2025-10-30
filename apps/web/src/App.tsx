@@ -8,6 +8,12 @@ import { EarnOpportunities } from './components/EarnOpportunities'
 import { BinanceEarnOverview } from './components/BinanceEarnOverview'
 import StatCard from './components/StatCard'
 import { CurrencyProvider, useCurrency } from './components/CurrencyContext'
+import { AuthProvider } from './components/AuthContext'
+import Protected from './components/Protected'
+import Login from './pages/Login'
+import Signup from './pages/Signup'
+import Profile from './pages/Profile'
+import UsersAdmin from './pages/UsersAdmin'
 import { CurrencyToggle } from './components/CurrencyToggle'
 import DashboardExchangeCard from './components/DashboardExchangeCard'
 import { formatNumber } from './lib/format'
@@ -29,6 +35,7 @@ export default function App() {
 
   return (
     <CurrencyProvider>
+      <AuthProvider>
       <div className="min-h-screen bg-slate-950 text-white">
         {/* Header */}
         <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
@@ -96,6 +103,19 @@ export default function App() {
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-6">
+          {/* Simple routing: show auth pages via query hash for now */}
+          {location.hash === '#/login' && <Login />}
+          {location.hash === '#/signup' && <Signup />}
+          {location.hash === '#/profile' && (
+            <Protected>
+              <Profile />
+            </Protected>
+          )}
+          {location.hash === '#/users' && (
+            <Protected>
+              <UsersAdmin />
+            </Protected>
+          )}
           {activeTab === 'dashboard' && <DashboardView />}
           {activeTab === 'portfolio' && <PortfolioTab />}
           {activeTab === 'configs' && (
@@ -105,6 +125,7 @@ export default function App() {
           )}
         </main>
       </div>
+      </AuthProvider>
     </CurrencyProvider>
   )
 }
