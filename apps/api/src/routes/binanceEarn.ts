@@ -16,7 +16,6 @@ import { buildPortfolio } from '../services/portfolioService'
 export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
   const r = Router()
 
-  // Stubbed endpoint: returns empty scored list for now
   r.get(
     '/v1/binance/earn/opportunities',
     async (req: Request, res: Response) => {
@@ -44,9 +43,48 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
           ProductSchema.extend({ score: z.number().min(0).max(1) }),
         )
 
-        // For now there is no discovery; prepare empty list with validation
-        const products: Array<z.infer<typeof ProductSchema>> = []
-        const scored = products.map((p) => ({
+        // Ensure config
+        let cfg = getBinanceConfig()
+        if (!cfg) {
+          const dbConfig = await getActiveExchangeConfig(
+            _db,
+            (process as any).env.ENCRYPTION_KEY,
+            'binance',
+          )
+          if (!dbConfig)
+            return res.status(400).json({ error: 'Binance config not set' })
+          cfg = {
+            key: dbConfig.key,
+            secret: dbConfig.secret,
+            env: dbConfig.env,
+            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
+          }
+          setBinanceConfig(cfg)
+        }
+
+        // Load live products
+        const http = new BinanceHttpClient({
+          key: cfg.key,
+          secret: cfg.secret,
+          baseUrl: cfg.baseUrl || 'https://api.binance.com',
+          env: cfg.env || 'live',
+        })
+        const earn = new BinanceEarnClient(http)
+        const live = await earn.listProducts()
+
+        // Map, score, filter — skip incomplete rows coming from upstream
+        const mapped: Array<z.infer<typeof ProductSchema>> = live
+          .filter((p) => typeof p.asset === 'string' && typeof p.name === 'string' && typeof p.apr === 'number')
+          .map((p) => ({
+            id: p.id,
+            asset: p.asset as string,
+            name: p.name as string,
+            type: p.type,
+            apr: Number(p.apr),
+            durationDays: typeof p.durationDays === 'number' ? p.durationDays : undefined,
+            redeemable: typeof p.redeemable === 'boolean' ? p.redeemable : false,
+          }))
+        const scored = mapped.map((p) => ({
           ...p,
           score: scoreOpportunity({
             apr: p.apr,
@@ -55,7 +93,6 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
           }),
         }))
         const filtered = scored.filter((x) => x.score >= minScore)
-
         const validated = Output.parse(filtered)
         return res.json(validated)
       } catch (err) {
