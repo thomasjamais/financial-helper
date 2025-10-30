@@ -607,7 +607,8 @@ export function binanceRouter(
 
   // Generate AI spot trade suggestions (does not execute trades)
   r.post('/v1/binance/ai/spot-trades', async (req: Request, res: Response) => {
-    const log = req.logger || logger.child({ endpoint: '/v1/binance/ai/spot-trades' })
+    const log =
+      req.logger || logger.child({ endpoint: '/v1/binance/ai/spot-trades' })
     try {
       // Ensure config
       let cfg = getBinanceConfig()
@@ -617,7 +618,8 @@ export function binanceRouter(
           (process as any).env.ENCRYPTION_KEY,
           'binance',
         )
-        if (!dbConfig) return res.status(400).json({ error: 'Binance config not set' })
+        if (!dbConfig)
+          return res.status(400).json({ error: 'Binance config not set' })
         cfg = {
           key: dbConfig.key,
           secret: dbConfig.secret,
@@ -648,8 +650,11 @@ export function binanceRouter(
       }))
 
       const openaiApiKey = process.env.OPENAI_API_KEY
-      const aiProvider = openaiApiKey ? new OpenAIProvider(openaiApiKey) : undefined
-      if (!aiProvider) log.warn('OpenAI API key not found in environment variables')
+      const aiProvider = openaiApiKey
+        ? new OpenAIProvider(openaiApiKey)
+        : undefined
+      if (!aiProvider)
+        log.warn('OpenAI API key not found in environment variables')
 
       const advice = await getRebalancingAdvice({
         portfolio: portfolioData,
@@ -659,14 +664,24 @@ export function binanceRouter(
       })
 
       const recommended = Object.fromEntries(
-        (advice.suggestions || []).map((s) => [s.asset, s.recommendedAllocation])
+        (advice.suggestions || []).map((s) => [
+          s.asset,
+          s.recommendedAllocation,
+        ]),
       )
-      const trades = computeSpotTrades(portfolioData, recommended, portfolio.totalValueUSD, 5)
+      const trades = computeSpotTrades(
+        portfolioData,
+        recommended,
+        portfolio.totalValueUSD,
+        5,
+      )
 
       return res.json({ advice, trades })
     } catch (err) {
       log.error({ err }, 'Failed to generate AI spot trades')
-      return res.status(500).json({ error: 'Failed to generate AI spot trades' })
+      return res
+        .status(500)
+        .json({ error: 'Failed to generate AI spot trades' })
     }
   })
 

@@ -153,7 +153,11 @@ function AutoPlanPanel() {
         <div className="mt-3 text-slate-300 text-sm">
           <div>Spot Stable: {JSON.stringify(result.spotStable)}</div>
           {result.stats && (
-            <div className="mt-1">Total planned: {result.stats.totalPlanned}</div>
+            <div className="mt-1 space-y-1">
+              <div>Total planned: {result.stats.totalPlanned}</div>
+              <div>Unused budget: {result.stats.unusedBudgetTotal}</div>
+              <div>Capped lines: {result.stats.cappedCount}</div>
+            </div>
           )}
           <div className="mt-2">Plan:</div>
           <ul className="list-disc ml-6">
