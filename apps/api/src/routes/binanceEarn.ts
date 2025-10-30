@@ -131,10 +131,12 @@ export function binanceEarnRouter(
 
   // Auto plan (dry-run): select flexible products over minApr and propose allocations from stablecoin spot balance
   const AutoPlanSchema = z.object({
-    assetPool: z.array(z.enum(['USDT', 'USDC'])).default(['USDT', 'USDC']),
-    minApr: z.number().min(0).default(0.03),
-    totalPct: z.number().min(0).max(1).default(0.5),
-    maxPerProductPct: z.number().min(0).max(1).default(0.2),
+    assetPool: z.array(z.enum(['USDT', 'USDC'])).optional(),
+    minApr: z.number().min(0).optional(),
+    totalPct: z.number().min(0).max(1).optional(),
+    maxPerProductPct: z.number().min(0).max(1).optional(),
+    minAmount: z.number().min(0).optional(),
+    roundTo: z.number().min(0).optional(),
   })
 
   r.post('/v1/binance/earn/auto/plan', async (req: Request, res: Response) => {
@@ -168,7 +170,15 @@ export function binanceEarnRouter(
         }
       }
 
-      const { assetPool, minApr, totalPct, maxPerProductPct } = parsed.data
+      // load defaults from settings if fields omitted
+      let assetPool = parsed.data.assetPool ?? ['USDT', 'USDC']
+      let minApr = parsed.data.minApr ?? 0.03
+      let totalPct = parsed.data.totalPct ?? 0.5
+      const maxPerProductPct = parsed.data.maxPerProductPct ?? 0.2
+      const minAmount = parsed.data.minAmount ?? 5 // ignore tiny lines (<5 units)
+      const roundTo = parsed.data.roundTo ?? 0.01 // round to 2 decimals by default
+
+      // If client uses an opportunity fund, it should send adjusted totalPct.
 
       const http = new BinanceHttpClient({
         key: cfg.key,
@@ -202,23 +212,31 @@ export function binanceEarnRouter(
         for (const p of assetProducts) {
           if (remaining <= 0) break
           const cap = budget * maxPerProductPct
-          const amount = Math.min(cap, remaining)
-          if (amount > 0) {
+          let amount = Math.min(cap, remaining)
+          // round to step
+          amount = Math.floor(amount / roundTo) * roundTo
+          if (amount >= minAmount) {
             plan.push({ productId: p.id, asset: p.asset, apr: p.apr, amount: Number(amount.toFixed(2)) })
             remaining -= amount
           }
         }
       }
 
+      const totalPlanned = plan.reduce((s, x) => s + x.amount, 0)
       return res.json({
         assetPool,
         minApr,
         totalPct,
         maxPerProductPct,
+        minAmount,
+        roundTo,
         spotStable: stableFree,
         selectedProducts: products.map(p => ({ id: p.id, asset: p.asset, apr: p.apr })),
         plan,
         dryRun: true,
+        stats: {
+          totalPlanned,
+        },
       })
     } catch (err) {
       logger.error({ err }, 'Failed to build auto plan')
