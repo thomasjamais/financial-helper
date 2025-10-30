@@ -15,6 +15,7 @@ import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
 import { getActiveExchangeConfig } from '../services/exchangeConfigService'
 import { filterBalances } from '../services/balanceFilter'
 import { buildPortfolio } from '../services/portfolioService'
+import { computeSpotTrades } from '../services/aiTrades'
 import {
   calculateConversion,
   type ConversionTarget,
@@ -601,6 +602,71 @@ export function binanceRouter(
       return res.status(500).json({
         error: err instanceof Error ? err.message : 'Unknown error',
       })
+    }
+  })
+
+  // Generate AI spot trade suggestions (does not execute trades)
+  r.post('/v1/binance/ai/spot-trades', async (req: Request, res: Response) => {
+    const log = req.logger || logger.child({ endpoint: '/v1/binance/ai/spot-trades' })
+    try {
+      // Ensure config
+      let cfg = getBinanceConfig()
+      if (!cfg) {
+        const dbConfig = await getActiveExchangeConfig(
+          db,
+          (process as any).env.ENCRYPTION_KEY,
+          'binance',
+        )
+        if (!dbConfig) return res.status(400).json({ error: 'Binance config not set' })
+        cfg = {
+          key: dbConfig.key,
+          secret: dbConfig.secret,
+          env: dbConfig.env,
+          baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
+        }
+        setBinanceConfig(cfg)
+      }
+
+      const adapter = new BinanceAdapter({
+        key: cfg.key,
+        secret: cfg.secret,
+        env: cfg.env,
+        baseUrl: cfg.baseUrl,
+        logger: {
+          debug: (msg: string, data?: unknown) => log.debug(data, msg),
+          info: (msg: string, data?: unknown) => log.info(data, msg),
+          warn: (msg: string, data?: unknown) => log.warn(data, msg),
+          error: (msg: string, data?: unknown) => log.error(data, msg),
+        },
+      })
+      const spot = await adapter.getBalances('spot')
+      const portfolio = await buildPortfolio(spot)
+
+      const portfolioData = portfolio.assets.map((asset) => ({
+        asset: asset.asset,
+        valueUSD: asset.valueUSD,
+      }))
+
+      const openaiApiKey = process.env.OPENAI_API_KEY
+      const aiProvider = openaiApiKey ? new OpenAIProvider(openaiApiKey) : undefined
+      if (!aiProvider) log.warn('OpenAI API key not found in environment variables')
+
+      const advice = await getRebalancingAdvice({
+        portfolio: portfolioData,
+        totalValueUSD: portfolio.totalValueUSD,
+        aiProvider,
+        targetAllocations: undefined,
+      })
+
+      const recommended = Object.fromEntries(
+        (advice.suggestions || []).map((s) => [s.asset, s.recommendedAllocation])
+      )
+      const trades = computeSpotTrades(portfolioData, recommended, portfolio.totalValueUSD, 5)
+
+      return res.json({ advice, trades })
+    } catch (err) {
+      log.error({ err }, 'Failed to generate AI spot trades')
+      return res.status(500).json({ error: 'Failed to generate AI spot trades' })
     }
   })
 
