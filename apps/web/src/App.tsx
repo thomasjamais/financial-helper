@@ -5,6 +5,7 @@ import { ExchangeConfigManager } from './components/ExchangeConfigManager'
 import { BinancePortfolio } from './components/BinancePortfolio'
 import { BinanceSpotOverview } from './components/BinanceSpotOverview'
 import { EarnOpportunities } from './components/EarnOpportunities'
+import { BinanceEarnOverview } from './components/BinanceEarnOverview'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
@@ -99,7 +100,7 @@ export default function App() {
 }
 
 function PortfolioTab() {
-  const [subTab, setSubTab] = useState<'full' | 'spot' | 'opps'>('full')
+  const [subTab, setSubTab] = useState<'full' | 'spot' | 'earn' | 'opps'>('full')
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
@@ -133,9 +134,20 @@ function PortfolioTab() {
         >
           Opportunities
         </button>
+        <button
+          onClick={() => setSubTab('earn')}
+          className={`px-3 py-2 text-sm rounded ${
+            subTab === 'earn'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-800 text-slate-300'
+          }`}
+        >
+          Earn Overview
+        </button>
       </div>
       {subTab === 'full' && <BinancePortfolio />}
       {subTab === 'spot' && <BinanceSpotOverview />}
+      {subTab === 'earn' && <BinanceEarnOverview />}
       {subTab === 'opps' && <EarnOpportunities />}
     </div>
   )

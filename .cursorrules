@@ -1,3 +1,38 @@
+# Git Workflow Standards
+
+## Keep branches fresh
+- Always start by syncing `main`:
+  - `git checkout main && git pull --ff-only`
+- Before working on or pushing a feature branch, rebase it on the latest `main`:
+  - `git checkout <feature-branch>`
+  - `git fetch origin && git rebase origin/main`
+- Resolve conflicts locally, run build/tests, then push with `--force-with-lease` if rebased.
+
+## One task per branch
+- Create a new branch for each task: `git checkout -b feature/<task>`
+- Keep PRs small and focused. Avoid mixing unrelated changes.
+
+## Conflict avoidance when juggling multiple PRs
+- Rebase branches frequently, especially when other related PRs merge.
+- When two branches touch the same files, land the lower-level branch first, then rebase the higher-level branch.
+- If conflicts reappear repeatedly, extract common changes into a separate small PR and merge it first.
+
+## Commit hygiene
+- Use Conventional Commits with descriptive messages.
+- Prefer small, logically complete commits.
+- Never commit broken builds; run `pnpm build` (and tests) before pushing.
+
+## Safe force-push
+- After rebasing, push with lease protection: `git push --force-with-lease`.
+- Never use plain `--force`.
+
+## PR refresh checklist
+1) `git fetch origin && git rebase origin/main`
+2) Resolve conflicts
+3) `pnpm build` (and tests) must pass
+4) `git push --force-with-lease`
+5) Re-request review if needed
+
 # Coding Guidelines & Standards
 
 This file defines coding standards and practices for this project. Follow these rules when writing or modifying code.
