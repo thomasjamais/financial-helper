@@ -53,12 +53,18 @@ export function tradeIdeasRouter(
           .where('symbol', '=', d.symbol)
           .executeTakeFirst()
 
+        // normalize metadata to JSON object (not pre-stringified)
+        let metadataObj: any = d.metadata ?? null
+        if (typeof metadataObj === 'string') {
+          try { metadataObj = JSON.parse(metadataObj) } catch { metadataObj = null }
+        }
+
         const historyEntry = {
           ts: new Date().toISOString(),
           side: d.side,
           score: d.score,
           reason: d.reason ?? null,
-          metadata: d.metadata ?? null,
+          metadata: metadataObj,
         }
 
         if (existing) {
@@ -70,8 +76,8 @@ export function tradeIdeasRouter(
             .set({
               side: d.side,
               score: d.score,
-              reason: d.reason ?? null,
-              metadata: d.metadata ?? null,
+            reason: d.reason ?? null,
+            metadata: metadataObj,
               history: newHistory as any,
             })
             .where('id', '=', (existing as any).id)
@@ -85,8 +91,8 @@ export function tradeIdeasRouter(
               symbol: d.symbol,
               side: d.side,
               score: d.score,
-              reason: d.reason ?? null,
-              metadata: d.metadata ?? null,
+            reason: d.reason ?? null,
+            metadata: metadataObj,
               history: [historyEntry] as any,
             })
             .execute()
