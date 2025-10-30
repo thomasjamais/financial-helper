@@ -7,7 +7,9 @@ import {
   type BinanceConfig,
   type Balance,
 } from '@pkg/exchange-adapters'
-import { Kysely, sql } from 'kysely'
+import type { Kysely } from 'kysely'
+import type { DB } from '@pkg/db'
+import { sql } from 'kysely'
 import { makeEncryptDecrypt } from '../services/crypto'
 import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
 import { getActiveExchangeConfig } from '../services/exchangeConfigService'
@@ -24,7 +26,7 @@ import {
 import type { Logger } from '../logger'
 
 export function binanceRouter(
-  db: Kysely<unknown>,
+  db: Kysely<DB>,
   logger: Logger,
   encKey: string,
 ): Router {
