@@ -8,6 +8,7 @@ import { EarnOpportunities } from './components/EarnOpportunities'
 import { BinanceEarnOverview } from './components/BinanceEarnOverview'
 import StatCard from './components/StatCard'
 import { CurrencyProvider, useCurrency } from './components/CurrencyContext'
+import AiTrades from './components/AiTrades'
 import { AuthProvider } from './components/AuthContext'
 import Protected from './components/Protected'
 import Login from './pages/Login'
@@ -27,7 +28,7 @@ function useHealth() {
   })
 }
 
-type Tab = 'dashboard' | 'portfolio' | 'configs'
+type Tab = 'dashboard' | 'portfolio' | 'ai' | 'configs'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
@@ -108,6 +109,16 @@ export default function App() {
                           Portfolio
                         </button>
                         <button
+                          onClick={() => setActiveTab('ai')}
+                          className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
+                            activeTab === 'ai'
+                              ? 'text-blue-400 border-b-2 border-blue-400'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          AI Trades
+                        </button>
+                        <button
                           onClick={() => setActiveTab('configs')}
                           className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
                             activeTab === 'configs'
@@ -129,6 +140,7 @@ export default function App() {
                   {route === '#/users' && <UsersAdmin />}
                   {activeTab === 'dashboard' && <DashboardView />}
                   {activeTab === 'portfolio' && <PortfolioTab />}
+                  {activeTab === 'ai' && <AiTrades />}
                   {activeTab === 'configs' && (
                     <div>
                       <ExchangeConfigManager />
