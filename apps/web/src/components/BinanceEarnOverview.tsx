@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { useState } from 'react'
 import { useCurrency } from './CurrencyContext'
+import AssetTable from './AssetTable'
 
 type Portfolio = {
   assets: { asset: string; amount: number; priceUSD: number; priceEUR: number; valueUSD: number; valueEUR: number }[]
@@ -53,44 +54,7 @@ export function BinanceEarnOverview() {
 
       {assets.length > 0 && (
         <>
-          <div className="border rounded-lg overflow-hidden border-slate-700 bg-slate-800">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-700">
-                  <tr>
-                    <th className="text-left p-3 text-slate-300 cursor-pointer" onClick={() => setSortBy('asset')}>Asset</th>
-                    <th className="text-right p-3 text-slate-300 cursor-pointer" onClick={() => setSortBy('amount')}>Amount</th>
-                    <th className="text-right p-3 text-slate-300 cursor-pointer" onClick={() => setSortBy('price')}>Price ({currency})</th>
-                    <th className="text-right p-3 text-slate-300 cursor-pointer" onClick={() => setSortBy('value')}>Value ({currency})</th>
-                    <th className="text-center p-3 text-slate-300">
-                      <button
-                        className="px-2 py-1 bg-slate-600 rounded text-xs"
-                        onClick={() => setDirection(direction === 'asc' ? 'desc' : 'asc')}
-                      >
-                        {direction === 'asc' ? 'Asc' : 'Desc'}
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((a) => (
-                    <tr key={a.asset} className="border-t border-slate-700 hover:bg-slate-800">
-                      <td className="p-3 font-medium text-white">{a.asset}</td>
-                      <td className="p-3 text-right text-slate-300">
-                        {Number(a.amount).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 8,
-                        })}
-                      </td>
-                      <td className="p-3 text-right text-slate-300">{currency === 'USD' ? '$' : '€'}{(currency === 'USD' ? a.priceUSD : a.priceEUR).toFixed(4)}</td>
-                      <td className="p-3 text-right text-slate-300">{currency === 'USD' ? '$' : '€'}{(currency === 'USD' ? a.valueUSD : a.valueEUR).toFixed(2)}</td>
-                      <td className="p-3 text-center text-slate-300" />
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <AssetTable assets={assets as any} />
           <div className="text-right text-slate-300">
             Total: {currency === 'USD' ? '$' : '€'}{(totalValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
