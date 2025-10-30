@@ -109,6 +109,8 @@ export function tradeIdeasRouter(
           .execute()
         return res.json(rows)
       } catch (err) {
+        const log = req.logger || logger.child({ endpoint: '/v1/trade-ideas' })
+        log.error({ err, correlationId: req.correlationId }, 'Failed to list trade ideas')
         return res.status(500).json({ error: 'Failed to list trade ideas' })
       }
     },
@@ -223,6 +225,8 @@ export function tradeIdeasRouter(
           .execute()
         return res.json(rows)
       } catch (err) {
+        const log = req.logger || logger.child({ endpoint: '/v1/trades' })
+        log.error({ err, correlationId: req.correlationId }, 'Failed to list trades')
         return res.status(500).json({ error: 'Failed to list trades' })
       }
     },
@@ -261,6 +265,8 @@ export function tradeIdeasRouter(
           .execute()
         return res.json({ ok: true, mark, pnl: Number(pnl.toFixed(2)) })
       } catch (err) {
+        const log = req.logger || logger.child({ endpoint: '/v1/trades/:id/snapshot' })
+        log.error({ err, correlationId: req.correlationId }, 'Failed to record snapshot')
         return res.status(500).json({ error: 'Failed to record snapshot' })
       }
     },
@@ -288,6 +294,8 @@ export function tradeIdeasRouter(
           .execute()
         return res.json({ trade, history })
       } catch (err) {
+        const log = req.logger || logger.child({ endpoint: '/v1/trades/:id' })
+        log.error({ err, correlationId: req.correlationId }, 'Failed to load trade detail')
         return res.status(500).json({ error: 'Failed to load trade detail' })
       }
     },
@@ -364,6 +372,8 @@ export function tradeIdeasRouter(
           return res.json(fallback)
         }
       } catch (err) {
+        const log = req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
+        log.error({ err, correlationId: req.correlationId }, 'Failed to compute PnL')
         return res.status(500).json({ error: 'Failed to compute PnL' })
       }
     },
