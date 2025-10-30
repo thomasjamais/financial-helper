@@ -1,3 +1,5 @@
+import 'dotenv/config'
+import 'dotenv/config'
 import axios from 'axios'
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:8080'
