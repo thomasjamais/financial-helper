@@ -364,6 +364,9 @@ export function tradeIdeasRouter(
           return res.json(fallback)
         }
       } catch (err) {
+        // Log outer errors (typically database or auth context issues)
+        const log = req.logger || logger
+        log.error({ err, correlationId: req.correlationId }, 'Failed to compute PnL (outer)')
         return res.status(500).json({ error: 'Failed to compute PnL' })
       }
     },
