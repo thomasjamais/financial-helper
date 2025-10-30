@@ -4,7 +4,7 @@ import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
 import { z } from 'zod'
 import { scoreOpportunity } from '@pkg/shared-kernel/src/opportunityScoring'
-import { BinanceEarnClient, BinanceHttpClient } from '@pkg/exchange-adapters'
+import { BinanceEarnClient, BinanceHttpClient, BinanceAdapter } from '@pkg/exchange-adapters'
 import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
 import { getActiveExchangeConfig } from '../services/exchangeConfigService'
 import { buildPortfolio } from '../services/portfolioService'
@@ -178,9 +178,14 @@ export function binanceEarnRouter(
       })
       const earn = new BinanceEarnClient(http)
 
-      // For spot balances, call adapter directly with imports
-      const adapter = new (require('@pkg/exchange-adapters').BinanceAdapter)(http)
-      const spot = await adapter.getBalances()
+      // For spot balances, call adapter directly
+      const adapter = new BinanceAdapter({
+        key: cfg.key,
+        secret: cfg.secret,
+        baseUrl: cfg.baseUrl || 'https://api.binance.com',
+        env: cfg.env || 'live',
+      })
+      const spot = await adapter.getBalances('spot')
       const stableFree = (spot as Array<{ asset: 'USDT' | 'USDC' | string; free: number }>)
         .filter((b) => (assetPool as Array<'USDT'|'USDC'>).includes(b.asset as any))
         .reduce<Record<string, number>>((acc, b) => {
