@@ -79,6 +79,25 @@ export interface TradeIdeaTable {
   created_at: Generated<Date>
 }
 
+export interface TradeTable {
+  id: Generated<number>
+  user_id: string
+  idea_id: number | null
+  exchange: string
+  symbol: string
+  side: string
+  budget_usd: number
+  quantity: number
+  entry_price: number
+  tp_pct: number
+  sl_pct: number
+  status: string
+  opened_at: Generated<Date>
+  closed_at: Date | null
+  pnl_usd: number | null
+  metadata: unknown | null
+}
+
 export type User = Selectable<UserTable>
 export type NewUser = Insertable<UserTable>
 export type UserUpdate = Updateable<UserTable>
@@ -101,6 +120,7 @@ export interface DB {
   exchange_configs: ExchangeConfigTable
   signals: SignalTable
   trade_ideas: TradeIdeaTable
+  trades: TradeTable
 }
 
 export function createDb(connectionString?: string): Kysely<DB> {
