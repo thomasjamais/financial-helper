@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (location.hash === '#/login' || location.hash === '#/signup') {
             history.replaceState(null, '', '/')
             location.hash = ''
+            window.dispatchEvent(new HashChangeEvent('hashchange'))
           }
         }
       }).catch(() => {})
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // normalize URL to dashboard root
       history.replaceState(null, '', '/')
       location.hash = ''
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
     },
     signup: async (email: string, password: string, name?: string) => {
       const res = await fetch((import.meta as any).env.VITE_API_URL + '/v1/auth/signup', {
