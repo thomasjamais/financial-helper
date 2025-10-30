@@ -337,6 +337,7 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
 
   const ExecuteSchema = z.object({
     dryRun: z.boolean().default(true),
+    confirm: z.boolean().default(false),
     plan: z
       .array(
         z.object({
@@ -396,7 +397,7 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
           }
         }
 
-        const { dryRun, plan } = parsed.data
+        const { dryRun, confirm, plan } = parsed.data
         const http = new BinanceHttpClient({
           key: cfg.key,
           secret: cfg.secret,
@@ -405,7 +406,7 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
         })
         const earn = new BinanceEarnClient(http)
 
-        // NOTE: Subscription API integration can be added; for now simulate actions
+        // Dry-run path
         if (dryRun) {
           return res.json({
             executed: false,
@@ -414,11 +415,21 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
           })
         }
 
-        // Placeholder: in real mode, iterate and call Binance Earn subscribe endpoints
-        // For safety until fully implemented, reject non-dry runs
-        return res
-          .status(501)
-          .json({ error: 'Live execution not yet implemented. Use dryRun.' })
+        if (!confirm) {
+          return res.status(400).json({ error: 'Confirmation required for live execution' })
+        }
+
+        // Live execution: subscribe to flexible products only
+        const results: Array<{ asset: string; amount: number; ok: boolean }> = []
+        for (const p of plan) {
+          try {
+            await earn.subscribeFlexible({ asset: p.asset, amount: p.amount })
+            results.push({ asset: p.asset, amount: p.amount, ok: true })
+          } catch {
+            results.push({ asset: p.asset, amount: p.amount, ok: false })
+          }
+        }
+        return res.json({ executed: true, dryRun: false, results })
       } catch (err) {
         logger.error({ err }, 'Failed to execute auto plan')
         return res.status(500).json({ error: 'Failed to execute auto plan' })
