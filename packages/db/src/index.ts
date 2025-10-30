@@ -1,4 +1,11 @@
-import { Kysely, PostgresDialect, Insertable, Updateable, Selectable, Generated } from 'kysely'
+import {
+  Kysely,
+  PostgresDialect,
+  Insertable,
+  Updateable,
+  Selectable,
+  Generated,
+} from 'kysely'
 import pg from 'pg'
 export { runMigrations } from './migrate'
 
@@ -32,7 +39,14 @@ export interface AuthAuditLogTable {
   id: Generated<number>
   user_id: string | null
   email: string
-  event_type: 'signup' | 'signin' | 'signout' | 'refresh' | 'failed_login' | 'password_reset' | 'account_locked'
+  event_type:
+    | 'signup'
+    | 'signin'
+    | 'signout'
+    | 'refresh'
+    | 'failed_login'
+    | 'password_reset'
+    | 'account_locked'
   ip_address: string | null
   user_agent: string | null
   correlation_id: string | null
@@ -79,6 +93,25 @@ export interface TradeIdeaTable {
   created_at: Generated<Date>
 }
 
+export interface TradeTable {
+  id: Generated<number>
+  user_id: string
+  idea_id: number | null
+  exchange: string
+  symbol: string
+  side: string
+  budget_usd: number
+  quantity: number
+  entry_price: number
+  tp_pct: number
+  sl_pct: number
+  status: string
+  opened_at: Generated<Date>
+  closed_at: Date | null
+  pnl_usd: number | null
+  metadata: unknown | null
+}
+
 export type User = Selectable<UserTable>
 export type NewUser = Insertable<UserTable>
 export type UserUpdate = Updateable<UserTable>
@@ -101,6 +134,7 @@ export interface DB {
   exchange_configs: ExchangeConfigTable
   signals: SignalTable
   trade_ideas: TradeIdeaTable
+  trades: TradeTable
 }
 
 export function createDb(connectionString?: string): Kysely<DB> {

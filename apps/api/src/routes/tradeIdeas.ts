@@ -70,6 +70,105 @@ export function tradeIdeasRouter(_db: Kysely<DB>, logger: Logger, authService: A
     }
   })
 
+  // Execute an idea (simulated moderate-risk TL/TP)
+  const ExecSchema = z.object({
+    confirm: z.boolean().default(false),
+    budgetUSD: z.number().min(10).default(50),
+    risk: z.enum(['moderate']).default('moderate'),
+  })
+
+  r.post('/v1/trade-ideas/:id/execute', authMiddleware(authService, logger), async (req: Request, res: Response) => {
+    const log = req.logger || logger.child({ endpoint: '/v1/trade-ideas/:id/execute' })
+    try {
+      const parsed = ExecSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return res.status(400).json({
+          type: 'https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.1',
+          title: 'Bad Request',
+          status: 400,
+          detail: 'Validation failed',
+          errors: parsed.error.errors,
+          instance: req.path,
+          correlationId: req.correlationId,
+        })
+      }
+
+      const ideaId = Number(req.params.id)
+      const idea = await _db
+        .selectFrom('trade_ideas')
+        .selectAll()
+        .where('id', '=', ideaId)
+        .where('user_id', '=', req.user!.userId)
+        .executeTakeFirst()
+
+      if (!idea) return res.status(404).json({ error: 'Idea not found' })
+
+      const budget = parsed.data.budgetUSD
+      // Fetch current price from Binance public API
+      const sym = idea.symbol
+      const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`)
+      if (!resp.ok) return res.status(502).json({ error: 'Failed to fetch price' })
+      const { price } = (await resp.json()) as { price: string }
+      const px = Number(price)
+      if (!isFinite(px) || px <= 0) return res.status(502).json({ error: 'Invalid price' })
+
+      const quantity = budget / px
+      const tpPct = 0.04 // +4%
+      const slPct = 0.02 // -2%
+
+      // For now simulate execution and persist trade record
+      const inserted = await _db
+        .insertInto('trades')
+        .values({
+          user_id: req.user!.userId,
+          idea_id: ideaId,
+          exchange: idea.exchange,
+          symbol: idea.symbol,
+          side: idea.side,
+          budget_usd: budget,
+          quantity,
+          entry_price: px,
+          tp_pct: tpPct,
+          sl_pct: slPct,
+          status: 'simulated',
+          metadata: { risk: parsed.data.risk } as any,
+        })
+        .returning(['id'])
+        .executeTakeFirst()
+
+      return res.json({
+        executed: true,
+        tradeId: inserted?.id,
+        exchange: idea.exchange,
+        symbol: idea.symbol,
+        side: idea.side,
+        entryPrice: px,
+        quantity,
+        tpPct,
+        slPct,
+        live: false,
+      })
+    } catch (err) {
+      log.error({ err }, 'Failed to execute idea')
+      return res.status(500).json({ error: 'Failed to execute idea' })
+    }
+  })
+
+  r.get('/v1/trades', authMiddleware(authService, logger), async (req: Request, res: Response) => {
+    try {
+      const rows = await _db
+        .selectFrom('trades')
+        .select([ 'id','idea_id','exchange','symbol','side','budget_usd','quantity','entry_price','tp_pct','sl_pct','status','opened_at','closed_at','pnl_usd','metadata' ])
+        .where('user_id', '=', req.user!.userId)
+        .orderBy('opened_at', 'desc')
+        .limit(200)
+        .execute()
+      return res.json(rows)
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to list trades' })
+    }
+  })
+
   return r
 }
 

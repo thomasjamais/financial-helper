@@ -50,11 +50,14 @@ async function tick() {
       { timeout: 10000 },
     )
 
-    const symbols = (Array.isArray(tickers) ? tickers : []).filter(
-      (t: any) => t.symbol?.endsWith('USDT'),
+    const symbols = (Array.isArray(tickers) ? tickers : []).filter((t: any) =>
+      t.symbol?.endsWith('USDT'),
     )
     const sorted = symbols
-      .map((t: any) => ({ symbol: t.symbol as string, change: Number(t.priceChangePercent) }))
+      .map((t: any) => ({
+        symbol: t.symbol as string,
+        change: Number(t.priceChangePercent),
+      }))
       .filter((t: any) => isFinite(t.change))
       .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
       .slice(0, 10)
