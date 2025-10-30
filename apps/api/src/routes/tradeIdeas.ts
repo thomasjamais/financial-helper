@@ -49,7 +49,11 @@ export function tradeIdeasRouter(
         // normalize metadata
         let metadataObj: any = d.metadata ?? null
         if (typeof metadataObj === 'string') {
-          try { metadataObj = JSON.parse(metadataObj) } catch { metadataObj = null }
+          try {
+            metadataObj = JSON.parse(metadataObj)
+          } catch {
+            metadataObj = null
+          }
         }
         const historyEntry = {
           ts: new Date().toISOString(),
@@ -318,37 +322,47 @@ export function tradeIdeasRouter(
           .limit(200)
           .execute()
 
-        // Fetch current prices for unique symbols from Binance
-        const symbols = Array.from(new Set(rows.map((r) => r.symbol)))
-        const priceMap = new Map<string, number>()
-        await Promise.all(
-          symbols.map(async (sym) => {
-            try {
-              const resp = await fetch(
-                `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`,
-              )
-              if (resp.ok) {
-                const { price } = (await resp.json()) as any
-                const px = Number(price)
-                if (isFinite(px)) priceMap.set(sym, px)
-              }
-            } catch {}
-          }),
-        )
+        // Default response if anything fails below
+        const fallback = rows.map((r) => ({ ...r, markPrice: null, pnl_unrealized: null }))
 
-        const enriched = rows.map((r) => {
-          const mark = priceMap.get(r.symbol)
-          if (!mark) return { ...r, markPrice: null, pnl_unrealized: null }
-          const direction = r.side === 'BUY' ? 1 : -1
-          const pnl =
-            direction * (mark - Number(r.entry_price)) * Number(r.quantity)
-          return {
-            ...r,
-            markPrice: mark,
-            pnl_unrealized: Number(pnl.toFixed(2)),
-          }
-        })
-        return res.json(enriched)
+        try {
+          // Fetch current prices for unique symbols from Binance
+          const symbols = Array.from(new Set(rows.map((r) => r.symbol)))
+          const priceMap = new Map<string, number>()
+          await Promise.all(
+            symbols.map(async (sym) => {
+              try {
+                const resp = await fetch(
+                  `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`,
+                )
+                if (resp.ok) {
+                  const { price } = (await resp.json()) as any
+                  const px = Number(price)
+                  if (isFinite(px)) priceMap.set(sym, px)
+                }
+              } catch (e) {
+                // ignore per-symbol errors
+              }
+            }),
+          )
+
+          const enriched = rows.map((r) => {
+            const mark = priceMap.get(r.symbol)
+            if (!mark) return { ...r, markPrice: null, pnl_unrealized: null }
+            const direction = r.side === 'BUY' ? 1 : -1
+            const pnl =
+              direction * (mark - Number(r.entry_price)) * Number(r.quantity)
+            return {
+              ...r,
+              markPrice: mark,
+              pnl_unrealized: Number(pnl.toFixed(2)),
+            }
+          })
+          return res.json(enriched)
+        } catch (innerErr) {
+          req.logger?.warn({ err: innerErr, correlationId: req.correlationId }, 'PnL enrichment failed, returning fallback')
+          return res.json(fallback)
+        }
       } catch (err) {
         return res.status(500).json({ error: 'Failed to compute PnL' })
       }
