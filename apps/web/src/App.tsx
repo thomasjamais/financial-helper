@@ -10,6 +10,7 @@ import StatCard from './components/StatCard'
 import { CurrencyProvider, useCurrency } from './components/CurrencyContext'
 import AiTrades from './components/AiTrades'
 import Signals from './components/Signals'
+import TradeIdeas from './components/TradeIdeas'
 import { AuthProvider } from './components/AuthContext'
 import Protected from './components/Protected'
 import Login from './pages/Login'
@@ -29,7 +30,7 @@ function useHealth() {
   })
 }
 
-type Tab = 'dashboard' | 'portfolio' | 'ai' | 'signals' | 'configs'
+type Tab = 'dashboard' | 'portfolio' | 'ai' | 'ideas' | 'signals' | 'configs'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
@@ -130,6 +131,16 @@ export default function App() {
                           Signals
                         </button>
                         <button
+                          onClick={() => setActiveTab('ideas')}
+                          className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
+                            activeTab === 'ideas'
+                              ? 'text-blue-400 border-b-2 border-blue-400'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Trade Ideas
+                        </button>
+                        <button
                           onClick={() => setActiveTab('configs')}
                           className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
                             activeTab === 'configs'
@@ -154,6 +165,7 @@ export default function App() {
                   {activeTab === 'ai' && <AiTrades />}
                   {activeTab === 'ai' && <AiTrades />}
                   {activeTab === 'signals' && <Signals />}
+                  {activeTab === 'ideas' && <TradeIdeas />}
                   {activeTab === 'configs' && (
                     <div>
                       <ExchangeConfigManager />

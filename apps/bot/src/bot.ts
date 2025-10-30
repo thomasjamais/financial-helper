@@ -44,32 +44,33 @@ async function ensureAuth(): Promise<void> {
 async function tick() {
   try {
     await ensureAuth()
-    // Fetch live opportunities and pick a simple signal heuristic
-    const { data: opps } = await axios.get(
-      `${API_BASE}/v1/binance/earn/opportunities`,
-      {
-        params: { minScore: 0.35 },
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined,
-      },
+    // Fetch market tickers and derive trade ideas (market-wide)
+    const { data: tickers } = await axios.get(
+      'https://api.binance.com/api/v3/ticker/24hr',
+      { timeout: 10000 },
     )
 
-    const top = (opps as Array<any>)
-      .filter((o) => o.redeemable)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
+    const symbols = (Array.isArray(tickers) ? tickers : []).filter(
+      (t: any) => t.symbol?.endsWith('USDT'),
+    )
+    const sorted = symbols
+      .map((t: any) => ({ symbol: t.symbol as string, change: Number(t.priceChangePercent) }))
+      .filter((t: any) => isFinite(t.change))
+      .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
+      .slice(0, 10)
 
-    for (const o of top) {
+    for (const s of sorted) {
+      const side = s.change >= 0 ? 'BUY' : 'SELL'
+      const score = Math.min(1, Math.abs(s.change) / 25)
       await axios.post(
-        `${API_BASE}/v1/signals`,
+        `${API_BASE}/v1/trade-ideas`,
         {
-          source: 'earn-opportunity-bot',
-          asset: o.asset,
-          action: 'BUY',
-          confidence: Math.min(1, Math.max(0.5, o.score)),
-          reason: `High score opportunity: ${o.name} APR ${(o.apr * 100).toFixed(2)}%`,
-          metadata: { productId: o.id, apr: o.apr, score: o.score },
+          exchange: 'binance',
+          symbol: s.symbol,
+          side,
+          score,
+          reason: `24h change ${s.change.toFixed(2)}%`,
+          metadata: { changePct: s.change },
         },
         {
           headers: accessToken

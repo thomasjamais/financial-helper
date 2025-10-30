@@ -67,6 +67,18 @@ export interface SignalTable {
   created_at: Generated<Date>
 }
 
+export interface TradeIdeaTable {
+  id: Generated<number>
+  user_id: string
+  exchange: string
+  symbol: string
+  side: string
+  score: number
+  reason: string | null
+  metadata: unknown | null
+  created_at: Generated<Date>
+}
+
 export type User = Selectable<UserTable>
 export type NewUser = Insertable<UserTable>
 export type UserUpdate = Updateable<UserTable>
@@ -88,6 +100,7 @@ export interface DB {
   auth_audit_log: AuthAuditLogTable
   exchange_configs: ExchangeConfigTable
   signals: SignalTable
+  trade_ideas: TradeIdeaTable
 }
 
 export function createDb(connectionString?: string): Kysely<DB> {
