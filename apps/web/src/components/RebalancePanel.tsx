@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import RebalanceSummary from './RebalanceSummary'
+import RebalanceSuggestions from './RebalanceSuggestions'
 
 type RebalancingSuggestion = {
   asset: string
@@ -59,25 +61,8 @@ export default function RebalancePanel() {
         </div>
         {rebalance.data && (
           <div className="mt-4 space-y-2">
-            <div className="p-3 bg-purple-900 border border-purple-700 rounded">
-              <div className="font-semibold mb-1 text-white">Summary</div>
-              <div className="text-sm text-purple-200">{rebalance.data.summary}</div>
-              <div className="text-xs text-purple-300 mt-1">Confidence: {(rebalance.data.confidence * 100).toFixed(0)}%</div>
-            </div>
-            <div className="border border-slate-600 rounded p-3 bg-slate-700">
-              <div className="font-semibold mb-2 text-white">Suggestions</div>
-              <div className="space-y-2">
-                {rebalance.data.suggestions.map((s) => (
-                  <div key={s.asset} className="flex justify-between items-center p-2 bg-slate-800 rounded">
-                    <div>
-                      <span className="font-medium text-white">{s.asset}</span>
-                      <span className={`ml-2 px-2 py-1 rounded text-xs ${s.action === 'BUY' ? 'bg-green-700 text-green-200' : s.action === 'SELL' ? 'bg-red-700 text-red-200' : 'bg-slate-600 text-slate-300'}`}>{s.action}</span>
-                    </div>
-                    <div className="text-sm text-slate-300">{s.currentAllocation.toFixed(2)}% → {s.recommendedAllocation.toFixed(2)}%</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <RebalanceSummary summary={rebalance.data.summary} confidence={rebalance.data.confidence} />
+            <RebalanceSuggestions suggestions={rebalance.data.suggestions} />
             <button
               onClick={() => {
                 const lines = [
