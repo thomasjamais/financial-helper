@@ -65,6 +65,11 @@ This file defines coding standards and practices for this project. Follow these 
 - Include correlation IDs in all responses.
 - Return Problem+JSON format for errors.
 
+### Express Router Ordering
+- Register specific/static routes before parameterized routes to avoid shadowing.
+- Example: place `/v1/trades/with-pnl` above `/v1/trades/:id`.
+- Re-check ordering whenever adding endpoints; keep conflicting paths grouped and tested.
+
 ## Code Quality
 
 ### Naming

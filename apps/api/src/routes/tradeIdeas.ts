@@ -272,33 +272,6 @@ export function tradeIdeasRouter(
   )
 
   r.get(
-    '/v1/trades/:id',
-    authMiddleware(authService, logger),
-    async (req: Request, res: Response) => {
-      try {
-        const tradeId = Number(req.params.id)
-        const trade = await _db
-          .selectFrom('trades')
-          .selectAll()
-          .where('id', '=', tradeId)
-          .where('user_id', '=', req.user!.userId)
-          .executeTakeFirst()
-        if (!trade) return res.status(404).json({ error: 'Trade not found' })
-        const history = await _db
-          .selectFrom('trade_pnl')
-          .selectAll()
-          .where('trade_id', '=', tradeId)
-          .orderBy('ts', 'desc')
-          .limit(200)
-          .execute()
-        return res.json({ trade, history })
-      } catch (err) {
-        return res.status(500).json({ error: 'Failed to load trade detail' })
-      }
-    },
-  )
-
-  r.get(
     '/v1/trades/with-pnl',
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
@@ -394,6 +367,33 @@ export function tradeIdeasRouter(
           'Failed to compute PnL',
         )
         return res.status(500).json({ error: 'Failed to compute PnL' })
+      }
+    },
+  )
+
+  r.get(
+    '/v1/trades/:id',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      try {
+        const tradeId = Number(req.params.id)
+        const trade = await _db
+          .selectFrom('trades')
+          .selectAll()
+          .where('id', '=', tradeId)
+          .where('user_id', '=', req.user!.userId)
+          .executeTakeFirst()
+        if (!trade) return res.status(404).json({ error: 'Trade not found' })
+        const history = await _db
+          .selectFrom('trade_pnl')
+          .selectAll()
+          .where('trade_id', '=', tradeId)
+          .orderBy('ts', 'desc')
+          .limit(200)
+          .execute()
+        return res.json({ trade, history })
+      } catch (err) {
+        return res.status(500).json({ error: 'Failed to load trade detail' })
       }
     },
   )
