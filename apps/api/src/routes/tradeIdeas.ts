@@ -74,7 +74,12 @@ export function tradeIdeasRouter(
             score = excluded.score,
             reason = excluded.reason,
             metadata = excluded.metadata,
-            history = coalesce(trade_ideas.history, '[]'::jsonb) || excluded.history
+            history = (
+              case
+                when jsonb_typeof(trade_ideas.history) = 'array' then trade_ideas.history
+                else '[]'::jsonb
+              end
+            ) || excluded.history
         `.execute(_db)
 
         return res.json({ ok: true })
