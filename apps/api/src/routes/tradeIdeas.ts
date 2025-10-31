@@ -651,15 +651,18 @@ export function tradeIdeasRouter(
           return res.status(502).json({ error: 'Failed to fetch tickers' })
         const tickers = (await resp.json()) as any[]
         const MIN_QUOTE_USD = 5_000_000 // minimum 24h quote volume in USD for liquidity
+        const BASES = ['USDT', 'USDC', 'FDUSD', 'TUSD']
         const candidates = (Array.isArray(tickers) ? tickers : [])
-          .filter(
-            (t: any) =>
-              typeof t.symbol === 'string' &&
-              t.symbol.endsWith('USDT') &&
+          .filter((t: any) => {
+            if (typeof t.symbol !== 'string') return false
+            const hasSupportedBase = BASES.some((b) => t.symbol.endsWith(b))
+            return (
+              hasSupportedBase &&
               isFinite(Number(t.priceChangePercent)) &&
               isFinite(Number(t.quoteVolume)) &&
-              Number(t.quoteVolume) >= MIN_QUOTE_USD,
-          )
+              Number(t.quoteVolume) >= MIN_QUOTE_USD
+            )
+          })
           .map((t: any) => ({
             symbol: t.symbol as string,
             change: Number(t.priceChangePercent),
@@ -667,8 +670,18 @@ export function tradeIdeasRouter(
           }))
           .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
 
-        // Expand pool to top 50, then take first 20 to insert/update
-        const movers = candidates.slice(0, 50).slice(0, 20)
+        // Rotation: use time-based offset in minutes unless explicit ?offset provided
+        const takeCount = 60
+        const poolSize = Math.min(candidates.length, 200)
+        const offsetParam = Number((req.query?.offset as string) ?? '')
+        const baseOffset = Number.isFinite(offsetParam)
+          ? Math.max(0, offsetParam) % (poolSize || 1)
+          : Math.floor(Date.now() / 60_000) % (poolSize || 1)
+        const end = baseOffset + takeCount
+        const movers =
+          end <= poolSize
+            ? candidates.slice(baseOffset, end)
+            : [...candidates.slice(baseOffset, poolSize), ...candidates.slice(0, end - poolSize)]
 
         const userId = req.user!.userId
         const nowIso = new Date().toISOString()
