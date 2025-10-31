@@ -44,7 +44,20 @@ export default function TradeIdeas() {
     <div className="space-y-4 bg-slate-900 rounded-lg p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Trade Ideas</h2>
-        <button onClick={() => refetch()} disabled={isFetching} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50">
+        <button
+          onClick={async () => {
+            try {
+              await axios.post(
+                `${API_BASE}/v1/trade-ideas/refresh`,
+                {},
+                { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined },
+              )
+            } catch {}
+            await refetch()
+          }}
+          disabled={isFetching}
+          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
+        >
           {isFetching ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
