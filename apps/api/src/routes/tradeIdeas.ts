@@ -302,7 +302,7 @@ export function tradeIdeasRouter(
     '/v1/trades/with-pnl',
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
-      let rows: any[] = []
+      let rows: any[] | null = null
       try {
         rows = await _db
           .selectFrom('trades')
@@ -377,7 +377,7 @@ export function tradeIdeasRouter(
           return res.json(fallback)
         }
       } catch (err) {
-        if (rows && Array.isArray(rows) && rows.length > 0) {
+        if (rows !== null) {
           const safeFallback = rows.map((r) => ({
             ...r,
             markPrice: null,
@@ -389,7 +389,10 @@ export function tradeIdeasRouter(
           )
           return res.json(safeFallback)
         }
-        req.logger?.error({ err, correlationId: req.correlationId }, 'Failed to compute PnL')
+        req.logger?.error(
+          { err, correlationId: req.correlationId },
+          'Failed to compute PnL',
+        )
         return res.status(500).json({ error: 'Failed to compute PnL' })
       }
     },
