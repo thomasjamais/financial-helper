@@ -634,5 +634,84 @@ export function tradeIdeasRouter(
     },
   )
 
+  r.post(
+    '/v1/trade-ideas/refresh',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trade-ideas/refresh' })
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 10000)
+        const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr', {
+          signal: controller.signal,
+        })
+        clearTimeout(timeout)
+        if (!resp.ok)
+          return res.status(502).json({ error: 'Failed to fetch tickers' })
+        const tickers = (await resp.json()) as any[]
+        const MIN_QUOTE_USD = 5_000_000 // minimum 24h quote volume in USD for liquidity
+        const candidates = (Array.isArray(tickers) ? tickers : [])
+          .filter(
+            (t: any) =>
+              typeof t.symbol === 'string' &&
+              t.symbol.endsWith('USDT') &&
+              isFinite(Number(t.priceChangePercent)) &&
+              isFinite(Number(t.quoteVolume)) &&
+              Number(t.quoteVolume) >= MIN_QUOTE_USD,
+          )
+          .map((t: any) => ({
+            symbol: t.symbol as string,
+            change: Number(t.priceChangePercent),
+            quoteVolume: Number(t.quoteVolume),
+          }))
+          .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
+
+        // Expand pool to top 50, then take first 20 to insert/update
+        const movers = candidates.slice(0, 50).slice(0, 20)
+
+        const userId = req.user!.userId
+        const nowIso = new Date().toISOString()
+        let count = 0
+        await Promise.all(
+          movers.map(async (m) => {
+            const side = m.change >= 0 ? 'BUY' : 'SELL'
+            const score = Math.min(1, Math.abs(m.change) / 25)
+            const historyEntry = {
+              ts: nowIso,
+              side,
+              score,
+              reason: `24h change ${m.change.toFixed(2)}%`,
+              metadata: { changePct: m.change, quoteVolume: m.quoteVolume },
+            }
+            await sql`
+              insert into trade_ideas
+                (user_id, exchange, symbol, side, score, reason, metadata, history)
+              values
+                (${userId}, ${'binance'}, ${m.symbol}, ${side}, ${score}, ${`24h change ${m.change.toFixed(2)}%`}, ${JSON.stringify({ changePct: m.change, quoteVolume: m.quoteVolume })}::jsonb, ${JSON.stringify([historyEntry])}::jsonb)
+              on conflict (user_id, exchange, symbol)
+              do update set
+                side = excluded.side,
+                score = excluded.score,
+                reason = excluded.reason,
+                metadata = excluded.metadata,
+                history = (
+                  case when jsonb_typeof(trade_ideas.history) = 'array' then trade_ideas.history else '[]'::jsonb end
+                ) || excluded.history
+            `.execute(_db)
+            count += 1
+          }),
+        )
+        return res.json({ ok: true, count })
+      } catch (err) {
+        log.error(
+          { err, correlationId: req.correlationId },
+          'Failed to refresh trade ideas',
+        )
+        return res.status(500).json({ error: 'Failed to refresh trade ideas' })
+      }
+    },
+  )
+
   return r
 }
