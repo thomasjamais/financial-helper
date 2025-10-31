@@ -302,8 +302,9 @@ export function tradeIdeasRouter(
     '/v1/trades/with-pnl',
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
+      let rows: any[] = []
       try {
-        const rows = await _db
+        rows = await _db
           .selectFrom('trades')
           .select([
             'id',
@@ -328,7 +329,11 @@ export function tradeIdeasRouter(
           .execute()
 
         // Default response if anything fails below
-        const fallback = rows.map((r) => ({ ...r, markPrice: null, pnl_unrealized: null }))
+        const fallback = rows.map((r) => ({
+          ...r,
+          markPrice: null,
+          pnl_unrealized: null,
+        }))
 
         try {
           // Fetch current prices for unique symbols from Binance
@@ -365,10 +370,26 @@ export function tradeIdeasRouter(
           })
           return res.json(enriched)
         } catch (innerErr) {
-          req.logger?.warn({ err: innerErr, correlationId: req.correlationId }, 'PnL enrichment failed, returning fallback')
+          req.logger?.warn(
+            { err: innerErr, correlationId: req.correlationId },
+            'PnL enrichment failed, returning fallback',
+          )
           return res.json(fallback)
         }
       } catch (err) {
+        if (rows && Array.isArray(rows) && rows.length > 0) {
+          const safeFallback = rows.map((r) => ({
+            ...r,
+            markPrice: null,
+            pnl_unrealized: null,
+          }))
+          req.logger?.warn(
+            { err, correlationId: req.correlationId },
+            'PnL route outer catch, returning safe fallback',
+          )
+          return res.json(safeFallback)
+        }
+        req.logger?.error({ err, correlationId: req.correlationId }, 'Failed to compute PnL')
         return res.status(500).json({ error: 'Failed to compute PnL' })
       }
     },
