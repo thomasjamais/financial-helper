@@ -74,7 +74,12 @@ export function tradeIdeasRouter(
             score = excluded.score,
             reason = excluded.reason,
             metadata = excluded.metadata,
-            history = coalesce(trade_ideas.history, '[]'::jsonb) || excluded.history
+            history = (
+              case
+                when jsonb_typeof(trade_ideas.history) = 'array' then trade_ideas.history
+                else '[]'::jsonb
+              end
+            ) || excluded.history
         `.execute(_db)
 
         return res.json({ ok: true })
@@ -267,38 +272,12 @@ export function tradeIdeasRouter(
   )
 
   r.get(
-    '/v1/trades/:id',
-    authMiddleware(authService, logger),
-    async (req: Request, res: Response) => {
-      try {
-        const tradeId = Number(req.params.id)
-        const trade = await _db
-          .selectFrom('trades')
-          .selectAll()
-          .where('id', '=', tradeId)
-          .where('user_id', '=', req.user!.userId)
-          .executeTakeFirst()
-        if (!trade) return res.status(404).json({ error: 'Trade not found' })
-        const history = await _db
-          .selectFrom('trade_pnl')
-          .selectAll()
-          .where('trade_id', '=', tradeId)
-          .orderBy('ts', 'desc')
-          .limit(200)
-          .execute()
-        return res.json({ trade, history })
-      } catch (err) {
-        return res.status(500).json({ error: 'Failed to load trade detail' })
-      }
-    },
-  )
-
-  r.get(
     '/v1/trades/with-pnl',
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
+      let rows: any[] | null = null
       try {
-        const rows = await _db
+        rows = await _db
           .selectFrom('trades')
           .select([
             'id',
@@ -323,7 +302,11 @@ export function tradeIdeasRouter(
           .execute()
 
         // Default response if anything fails below
-        const fallback = rows.map((r) => ({ ...r, markPrice: null, pnl_unrealized: null }))
+        const fallback = rows.map((r) => ({
+          ...r,
+          markPrice: null,
+          pnl_unrealized: null,
+        }))
 
         try {
           // Fetch current prices for unique symbols from Binance
@@ -360,11 +343,57 @@ export function tradeIdeasRouter(
           })
           return res.json(enriched)
         } catch (innerErr) {
-          req.logger?.warn({ err: innerErr, correlationId: req.correlationId }, 'PnL enrichment failed, returning fallback')
+          req.logger?.warn(
+            { err: innerErr, correlationId: req.correlationId },
+            'PnL enrichment failed, returning fallback',
+          )
           return res.json(fallback)
         }
       } catch (err) {
+        if (rows !== null) {
+          const safeFallback = rows.map((r) => ({
+            ...r,
+            markPrice: null,
+            pnl_unrealized: null,
+          }))
+          req.logger?.warn(
+            { err, correlationId: req.correlationId },
+            'PnL route outer catch, returning safe fallback',
+          )
+          return res.json(safeFallback)
+        }
+        req.logger?.error(
+          { err, correlationId: req.correlationId },
+          'Failed to compute PnL',
+        )
         return res.status(500).json({ error: 'Failed to compute PnL' })
+      }
+    },
+  )
+
+  r.get(
+    '/v1/trades/:id',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      try {
+        const tradeId = Number(req.params.id)
+        const trade = await _db
+          .selectFrom('trades')
+          .selectAll()
+          .where('id', '=', tradeId)
+          .where('user_id', '=', req.user!.userId)
+          .executeTakeFirst()
+        if (!trade) return res.status(404).json({ error: 'Trade not found' })
+        const history = await _db
+          .selectFrom('trade_pnl')
+          .selectAll()
+          .where('trade_id', '=', tradeId)
+          .orderBy('ts', 'desc')
+          .limit(200)
+          .execute()
+        return res.json({ trade, history })
+      } catch (err) {
+        return res.status(500).json({ error: 'Failed to load trade detail' })
       }
     },
   )
