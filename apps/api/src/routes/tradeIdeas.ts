@@ -119,6 +119,66 @@ export function tradeIdeasRouter(
     },
   )
 
+  // Recompute latest trade ideas by scanning Binance 24h tickers (top movers)
+  r.post(
+    '/v1/trade-ideas/refresh',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log = req.logger || logger.child({ endpoint: '/v1/trade-ideas/refresh' })
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 10000)
+        const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr', { signal: controller.signal })
+        clearTimeout(timeout)
+        if (!resp.ok) return res.status(502).json({ error: 'Failed to fetch tickers' })
+        const tickers = (await resp.json()) as any[]
+        const movers = (Array.isArray(tickers) ? tickers : [])
+          .filter((t: any) => typeof t.symbol === 'string' && t.symbol.endsWith('USDT'))
+          .map((t: any) => ({ symbol: t.symbol as string, change: Number(t.priceChangePercent) }))
+          .filter((t: any) => isFinite(t.change))
+          .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
+          .slice(0, 10)
+
+        const userId = req.user!.userId
+        const nowIso = new Date().toISOString()
+        let count = 0
+        await Promise.all(
+          movers.map(async (m) => {
+            const side = m.change >= 0 ? 'BUY' : 'SELL'
+            const score = Math.min(1, Math.abs(m.change) / 25)
+            const historyEntry = {
+              ts: nowIso,
+              side,
+              score,
+              reason: `24h change ${m.change.toFixed(2)}%`,
+              metadata: { changePct: m.change },
+            }
+            await sql`
+              insert into trade_ideas
+                (user_id, exchange, symbol, side, score, reason, metadata, history)
+              values
+                (${userId}, ${'binance'}, ${m.symbol}, ${side}, ${score}, ${`24h change ${m.change.toFixed(2)}%`}, ${JSON.stringify({ changePct: m.change })}::jsonb, ${JSON.stringify([historyEntry])}::jsonb)
+              on conflict (user_id, exchange, symbol)
+              do update set
+                side = excluded.side,
+                score = excluded.score,
+                reason = excluded.reason,
+                metadata = excluded.metadata,
+                history = (
+                  case when jsonb_typeof(trade_ideas.history) = 'array' then trade_ideas.history else '[]'::jsonb end
+                ) || excluded.history
+            `.execute(_db)
+            count += 1
+          }),
+        )
+        return res.json({ ok: true, count })
+      } catch (err) {
+        log.error({ err, correlationId: req.correlationId }, 'Failed to refresh trade ideas')
+        return res.status(500).json({ error: 'Failed to refresh trade ideas' })
+      }
+    },
+  )
+
   const ExecSchema = z.object({
     confirm: z.boolean().default(false),
     budgetUSD: z.number().min(10).default(50),
