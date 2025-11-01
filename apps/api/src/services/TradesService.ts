@@ -4,7 +4,7 @@ import type { Logger } from '../logger'
 import { calculatePnL, calculateQuantity, getSymbolPrice } from '@pkg/shared-kernel'
 
 export type CreateTradeInput = {
-  ideaId: number
+  ideaId: number | null
   exchange: string
   symbol: string
   side: 'BUY' | 'SELL'
@@ -13,6 +13,7 @@ export type CreateTradeInput = {
   tpPct: number
   slPct: number
   risk?: string
+  conversionTradeId?: number | null
 }
 
 export type TradeWithPnL = {
@@ -33,6 +34,8 @@ export type TradeWithPnL = {
   metadata: any
   markPrice: number | null
   pnl_unrealized: number | null
+  tpPrice: number | null
+  slPrice: number | null
 }
 
 export class TradesService {
@@ -50,6 +53,11 @@ export class TradesService {
     
     const quantity = calculateQuantity(input.budgetUSD, input.entryPrice)
 
+    const metadata: any = {
+      risk: input.risk,
+      conversionTradeId: input.conversionTradeId ?? null,
+    }
+
     const inserted = await this.db
       .insertInto('trades')
       .values({
@@ -64,7 +72,7 @@ export class TradesService {
         tp_pct: input.tpPct,
         sl_pct: input.slPct,
         status: 'simulated',
-        metadata: { risk: input.risk } as any,
+        metadata,
       })
       .returning(['id'])
       .executeTakeFirstOrThrow()
@@ -177,10 +185,27 @@ export class TradesService {
       const markPrice = priceMap.get(trade.symbol)
 
       if (!markPrice || !isFinite(markPrice) || markPrice <= 0) {
+        // Calculate TP/SL prices even if mark price is not available
+        const entryPrice = Number(trade.entry_price)
+        let tpPrice: number | null = null
+        let slPrice: number | null = null
+        
+        if (isFinite(entryPrice) && entryPrice > 0) {
+          if (trade.side === 'BUY') {
+            tpPrice = entryPrice * (1 + trade.tp_pct)
+            slPrice = entryPrice * (1 - trade.sl_pct)
+          } else {
+            tpPrice = entryPrice * (1 - trade.tp_pct)
+            slPrice = entryPrice * (1 + trade.sl_pct)
+          }
+        }
+        
         return {
           ...trade,
           markPrice: null,
           pnl_unrealized: null,
+          tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+          slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
         }
       }
 
@@ -193,10 +218,26 @@ export class TradesService {
         !isFinite(quantity) ||
         quantity <= 0
       ) {
+        // Calculate TP/SL prices even if entry price or quantity is invalid
+        let tpPrice: number | null = null
+        let slPrice: number | null = null
+        
+        if (isFinite(entryPrice) && entryPrice > 0) {
+          if (trade.side === 'BUY') {
+            tpPrice = entryPrice * (1 + trade.tp_pct)
+            slPrice = entryPrice * (1 - trade.sl_pct)
+          } else {
+            tpPrice = entryPrice * (1 - trade.tp_pct)
+            slPrice = entryPrice * (1 + trade.sl_pct)
+          }
+        }
+        
         return {
           ...trade,
           markPrice,
           pnl_unrealized: null,
+          tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+          slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
         }
       }
 
@@ -207,10 +248,27 @@ export class TradesService {
         markPrice,
       })
 
+      // Calculate TP and SL prices
+      // For BUY: TP above entry, SL below entry
+      // For SELL: TP below entry, SL above entry
+      let tpPrice: number | null = null
+      let slPrice: number | null = null
+      
+      if (trade.side === 'BUY') {
+        tpPrice = entryPrice * (1 + trade.tp_pct)
+        slPrice = entryPrice * (1 - trade.sl_pct)
+      } else {
+        // SELL
+        tpPrice = entryPrice * (1 - trade.tp_pct)
+        slPrice = entryPrice * (1 + trade.sl_pct)
+      }
+
       return {
         ...trade,
         markPrice,
         pnl_unrealized: pnl,
+        tpPrice: isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+        slPrice: isFinite(slPrice) && slPrice > 0 ? slPrice : null,
       }
     })
   }

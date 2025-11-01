@@ -506,7 +506,7 @@ export async function generateTechnicalTradeIdea(
  * This includes all trading pairs on Binance, rotates which ones are selected
  */
 export async function getTopCryptosByVolume(
-  count: number = 15,
+  count: number = 50,
 ): Promise<string[]> {
   try {
     const resp = await axios.get('https://api.binance.com/api/v3/ticker/24hr', {

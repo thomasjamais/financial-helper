@@ -17,6 +17,8 @@ export type Trade = {
   opened_at: string
   pnl_unrealized?: number | null
   markPrice?: number | null
+  tpPrice?: number | null
+  slPrice?: number | null
 }
 
 export function useTrades() {

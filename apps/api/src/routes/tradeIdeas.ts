@@ -7,7 +7,13 @@ import type { AuthService } from '../services/AuthService'
 import { TradeIdeasService } from '../services/TradeIdeasService'
 import { TradesService } from '../services/TradesService'
 import { z } from 'zod'
-import { calculateQuantity, getSymbolPrice } from '@pkg/shared-kernel'
+import {
+  calculateQuantity,
+  getSymbolPrice,
+  isUSDQuoted,
+  extractQuoteAsset,
+  getTradingPairPrice,
+} from '@pkg/shared-kernel'
 
 export function tradeIdeasRouter(
   db: Kysely<DB>,
