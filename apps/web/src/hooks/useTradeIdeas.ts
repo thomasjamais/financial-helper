@@ -12,6 +12,7 @@ export type TradeIdea = {
   score: number
   reason?: string
   created_at: string
+  priceChange24h?: number | null
   metadata?: {
     source?: string
     validatedIndicators?: Array<{

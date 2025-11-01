@@ -86,6 +86,7 @@ export default function TradeIdeas() {
                   </th>
                   <th className="text-left p-3 text-slate-300">Exchange</th>
                   <th className="text-left p-3 text-slate-300">Symbol</th>
+                  <th className="text-right p-3 text-slate-300">24h Change</th>
                   <th
                     className="text-left p-3 text-slate-300 cursor-pointer hover:bg-slate-600 select-none"
                     onClick={() => handleSortClick('side')}
@@ -121,6 +122,22 @@ export default function TradeIdeas() {
                       </td>
                       <td className="p-3 text-slate-300">{s.exchange}</td>
                       <td className="p-3 text-white">{s.symbol}</td>
+                      <td className="p-3 text-right">
+                        {s.priceChange24h !== null && s.priceChange24h !== undefined ? (
+                          <span
+                            className={`font-semibold ${
+                              s.priceChange24h >= 0
+                                ? 'text-green-500'
+                                : 'text-red-500'
+                            }`}
+                          >
+                            {s.priceChange24h >= 0 ? '+' : ''}
+                            {s.priceChange24h.toFixed(2)}%
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
+                      </td>
                       <td className="p-3 text-slate-300">{s.side}</td>
                       <td className="p-3 text-right text-slate-300">
                         {(s.score * 100).toFixed(0)}%
@@ -171,7 +188,7 @@ export default function TradeIdeas() {
                 })}
                 {ideasList.length === 0 && !isLoading && (
                   <tr>
-                    <td colSpan={8} className="p-4 text-center text-slate-400">
+                    <td colSpan={9} className="p-4 text-center text-slate-400">
                       No {side} trade ideas
                     </td>
                   </tr>

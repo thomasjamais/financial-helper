@@ -1,4 +1,14 @@
-import { SMA, RSI, MACD, BollingerBands } from 'technicalindicators'
+import {
+  SMA,
+  EMA,
+  RSI,
+  MACD,
+  BollingerBands,
+  Stochastic,
+  ADX,
+  WilliamsR,
+  CCI,
+} from 'technicalindicators'
 import axios from 'axios'
 
 interface Candle {
@@ -330,6 +340,324 @@ function analyzeBollingerBands(
 }
 
 /**
+ * Analyzes EMA Crossover indicator
+ */
+function analyzeEmaCrossover(
+  candles: Candle[],
+  fastPeriod: number = 12,
+  slowPeriod: number = 26,
+  minScore: number = 0.6,
+): IndicatorResult | null {
+  if (candles.length < slowPeriod) return null
+
+  const closes = candles.map((c) => c.close)
+  const fastEma = EMA.calculate({ period: fastPeriod, values: closes })
+  const slowEma = EMA.calculate({ period: slowPeriod, values: closes })
+
+  if (fastEma.length === 0 || slowEma.length === 0) return null
+
+  const fastLatest = fastEma[fastEma.length - 1]
+  const slowLatest = slowEma[slowEma.length - 1]
+
+  if (fastLatest === undefined || slowLatest === undefined) return null
+
+  const diff = fastLatest - slowLatest
+  const side: 'BUY' | 'SELL' = diff >= 0 ? 'BUY' : 'SELL'
+
+  // Normalize score: 0-1 based on percentage difference
+  const percentageDiff = Math.abs(diff) / slowLatest
+  const score = Math.min(1, percentageDiff * 2)
+
+  const reason = `EMA${fastPeriod}-${slowPeriod} crossover: fast=${fastLatest.toFixed(
+    2,
+  )}, slow=${slowLatest.toFixed(2)}, diff=${(percentageDiff * 100).toFixed(2)}%`
+
+  return {
+    name: 'EMA_Crossover',
+    side,
+    score,
+    reason,
+    validated: score >= minScore,
+    details: {
+      fastPeriod,
+      slowPeriod,
+      fastEma: fastLatest,
+      slowEma: slowLatest,
+    },
+  }
+}
+
+/**
+ * Analyzes Stochastic Oscillator indicator
+ */
+function analyzeStochastic(
+  candles: Candle[],
+  period: number = 14,
+  signalPeriod: number = 3,
+  smoothPeriod: number = 3,
+  minScore: number = 0.6,
+): IndicatorResult | null {
+  if (candles.length < period + signalPeriod + smoothPeriod) return null
+
+  const highs = candles.map((c) => c.high)
+  const lows = candles.map((c) => c.low)
+  const closes = candles.map((c) => c.close)
+
+  const stochInput = {
+    high: highs,
+    low: lows,
+    close: closes,
+    period,
+    signalPeriod,
+    smoothPeriod,
+  }
+
+  const stochResults = Stochastic.calculate(stochInput)
+
+  if (stochResults.length === 0) return null
+
+  const latest = stochResults[stochResults.length - 1]
+
+  if (!latest || latest.k === undefined || latest.d === undefined) return null
+
+  let side: 'BUY' | 'SELL'
+  let score: number
+  let reason: string
+
+  // Stochastic > 80: overbought (SELL signal)
+  // Stochastic < 20: oversold (BUY signal)
+  if (latest.k >= 80) {
+    side = 'SELL'
+    score = Math.min(1, (latest.k - 80) / 20) // Normalize: 80-100 -> 0-1
+    reason = `Stochastic overbought: K=${latest.k.toFixed(2)}, D=${latest.d.toFixed(2)}`
+  } else if (latest.k <= 20) {
+    side = 'BUY'
+    score = Math.min(1, (20 - latest.k) / 20) // Normalize: 0-20 -> 1-0
+    reason = `Stochastic oversold: K=${latest.k.toFixed(2)}, D=${latest.d.toFixed(2)}`
+  } else {
+    // Neutral zone
+    const distanceFromCenter = Math.abs(latest.k - 50)
+    score = Math.min(1, distanceFromCenter / 50)
+    side = latest.k > 50 ? 'SELL' : 'BUY'
+    reason = `Stochastic neutral: K=${latest.k.toFixed(2)}, D=${latest.d.toFixed(2)}`
+  }
+
+  return {
+    name: 'Stochastic',
+    side,
+    score,
+    reason,
+    validated: score >= minScore,
+    details: {
+      period,
+      signalPeriod,
+      smoothPeriod,
+      k: latest.k,
+      d: latest.d,
+    },
+  }
+}
+
+/**
+ * Analyzes ADX (Average Directional Index) indicator
+ */
+function analyzeADX(
+  candles: Candle[],
+  period: number = 14,
+  minScore: number = 0.6,
+): IndicatorResult | null {
+  if (candles.length < period * 2) return null
+
+  const highs = candles.map((c) => c.high)
+  const lows = candles.map((c) => c.low)
+  const closes = candles.map((c) => c.close)
+
+  const adxInput = {
+    high: highs,
+    low: lows,
+    close: closes,
+    period,
+  }
+
+  const adxResults = ADX.calculate(adxInput)
+
+  if (adxResults.length === 0) return null
+
+  const latest = adxResults[adxResults.length - 1]
+
+  if (!latest || latest.adx === undefined) return null
+
+  // ADX > 25: strong trend
+  // Use +DI and -DI to determine direction
+  let side: 'BUY' | 'SELL'
+  let score: number
+  let reason: string
+
+  if (latest.adx >= 25) {
+    // Strong trend detected
+    if (latest.pdi !== undefined && latest.mdi !== undefined) {
+      side = latest.pdi > latest.mdi ? 'BUY' : 'SELL'
+      const diDiff = Math.abs(latest.pdi - latest.mdi)
+      score = Math.min(1, (latest.adx / 50) * (diDiff / 10)) // Normalize based on ADX and DI difference
+      reason = `ADX strong trend: ADX=${latest.adx.toFixed(2)}, +DI=${latest.pdi.toFixed(2)}, -DI=${latest.mdi.toFixed(2)}`
+    } else {
+      // Fallback if DI values not available
+      side = 'BUY'
+      score = Math.min(1, latest.adx / 50) // Normalize: 25-50 -> 0.5-1
+      reason = `ADX strong trend: ADX=${latest.adx.toFixed(2)}`
+    }
+  } else {
+    // Weak trend
+    score = Math.min(1, latest.adx / 25) // Normalize: 0-25 -> 0-1
+    side = latest.pdi && latest.mdi && latest.pdi > latest.mdi ? 'BUY' : 'SELL'
+    reason = `ADX weak trend: ADX=${latest.adx.toFixed(2)}`
+  }
+
+  return {
+    name: 'ADX',
+    side,
+    score,
+    reason,
+    validated: score >= minScore,
+    details: {
+      period,
+      adx: latest.adx,
+      pdi: latest.pdi,
+      mdi: latest.mdi,
+    },
+  }
+}
+
+/**
+ * Analyzes Williams %R indicator
+ */
+function analyzeWilliamsR(
+  candles: Candle[],
+  period: number = 14,
+  minScore: number = 0.6,
+): IndicatorResult | null {
+  if (candles.length < period) return null
+
+  const highs = candles.map((c) => c.high)
+  const lows = candles.map((c) => c.low)
+  const closes = candles.map((c) => c.close)
+
+  const williamsInput = {
+    high: highs,
+    low: lows,
+    close: closes,
+    period,
+  }
+
+  const williamsResults = WilliamsR.calculate(williamsInput)
+
+  if (williamsResults.length === 0) return null
+
+  const latest = williamsResults[williamsResults.length - 1]
+
+  if (latest === undefined || !isFinite(latest)) return null
+
+  let side: 'BUY' | 'SELL'
+  let score: number
+  let reason: string
+
+  // Williams %R > -20: overbought (SELL signal)
+  // Williams %R < -80: oversold (BUY signal)
+  // Note: Williams %R is typically between -100 and 0
+  if (latest >= -20) {
+    side = 'SELL'
+    score = Math.min(1, (latest + 20) / 20) // Normalize: -20 to 0 -> 0-1
+    reason = `Williams %R overbought: ${latest.toFixed(2)}`
+  } else if (latest <= -80) {
+    side = 'BUY'
+    score = Math.min(1, (-80 - latest) / 20) // Normalize: -100 to -80 -> 1-0
+    reason = `Williams %R oversold: ${latest.toFixed(2)}`
+  } else {
+    // Neutral zone
+    const distanceFromCenter = Math.abs(latest + 50)
+    score = Math.min(1, distanceFromCenter / 50)
+    side = latest > -50 ? 'SELL' : 'BUY'
+    reason = `Williams %R neutral: ${latest.toFixed(2)}`
+  }
+
+  return {
+    name: 'Williams_%R',
+    side,
+    score,
+    reason,
+    validated: score >= minScore,
+    details: {
+      period,
+      williamsR: latest,
+    },
+  }
+}
+
+/**
+ * Analyzes CCI (Commodity Channel Index) indicator
+ */
+function analyzeCCI(
+  candles: Candle[],
+  period: number = 20,
+  minScore: number = 0.6,
+): IndicatorResult | null {
+  if (candles.length < period) return null
+
+  const highs = candles.map((c) => c.high)
+  const lows = candles.map((c) => c.low)
+  const closes = candles.map((c) => c.close)
+
+  const cciInput = {
+    high: highs,
+    low: lows,
+    close: closes,
+    period,
+  }
+
+  const cciResults = CCI.calculate(cciInput)
+
+  if (cciResults.length === 0) return null
+
+  const latest = cciResults[cciResults.length - 1]
+
+  if (latest === undefined || !isFinite(latest)) return null
+
+  let side: 'BUY' | 'SELL'
+  let score: number
+  let reason: string
+
+  // CCI > 100: overbought (SELL signal)
+  // CCI < -100: oversold (BUY signal)
+  if (latest >= 100) {
+    side = 'SELL'
+    score = Math.min(1, (latest - 100) / 100) // Normalize: 100-200 -> 0-1
+    reason = `CCI overbought: ${latest.toFixed(2)}`
+  } else if (latest <= -100) {
+    side = 'BUY'
+    score = Math.min(1, (-100 - latest) / 100) // Normalize: -200 to -100 -> 1-0
+    reason = `CCI oversold: ${latest.toFixed(2)}`
+  } else {
+    // Neutral zone
+    const distanceFromCenter = Math.abs(latest)
+    score = Math.min(1, distanceFromCenter / 100)
+    side = latest > 0 ? 'SELL' : 'BUY'
+    reason = `CCI neutral: ${latest.toFixed(2)}`
+  }
+
+  return {
+    name: 'CCI',
+    side,
+    score,
+    reason,
+    validated: score >= minScore,
+    details: {
+      period,
+      cci: latest,
+    },
+  }
+}
+
+/**
  * Analyzes all technical indicators for a symbol
  */
 export async function analyzeAllIndicators(
@@ -362,6 +690,26 @@ export async function analyzeAllIndicators(
   // Analyze Bollinger Bands
   const bbResult = analyzeBollingerBands(candles, 20, 2, minScore)
   if (bbResult) indicators.push(bbResult)
+
+  // Analyze EMA Crossover
+  const emaResult = analyzeEmaCrossover(candles, 12, 26, minScore)
+  if (emaResult) indicators.push(emaResult)
+
+  // Analyze Stochastic Oscillator
+  const stochResult = analyzeStochastic(candles, 14, 3, 3, minScore)
+  if (stochResult) indicators.push(stochResult)
+
+  // Analyze ADX (Average Directional Index)
+  const adxResult = analyzeADX(candles, 14, minScore)
+  if (adxResult) indicators.push(adxResult)
+
+  // Analyze Williams %R
+  const williamsResult = analyzeWilliamsR(candles, 14, minScore)
+  if (williamsResult) indicators.push(williamsResult)
+
+  // Analyze CCI (Commodity Channel Index)
+  const cciResult = analyzeCCI(candles, 20, minScore)
+  if (cciResult) indicators.push(cciResult)
 
   const validatedIndicators = indicators.filter((ind) => ind.validated)
 
@@ -506,7 +854,7 @@ export async function generateTechnicalTradeIdea(
  * This includes all trading pairs on Binance, rotates which ones are selected
  */
 export async function getTopCryptosByVolume(
-  count: number = 15,
+  count: number = 50,
 ): Promise<string[]> {
   try {
     const resp = await axios.get('https://api.binance.com/api/v3/ticker/24hr', {
