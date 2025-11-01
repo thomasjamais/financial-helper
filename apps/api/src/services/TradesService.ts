@@ -1,7 +1,14 @@
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
-import { calculatePnL, calculateQuantity, getSymbolPrice } from '@pkg/shared-kernel'
+import {
+  calculatePnL,
+  calculateQuantity,
+  getSymbolPrice,
+  getTradingPairPrice,
+  isUSDQuoted,
+  extractQuoteAsset,
+} from '@pkg/shared-kernel'
 
 export type CreateTradeInput = {
   ideaId: number
