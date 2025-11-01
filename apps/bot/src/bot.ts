@@ -84,7 +84,10 @@ async function postTradeIdea(idea: TechnicalTradeIdea, userId?: string) {
           : undefined,
       },
     )
-    console.log(`✓ Trade idea posted successfully for ${idea.symbol}:`, response.data)
+    console.log(
+      `✓ Trade idea posted successfully for ${idea.symbol}:`,
+      response.data,
+    )
     return response.data
   } catch (err) {
     if (axios.isAxiosError(err)) {
