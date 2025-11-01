@@ -13,9 +13,10 @@
   "dependencies": {
     "@pkg/event-bus": "workspace:*",
     "@pkg/exchange-adapters": "workspace:*",
-    "ioredis": "^5.4.1",
     "axios": "^1.7.7",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "technicalindicators": "^3.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.9.2",

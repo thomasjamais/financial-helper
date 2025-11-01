@@ -157,14 +157,38 @@ export function tradeIdeasRouter(
           return res.status(404).json({ error: 'Idea not found' })
         }
 
-        const price = await getSymbolPrice(idea.symbol)
-        if (!price || !isFinite(price) || price <= 0) {
-          return res.status(502).json({ error: 'Failed to fetch price' })
+        // Get entry price and TP/SL from metadata if available (technical analysis)
+        const metadata = idea.metadata || {}
+        const entryPriceFromMetadata =
+          typeof metadata.entryPrice === 'number' && metadata.entryPrice > 0
+            ? metadata.entryPrice
+            : null
+        const tpPctFromMetadata =
+          typeof metadata.takeProfitPct === 'number' &&
+          metadata.takeProfitPct > 0
+            ? metadata.takeProfitPct
+            : null
+        const slPctFromMetadata =
+          typeof metadata.stopLossPct === 'number' && metadata.stopLossPct > 0
+            ? metadata.stopLossPct
+            : null
+
+        // Use entry price from metadata if available, otherwise fetch current price
+        let entryPrice: number
+        if (entryPriceFromMetadata) {
+          entryPrice = entryPriceFromMetadata
+        } else {
+          const price = await getSymbolPrice(idea.symbol)
+          if (!price || !isFinite(price) || price <= 0) {
+            return res.status(502).json({ error: 'Failed to fetch price' })
+          }
+          entryPrice = price
         }
 
         const budget = parsed.data.budgetUSD
-        const tpPct = 0.04
-        const slPct = 0.02
+        // Use TP/SL from metadata if available (technical analysis), otherwise defaults
+        const tpPct = tpPctFromMetadata ?? 0.04
+        const slPct = slPctFromMetadata ?? 0.02
 
         const inserted = await tradesService.create(
           req.user!.userId,
@@ -174,7 +198,7 @@ export function tradeIdeasRouter(
             symbol: idea.symbol,
             side: idea.side,
             budgetUSD: budget,
-            entryPrice: price,
+            entryPrice,
             tpPct,
             slPct,
             risk: parsed.data.risk,
