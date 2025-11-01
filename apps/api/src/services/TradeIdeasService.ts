@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
 import { sql } from 'kysely'
+import axios from 'axios'
 // TradeIdeasService handles trade ideas operations
 
 export type CreateTradeIdeaInput = {
@@ -75,6 +76,7 @@ export class TradeIdeasService {
     metadata: any
     created_at: Date
     history: any
+    priceChange24h: number | null
   }>> {
     const sortBy = filter.sortBy ?? 'created_at'
     const sortOrder = filter.sortOrder ?? 'desc'
@@ -120,11 +122,37 @@ export class TradeIdeasService {
     }
 
     const rows = await query.limit(limit).execute()
+
+    // Fetch 24h price changes for all symbols
+    const symbols = Array.from(new Set(rows.map((r) => r.symbol)))
+    const priceChangeMap = new Map<string, number>()
+
+    try {
+      const tickerResp = await axios.get(
+        'https://api.binance.com/api/v3/ticker/24hr',
+        { timeout: 5000 },
+      )
+      const tickers = tickerResp.data as any[]
+
+      for (const ticker of tickers) {
+        if (ticker.symbol && isFinite(Number(ticker.priceChangePercent))) {
+          priceChangeMap.set(
+            ticker.symbol,
+            Number(ticker.priceChangePercent),
+          )
+        }
+      }
+    } catch (err) {
+      this.logger.debug({ err }, 'Failed to fetch 24h price changes')
+      // Continue without 24h price changes if fetch fails
+    }
+
     return rows.map((row) => ({
       ...row,
       side: row.side as 'BUY' | 'SELL',
       metadata: row.metadata as any,
       history: row.history as any,
+      priceChange24h: priceChangeMap.get(row.symbol) ?? null,
     }))
   }
 
