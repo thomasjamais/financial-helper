@@ -1,10 +1,21 @@
 import 'dotenv/config'
-import 'dotenv/config'
 import axios from 'axios'
+import {
+  generateTechnicalTradeIdea,
+  getTopCryptosByVolume,
+  type TechnicalTradeIdea,
+} from './technicalAnalysisService'
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:8080'
 const AUTH_EMAIL = process.env.AUTH_EMAIL || ''
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || ''
+const TECHNICAL_ANALYSIS_ENABLED =
+  process.env.TECHNICAL_ANALYSIS_ENABLED !== 'false'
+const TECHNICAL_ANALYSIS_SYMBOLS_COUNT = Number(
+  process.env.TECHNICAL_ANALYSIS_SYMBOLS_COUNT || 15,
+)
+const MIN_CONFIDENCE_SCORE = Number(process.env.MIN_CONFIDENCE_SCORE || 0.6)
+
 let accessToken: string | null = process.env.ACCESS_TOKEN || null
 let refreshToken: string | null = process.env.REFRESH_TOKEN || null
 let accessTokenExpiresAt = 0
@@ -41,7 +52,102 @@ async function ensureAuth(): Promise<void> {
   accessTokenExpiresAt = now + 14 * 60_000
 }
 
-async function tick() {
+async function postTradeIdea(idea: TechnicalTradeIdea, userId?: string) {
+  try {
+    await axios.post(
+      `${API_BASE}/v1/trade-ideas`,
+      {
+        exchange: 'binance',
+        symbol: idea.symbol,
+        side: idea.side,
+        score: idea.score,
+        reason: idea.reason,
+        metadata: {
+          ...idea.metadata,
+          entryPrice: idea.entryPrice,
+          takeProfitPct: idea.takeProfitPct,
+          stopLossPct: idea.stopLossPct,
+          exitStrategy: idea.exitStrategy,
+          source: 'technical_analysis',
+        },
+      },
+      {
+        headers: accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : undefined,
+      },
+    )
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      console.error(
+        `Failed to post trade idea for ${idea.symbol}:`,
+        err.response?.status,
+        err.response?.data || err.message,
+      )
+    } else {
+      console.error(
+        `Failed to post trade idea for ${idea.symbol}:`,
+        err instanceof Error ? err.message : String(err),
+      )
+    }
+    throw err
+  }
+}
+
+async function technicalAnalysisTick() {
+  try {
+    await ensureAuth()
+
+    // Get top cryptos to analyze
+    const symbols = await getTopCryptosByVolume(
+      TECHNICAL_ANALYSIS_SYMBOLS_COUNT,
+    )
+
+    console.log(`Running technical analysis on ${symbols.length} symbols...`)
+
+    const results: Array<{
+      symbol: string
+      idea: TechnicalTradeIdea | null
+      error?: string
+    }> = []
+
+    // Analyze each symbol
+    for (const symbol of symbols) {
+      try {
+        const idea = await generateTechnicalTradeIdea(
+          symbol,
+          20, // fastPeriod
+          50, // slowPeriod
+          MIN_CONFIDENCE_SCORE, // minScore
+        )
+
+        if (idea && idea.score >= MIN_CONFIDENCE_SCORE) {
+          await postTradeIdea(idea)
+          results.push({ symbol, idea })
+          console.log(
+            `✓ ${symbol}: ${idea.side} signal (score: ${(idea.score * 100).toFixed(1)}%, TP: ${(idea.takeProfitPct * 100).toFixed(2)}%, SL: ${(idea.stopLossPct * 100).toFixed(2)}%)`,
+          )
+        } else {
+          results.push({ symbol, idea: null })
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err.message : String(err)
+        results.push({ symbol, idea: null, error })
+        console.error(`✗ ${symbol}: ${error}`)
+      }
+    }
+
+    const successful = results.filter((r) => r.idea !== null).length
+    console.log(
+      `Technical analysis complete: ${successful}/${symbols.length} signals generated`,
+    )
+  } catch (err) {
+    console.error('Technical analysis tick failed:', err)
+    throw err
+  }
+}
+
+async function marketTickerTick() {
   try {
     await ensureAuth()
     // Fetch market tickers and derive trade ideas (market-wide)
@@ -75,7 +181,7 @@ async function tick() {
           side,
           score,
           reason: `24h change ${s.change.toFixed(2)}%`,
-          metadata: { changePct: s.change },
+          metadata: { changePct: s.change, source: 'market_ticker' },
         },
         {
           headers: accessToken
@@ -88,21 +194,42 @@ async function tick() {
     // eslint-disable-next-line no-console
     if (axios.isAxiosError(err)) {
       console.error(
-        'Bot tick failed',
+        'Market ticker tick failed',
         err.response?.status,
         err.response?.data || err.message,
       )
     } else {
       console.error(
-        'Bot tick failed',
+        'Market ticker tick failed',
         err instanceof Error ? err.message : String(err),
       )
     }
   }
 }
 
+async function tick() {
+  try {
+    // Run technical analysis if enabled
+    if (TECHNICAL_ANALYSIS_ENABLED) {
+      await technicalAnalysisTick()
+    }
+
+    // Also run market ticker analysis (existing logic)
+    await marketTickerTick()
+  } catch (err) {
+    console.error('Bot tick failed:', err)
+  }
+}
+
 async function main() {
-  const intervalMs = Number(process.env.BOT_INTERVAL_MS || 60000)
+  const intervalMs = Number(process.env.BOT_INTERVAL_MS || 30000) // Default to 30 seconds
+  console.log(`Bot starting with ${intervalMs}ms interval`)
+  console.log(
+    `Technical analysis: ${TECHNICAL_ANALYSIS_ENABLED ? 'enabled' : 'disabled'}`,
+  )
+  console.log(`Symbols count: ${TECHNICAL_ANALYSIS_SYMBOLS_COUNT}`)
+  console.log(`Min confidence: ${MIN_CONFIDENCE_SCORE}`)
+
   await tick()
   setInterval(tick, intervalMs)
 }
