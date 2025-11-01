@@ -5,7 +5,14 @@ export type Money = {
   currency: string
 }
 
+export * from './types'
 export * from './priceService'
+export * from './priceHelper'
+export * from './portfolioService'
+export * from './conversionService'
+export * from './tradeService'
+export * from './pnlService'
+export * from './opportunityScoring'
 
 export function assert(condition: any, msg: string): asserts condition {
   if (!condition) throw new Error(msg)

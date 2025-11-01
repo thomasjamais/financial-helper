@@ -1,0 +1,491 @@
+---
+alwaysApply: true
+---
+
+# Code Organization, Domain-Driven Development & Single Responsibility Principles
+
+This document defines the architectural patterns, code splitting guidelines, and organizational principles for the financial-helper codebase. Follow these rules to maintain clean boundaries, testability, and maintainability.
+
+## Core Principles
+
+### 1. Domain-Driven Development (DDD)
+
+**Domain logic belongs in packages, not in apps.**
+
+- **Packages** (`packages/*`): Contain domain logic, business rules, and pure functions
+- **Apps** (`apps/*`): Contain infrastructure concerns (HTTP routes, UI components, orchestration)
+- **Never** place business logic directly in route handlers or React components
+
+**Bounded Contexts:**
+- `packages/exchange-adapters`: Exchange API interactions, normalization, rate limiting
+- `packages/risk-engine`: Risk calculations, position sizing, validation rules
+- `packages/shared-kernel`: Common domain types, utilities, price services
+- `packages/db`: Database schema, migrations, query interfaces
+- `packages/event-bus`: Event-driven communication
+
+### 2. Single Responsibility Principle (SRP)
+
+Each module, class, function, and component should have **one clear responsibility**.
+
+**Examples:**
+- ✅ `AuthService`: Authentication and authorization only
+- ✅ `BinanceAdapter`: Binance API interactions only
+- ✅ `RiskEngine`: Risk calculations only
+- ❌ A route handler that validates, transforms, calls multiple services, and formats response
+- ❌ A React component that fetches data, transforms it, renders UI, and handles side effects
+
+### 3. Dependency Direction
+
+**Dependencies flow inward toward the domain:**
+
+```
+apps (infrastructure)
+  ↓
+packages (domain)
+  ↓
+external APIs / database
+```
+
+- Apps can depend on packages, but **never the reverse**
+- Packages must be framework-agnostic (no Express, React, or HTTP dependencies)
+- Shared types and interfaces live in `packages/shared-kernel`
+
+## Backend Architecture (`apps/api`)
+
+### Layer Responsibilities
+
+#### Routes (`apps/api/src/routes/`)
+**Purpose**: HTTP request handling, input validation, response formatting
+
+**Responsibilities:**
+- Parse request (query params, body, headers)
+- Validate input with Zod schemas
+- Call service methods (not domain functions directly)
+- Handle errors and format Problem+JSON responses
+- Return HTTP status codes
+- Extract correlation IDs and pass to services
+
+**What routes should NOT do:**
+- ❌ Business logic or calculations
+- ❌ Direct database queries (use services)
+- ❌ Calling multiple services in complex flows (delegate to a service)
+- ❌ Data transformation beyond request/response mapping
+
+**Example pattern:**
+```typescript
+r.post('/v1/trade-ideas', authMiddleware, async (req, res) => {
+  const log = req.logger || logger.child({ endpoint: '/v1/trade-ideas' })
+  try {
+    // 1. Validate input
+    const parsed = IdeaSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ /* Problem+JSON */ })
+    }
+
+    // 2. Call service (not domain function)
+    await tradeIdeasService.create(req.user!.userId, parsed.data, req.correlationId)
+
+    // 3. Return success
+    return res.json({ ok: true })
+  } catch (err) {
+    log.error({ err }, 'Failed to create trade idea')
+    return res.status(500).json({ error: 'Failed to create trade idea' })
+  }
+})
+```
+
+#### Services (`apps/api/src/services/`)
+**Purpose**: Orchestrate domain logic, coordinate between packages, handle side effects
+
+**Responsibilities:**
+- Coordinate calls to domain packages (`exchange-adapters`, `risk-engine`, etc.)
+- Manage transactions and database operations
+- Handle cross-cutting concerns (logging, correlation IDs)
+- Map between domain types and database models
+- Implement application-specific workflows
+
+**What services should NOT do:**
+- ❌ HTTP concerns (routing, status codes, headers)
+- ❌ UI concerns (frontend services are separate)
+- ❌ Raw external API calls (use adapters from packages)
+
+**Example pattern:**
+```typescript
+export class TradeIdeasService {
+  constructor(
+    private db: Kysely<DB>,
+    private logger: Logger,
+    private riskEngine: RiskEngine,
+  ) {}
+
+  async create(userId: string, input: CreateTradeIdeaInput, correlationId?: string) {
+    // 1. Validate with domain rules
+    this.riskEngine.validateSymbol(input.symbol)
+
+    // 2. Use domain packages for calculations
+    const score = this.calculateScore(input)
+
+    // 3. Persist via database
+    await this.db.insertInto('trade_ideas').values({ /* ... */ }).execute()
+
+    // 4. Log with correlation ID
+    this.logger.info({ userId, correlationId }, 'Trade idea created')
+  }
+}
+```
+
+#### Middleware (`apps/api/src/middleware/`)
+**Purpose**: Cross-cutting HTTP concerns
+
+**Responsibilities:**
+- Authentication/authorization
+- Correlation ID extraction
+- Error handling
+- Request logging
+- Rate limiting
+
+### Package Usage in Backend
+
+**From routes/services, import domain packages:**
+```typescript
+// ✅ Good: Use domain packages
+import { BinanceAdapter } from '@pkg/exchange-adapters'
+import { RiskEngine } from '@pkg/risk-engine'
+import { calculateOpportunityScore } from '@pkg/shared-kernel'
+
+// ❌ Bad: Don't import from other apps
+import { something } from '@apps/web'
+
+// ❌ Bad: Don't put domain logic here
+function calculateRisk() { /* business logic */ }
+```
+
+## Frontend Architecture (`apps/web`)
+
+### Layer Responsibilities
+
+#### Components (`apps/web/src/components/`)
+**Purpose**: UI rendering and user interaction
+
+**Responsibilities:**
+- Render JSX
+- Handle user events (clicks, form submissions)
+- Call hooks for data fetching/mutations
+- Display loading/error states
+- Compose smaller components
+
+**What components should NOT do:**
+- ❌ Direct API calls (use hooks or API client functions)
+- ❌ Business logic or calculations (use hooks or lib utilities)
+- ❌ Complex state management (use hooks or React Query)
+- ❌ Side effects beyond UI updates (use hooks or useEffect)
+
+**Example pattern:**
+```typescript
+export default function TradeIdeas() {
+  // 1. Use hooks for data
+  const { data, isLoading, error, refetch } = useTradeIdeas()
+  const { executeIdea } = useExecuteTradeIdea()
+
+  // 2. Handle UI events
+  function handleSortClick(column: SortBy) {
+    setSortBy(column)
+  }
+
+  // 3. Render UI
+  if (isLoading) return <Spinner />
+  if (error) return <ErrorMessage error={error} />
+  return <Table data={data} onSort={handleSortClick} />
+}
+```
+
+#### Hooks (`apps/web/src/hooks/`)
+**Purpose**: Reusable stateful logic, API integration, side effects
+
+**Responsibilities:**
+- Encapsulate React Query or fetch logic
+- Manage component state that's reusable
+- Handle side effects (API calls, localStorage, etc.)
+- Transform API data for UI consumption
+
+**Example pattern:**
+```typescript
+export function useTradeIdeas(sortBy: SortBy, sortOrder: SortOrder) {
+  return useQuery({
+    queryKey: ['trade-ideas', sortBy, sortOrder],
+    queryFn: async () => {
+      const response = await axios.get(`${API_BASE}/v1/trade-ideas`, {
+        params: { sortBy, sortOrder },
+      })
+      return response.data
+    },
+    refetchInterval: 60000,
+  })
+}
+```
+
+#### Pages (`apps/web/src/pages/`)
+**Purpose**: Top-level route components
+
+**Responsibilities:**
+- Compose components for a full page
+- Handle routing-level concerns
+- Provide page-specific layout
+
+#### Lib (`apps/web/src/lib/`)
+**Purpose**: Pure utility functions for frontend
+
+**Responsibilities:**
+- Formatting functions (numbers, dates, currency)
+- Validation helpers
+- Type-safe utilities
+- **No** React hooks or components
+- **No** API calls
+
+**Example:**
+```typescript
+// ✅ Good: Pure formatting function
+export function formatCurrency(amount: number, currency: string): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+  }).format(amount)
+}
+```
+
+### Frontend Package Boundaries
+
+**Frontend can import from packages for shared types:**
+```typescript
+// ✅ Good: Import shared types if needed
+import type { TradeIdea } from '@pkg/shared-kernel'
+
+// ❌ Bad: Don't import backend services or adapters
+import { BinanceAdapter } from '@pkg/exchange-adapters' // ❌ No!
+```
+
+**Frontend should not import backend apps:**
+- Never `import` from `apps/api`
+- Frontend and backend communicate via HTTP API only
+
+## Package Structure
+
+### Package Rules
+
+1. **No framework dependencies**: Packages must work in Node.js, browser, or any environment
+   - ✅ Allowed: `kysely`, `zod`, utility libraries
+   - ❌ Not allowed: `express`, `react`, `@tanstack/react-query`
+
+2. **Pure domain logic**: Packages contain business rules, not infrastructure
+   - ✅ Calculations, validations, transformations
+   - ❌ HTTP clients (unless abstracted), database connections (use interfaces)
+
+3. **Testable in isolation**: Packages should be testable without apps
+   - Use dependency injection
+   - Mock external dependencies
+   - Pure functions where possible
+
+### Package Examples
+
+#### `packages/exchange-adapters`
+```typescript
+// ✅ Good: Pure adapter interface
+export class BinanceAdapter {
+  constructor(private httpClient: BinanceHttpClient) {}
+  async fetchBalances(): Promise<Balance[]> { /* ... */ }
+}
+
+// ❌ Bad: Direct fetch calls, framework dependencies
+export class BinanceAdapter {
+  async fetchBalances() {
+    return fetch('https://api.binance.com/...') // ❌ Use injected client
+  }
+}
+```
+
+#### `packages/risk-engine`
+```typescript
+// ✅ Good: Pure calculation functions
+export function calculatePositionSize(params: {
+  accountBalance: number
+  riskPercentage: number
+  entryPrice: number
+}): number {
+  // Pure calculation, no side effects
+}
+
+// ❌ Bad: Database queries, HTTP calls
+export async function validateRisk() {
+  await db.query(...) // ❌ Use dependency injection
+}
+```
+
+#### `packages/shared-kernel`
+```typescript
+// ✅ Good: Shared types and utilities
+export type Money = { amount: number; currency: string }
+export function formatPrice(price: number): string { /* ... */ }
+
+// ❌ Bad: Framework-specific code
+export function usePrice() { /* React hook - belongs in frontend */ }
+```
+
+## Code Splitting Guidelines
+
+### File Organization
+
+**One concept per file:**
+- ✅ One service class per file
+- ✅ One component per file
+- ✅ One hook per file
+- ❌ Multiple unrelated exports in one file
+
+**File naming:**
+- Services: `TradeIdeasService.ts` (PascalCase, suffix with purpose)
+- Components: `TradeIdeas.tsx` (PascalCase)
+- Hooks: `useTradeIdeas.ts` (camelCase, `use` prefix)
+- Utilities: `format.ts` (lowercase, descriptive)
+- Types: `types.ts` or co-located with usage
+
+### Function Size and Complexity
+
+**Keep functions small and focused:**
+- ✅ Functions < 50 lines preferred
+- ✅ One responsibility per function
+- ✅ Extract helper functions for complex logic
+- ❌ Functions > 100 lines (split them)
+
+**Example refactoring:**
+```typescript
+// ❌ Bad: Too many responsibilities
+async function handleTradeIdea(req, res) {
+  // validation
+  // transformation
+  // risk calculation
+  // database insert
+  // logging
+  // response formatting
+}
+
+// ✅ Good: Split into focused functions
+async function handleTradeIdea(req, res) {
+  const validated = validateRequest(req)
+  const enriched = enrichWithRisk(validated)
+  await persistTradeIdea(enriched)
+  return formatResponse(enriched)
+}
+```
+
+### When to Extract
+
+**Extract a service when:**
+- Logic is reused in multiple routes
+- Logic involves multiple domain packages
+- Logic needs transaction management
+- Logic has complex error handling
+
+**Extract a hook when:**
+- Stateful logic is reused in multiple components
+- API integration logic is repeated
+- Complex useEffect logic
+
+**Extract a utility function when:**
+- Pure function logic is duplicated
+- Logic is testable in isolation
+- No side effects or dependencies
+
+**Extract to a package when:**
+- Logic is domain-specific (business rules)
+- Logic is reusable across apps
+- Logic should be framework-agnostic
+
+## Dependency Injection
+
+**Use constructor injection for testability:**
+```typescript
+// ✅ Good: Dependencies injected
+export class TradeIdeasService {
+  constructor(
+    private db: Kysely<DB>,
+    private logger: Logger,
+    private riskEngine: RiskEngine,
+  ) {}
+}
+
+// ❌ Bad: Dependencies imported directly
+import { db } from './db'
+export class TradeIdeasService {
+  async create() {
+    await db.query(...) // ❌ Hard to test, hard to mock
+  }
+}
+```
+
+## Error Handling
+
+**Errors flow up through layers:**
+- Domain functions throw domain errors
+- Services catch and map to application errors
+- Routes catch and format as Problem+JSON
+
+**Example:**
+```typescript
+// Package: domain error
+export class InvalidSymbolError extends Error {}
+
+// Service: map domain error
+try {
+  this.riskEngine.validateSymbol(symbol)
+} catch (err) {
+  if (err instanceof InvalidSymbolError) {
+    throw new ValidationError('Invalid symbol')
+  }
+  throw err
+}
+
+// Route: format as Problem+JSON
+catch (err) {
+  if (err instanceof ValidationError) {
+    return res.status(400).json({ /* Problem+JSON */ })
+  }
+  return res.status(500).json({ /* Problem+JSON */ })
+}
+```
+
+## Testing Boundaries
+
+**Test packages independently:**
+- Packages should have unit tests with mocked dependencies
+- No need to spin up Express or React for package tests
+
+**Test apps with integration tests:**
+- Test routes with actual HTTP requests
+- Test components with React Testing Library
+- Use test databases and mocked external APIs
+
+## Anti-Patterns to Avoid
+
+1. **God Objects**: Large classes/services that do everything
+2. **Fat Controllers**: Routes with business logic
+3. **Anemic Domain**: Packages that are just data containers
+4. **Circular Dependencies**: Package A → Package B → Package A
+5. **Framework Leakage**: Domain logic depends on Express/React
+6. **Mixing Concerns**: Validation + calculation + persistence in one function
+7. **Direct Database Access from Routes**: Use services instead
+8. **Business Logic in Components**: Extract to hooks or services
+
+## Summary Checklist
+
+Before submitting code, verify:
+
+- [ ] Domain logic is in packages, not apps
+- [ ] Routes only handle HTTP concerns (validation, formatting)
+- [ ] Services orchestrate domain packages
+- [ ] Components only handle UI rendering
+- [ ] Hooks encapsulate reusable stateful logic
+- [ ] Packages have no framework dependencies
+- [ ] Functions are small and focused (< 50 lines preferred)
+- [ ] Dependencies are injected, not imported directly
+- [ ] One concept per file
+- [ ] Clear separation between frontend and backend
+- [ ] Types are shared via `packages/shared-kernel`

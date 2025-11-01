@@ -4,18 +4,20 @@ import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
 import { authMiddleware } from '../middleware/auth'
 import type { AuthService } from '../services/AuthService'
+import { TradeIdeasService } from '../services/TradeIdeasService'
+import { TradesService } from '../services/TradesService'
 import { z } from 'zod'
-import { BinanceAdapter, BinanceHttpClient } from '@pkg/exchange-adapters'
-import { getActiveExchangeConfig } from '../services/exchangeConfigService'
-import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
-import { sql } from 'kysely'
+import { getSymbolPrice } from '@pkg/shared-kernel'
+import { calculateQuantity } from '@pkg/shared-kernel'
 
 export function tradeIdeasRouter(
-  _db: Kysely<DB>,
+  db: Kysely<DB>,
   logger: Logger,
   authService: AuthService,
 ): Router {
   const r = Router()
+  const tradeIdeasService = new TradeIdeasService(db, logger)
+  const tradesService = new TradesService(db, logger)
 
   const IdeaSchema = z.object({
     exchange: z.string().default('binance'),
@@ -45,9 +47,7 @@ export function tradeIdeasRouter(
           })
         }
 
-        const d = parsed.data
-        // normalize metadata
-        let metadataObj: any = d.metadata ?? null
+        let metadataObj: any = parsed.data.metadata ?? null
         if (typeof metadataObj === 'string') {
           try {
             metadataObj = JSON.parse(metadataObj)
@@ -55,32 +55,15 @@ export function tradeIdeasRouter(
             metadataObj = null
           }
         }
-        const historyEntry = {
-          ts: new Date().toISOString(),
-          side: d.side,
-          score: d.score,
-          reason: d.reason ?? null,
-          metadata: metadataObj,
-        }
 
-        await sql`
-          insert into trade_ideas
-            (user_id, exchange, symbol, side, score, reason, metadata, history)
-          values
-            (${req.user!.userId}, ${d.exchange}, ${d.symbol}, ${d.side}, ${d.score}, ${d.reason ?? null}, ${JSON.stringify(metadataObj)}::jsonb, ${JSON.stringify([historyEntry])}::jsonb)
-          on conflict (user_id, exchange, symbol)
-          do update set
-            side = excluded.side,
-            score = excluded.score,
-            reason = excluded.reason,
-            metadata = excluded.metadata,
-            history = (
-              case
-                when jsonb_typeof(trade_ideas.history) = 'array' then trade_ideas.history
-                else '[]'::jsonb
-              end
-            ) || excluded.history
-        `.execute(_db)
+        await tradeIdeasService.create(
+          req.user!.userId,
+          {
+            ...parsed.data,
+            metadata: metadataObj,
+          },
+          req.correlationId,
+        )
 
         return res.json({ ok: true })
       } catch (err) {
@@ -99,41 +82,19 @@ export function tradeIdeasRouter(
         const sortOrder = (req.query?.sortOrder as string) || 'desc'
         const validSortBy = ['score', 'side', 'created_at']
         const validSortOrder = ['asc', 'desc']
-        const finalSortBy = validSortBy.includes(sortBy) ? sortBy : 'created_at'
+
+        const finalSortBy = validSortBy.includes(sortBy)
+          ? (sortBy as 'score' | 'side' | 'created_at')
+          : 'created_at'
         const finalSortOrder = validSortOrder.includes(sortOrder)
-          ? sortOrder
+          ? (sortOrder as 'asc' | 'desc')
           : 'desc'
-        let query = _db
-          .selectFrom('trade_ideas')
-          .select([
-            'id',
-            'exchange',
-            'symbol',
-            'side',
-            'score',
-            'reason',
-            'metadata',
-            'created_at',
-            'history',
-          ])
-          .where('user_id', '=', req.user!.userId)
-        if (finalSortBy === 'score') {
-          query =
-            finalSortOrder === 'asc'
-              ? query.orderBy('score', 'asc')
-              : query.orderBy('score', 'desc')
-        } else if (finalSortBy === 'side') {
-          query =
-            finalSortOrder === 'asc'
-              ? query.orderBy('side', 'asc')
-              : query.orderBy('side', 'desc')
-        } else {
-          query =
-            finalSortOrder === 'asc'
-              ? query.orderBy('created_at', 'asc')
-              : query.orderBy('created_at', 'desc')
-        }
-        const rows = await query.limit(200).execute()
+
+        const rows = await tradeIdeasService.list(req.user!.userId, {
+          sortBy: finalSortBy,
+          sortOrder: finalSortOrder,
+        })
+
         return res.json(rows)
       } catch (err) {
         return res.status(500).json({ error: 'Failed to list trade ideas' })
@@ -141,7 +102,6 @@ export function tradeIdeasRouter(
     },
   )
 
-  // Recompute latest trade ideas by scanning Binance 24h tickers (top movers)
   r.post(
     '/v1/trade-ideas/refresh',
     authMiddleware(authService, logger),
@@ -149,60 +109,11 @@ export function tradeIdeasRouter(
       const log =
         req.logger || logger.child({ endpoint: '/v1/trade-ideas/refresh' })
       try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 10000)
-        const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr', {
-          signal: controller.signal,
-        })
-        clearTimeout(timeout)
-        if (!resp.ok)
-          return res.status(502).json({ error: 'Failed to fetch tickers' })
-        const tickers = (await resp.json()) as any[]
-        const movers = (Array.isArray(tickers) ? tickers : [])
-          .filter(
-            (t: any) =>
-              typeof t.symbol === 'string' && t.symbol.endsWith('USDT'),
-          )
-          .map((t: any) => ({
-            symbol: t.symbol as string,
-            change: Number(t.priceChangePercent),
-          }))
-          .filter((t: any) => isFinite(t.change))
-          .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
-          .slice(0, 10)
-
-        const userId = req.user!.userId
-        const nowIso = new Date().toISOString()
-        let count = 0
-        await Promise.all(
-          movers.map(async (m) => {
-            const side = m.change >= 0 ? 'BUY' : 'SELL'
-            const score = Math.min(1, Math.abs(m.change) / 25)
-            const historyEntry = {
-              ts: nowIso,
-              side,
-              score,
-              reason: `24h change ${m.change.toFixed(2)}%`,
-              metadata: { changePct: m.change },
-            }
-            await sql`
-              insert into trade_ideas
-                (user_id, exchange, symbol, side, score, reason, metadata, history)
-              values
-                (${userId}, ${'binance'}, ${m.symbol}, ${side}, ${score}, ${`24h change ${m.change.toFixed(2)}%`}, ${JSON.stringify({ changePct: m.change })}::jsonb, ${JSON.stringify([historyEntry])}::jsonb)
-              on conflict (user_id, exchange, symbol)
-              do update set
-                side = excluded.side,
-                score = excluded.score,
-                reason = excluded.reason,
-                metadata = excluded.metadata,
-                history = (
-                  case when jsonb_typeof(trade_ideas.history) = 'array' then trade_ideas.history else '[]'::jsonb end
-                ) || excluded.history
-            `.execute(_db)
-            count += 1
-          }),
+        const count = await tradeIdeasService.refreshFromBinanceTickers(
+          req.user!.userId,
+          req.correlationId,
         )
+
         return res.json({ ok: true, count })
       } catch (err) {
         log.error(
@@ -241,51 +152,38 @@ export function tradeIdeasRouter(
         }
 
         const ideaId = Number(req.params.id)
-        const idea = await _db
-          .selectFrom('trade_ideas')
-          .selectAll()
-          .where('id', '=', ideaId)
-          .where('user_id', '=', req.user!.userId)
-          .executeTakeFirst()
+        const idea = await tradeIdeasService.findById(req.user!.userId, ideaId)
 
-        if (!idea) return res.status(404).json({ error: 'Idea not found' })
+        if (!idea) {
+          return res.status(404).json({ error: 'Idea not found' })
+        }
+
+        const price = await getSymbolPrice(idea.symbol)
+        if (!price || !isFinite(price) || price <= 0) {
+          return res.status(502).json({ error: 'Failed to fetch price' })
+        }
 
         const budget = parsed.data.budgetUSD
-        const sym = idea.symbol
-        const resp = await fetch(
-          `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`,
-        )
-        if (!resp.ok)
-          return res.status(502).json({ error: 'Failed to fetch price' })
-        const { price } = (await resp.json()) as { price: string }
-        const px = Number(price)
-        if (!isFinite(px) || px <= 0)
-          return res.status(502).json({ error: 'Invalid price' })
-
-        const quantity = budget / px
         const tpPct = 0.04
         const slPct = 0.02
 
-        const inserted = await _db
-          .insertInto('trades')
-          .values({
-            user_id: req.user!.userId,
-            idea_id: ideaId,
+        const inserted = await tradesService.create(
+          req.user!.userId,
+          {
+            ideaId,
             exchange: idea.exchange,
             symbol: idea.symbol,
             side: idea.side,
-            budget_usd: budget,
-            quantity,
-            entry_price: px,
-            tp_pct: tpPct,
-            sl_pct: slPct,
-            status: 'simulated',
-            metadata: { risk: parsed.data.risk } as any,
-          })
-          .returning(['id'])
-          .executeTakeFirst()
+            budgetUSD: budget,
+            entryPrice: price,
+            tpPct,
+            slPct,
+            risk: parsed.data.risk,
+          },
+          req.correlationId,
+        )
 
-        return res.json({ executed: true, tradeId: inserted?.id })
+        return res.json({ executed: true, tradeId: inserted.id })
       } catch (err) {
         log.error({ err }, 'Failed to execute idea')
         return res.status(500).json({ error: 'Failed to execute idea' })
@@ -298,29 +196,7 @@ export function tradeIdeasRouter(
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
       try {
-        const rows = await _db
-          .selectFrom('trades')
-          .select([
-            'id',
-            'idea_id',
-            'exchange',
-            'symbol',
-            'side',
-            'budget_usd',
-            'quantity',
-            'entry_price',
-            'tp_pct',
-            'sl_pct',
-            'status',
-            'opened_at',
-            'closed_at',
-            'pnl_usd',
-            'metadata',
-          ])
-          .where('user_id', '=', req.user!.userId)
-          .orderBy('opened_at', 'desc')
-          .limit(200)
-          .execute()
+        const rows = await tradesService.list(req.user!.userId)
         return res.json(rows)
       } catch (err) {
         return res.status(500).json({ error: 'Failed to list trades' })
@@ -334,32 +210,25 @@ export function tradeIdeasRouter(
     async (req: Request, res: Response) => {
       try {
         const tradeId = Number(req.params.id)
-        const trade = await _db
-          .selectFrom('trades')
-          .selectAll()
-          .where('id', '=', tradeId)
-          .where('user_id', '=', req.user!.userId)
-          .executeTakeFirst()
-        if (!trade) return res.status(404).json({ error: 'Trade not found' })
-        const resp = await fetch(
-          `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(trade.symbol)}`,
-        )
-        if (!resp.ok)
+        const trade = await tradesService.findById(req.user!.userId, tradeId)
+
+        if (!trade) {
+          return res.status(404).json({ error: 'Trade not found' })
+        }
+
+        const price = await getSymbolPrice(trade.symbol)
+        if (!price || !isFinite(price) || price <= 0) {
           return res.status(502).json({ error: 'Failed to fetch price' })
-        const { price } = (await resp.json()) as any
-        const mark = Number(price)
-        if (!isFinite(mark))
-          return res.status(502).json({ error: 'Invalid price' })
-        const direction = trade.side === 'BUY' ? 1 : -1
-        const pnl =
-          direction *
-          (mark - Number(trade.entry_price)) *
-          Number(trade.quantity)
-        await _db
-          .insertInto('trade_pnl')
-          .values({ trade_id: tradeId, mark_price: mark, pnl_usd: pnl })
-          .execute()
-        return res.json({ ok: true, mark, pnl: Number(pnl.toFixed(2)) })
+        }
+
+        const result = await tradesService.createSnapshot(
+          req.user!.userId,
+          tradeId,
+          price,
+          req.correlationId,
+        )
+
+        return res.json({ ok: true, mark: result.mark, pnl: result.pnl })
       } catch (err) {
         return res.status(500).json({ error: 'Failed to record snapshot' })
       }
@@ -370,139 +239,39 @@ export function tradeIdeasRouter(
     '/v1/trades/with-pnl',
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
-      let rows: any[] | null = null
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
       try {
-        rows = await _db
-          .selectFrom('trades')
-          .select([
-            'id',
-            'idea_id',
-            'exchange',
-            'symbol',
-            'side',
-            'budget_usd',
-            'quantity',
-            'entry_price',
-            'tp_pct',
-            'sl_pct',
-            'status',
-            'opened_at',
-            'closed_at',
-            'pnl_usd',
-            'metadata',
-          ])
-          .where('user_id', '=', req.user!.userId)
-          .orderBy('opened_at', 'desc')
-          .limit(200)
-          .execute()
+        const trades = await tradesService.list(req.user!.userId)
 
-        // Default response if anything fails below
-        const fallback = rows.map((r) => ({
-          ...r,
-          markPrice: null,
-          pnl_unrealized: null,
-        }))
+        const symbols = Array.from(new Set(trades.map((t) => t.symbol)))
+        const priceMap = new Map<string, number>()
 
-        try {
-          // Fetch current prices for unique symbols from Binance
-          const symbols = Array.from(new Set(rows.map((r) => r.symbol)))
-          const priceMap = new Map<string, number>()
-          const log =
-            req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
-          await Promise.all(
-            symbols.map(async (sym) => {
-              try {
-                const resp = await fetch(
-                  `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`,
-                )
-                if (resp.ok) {
-                  const data = (await resp.json()) as any
-                  const px = Number(data.price)
-                  if (isFinite(px) && px > 0) {
-                    priceMap.set(sym, px)
-                  } else {
-                    log.debug(
-                      { symbol: sym, price: data.price },
-                      'Invalid price from Binance',
-                    )
-                  }
-                } else {
-                  log.warn(
-                    { symbol: sym, status: resp.status },
-                    'Failed to fetch price from Binance',
-                  )
-                }
-              } catch (e) {
-                log.debug(
-                  { err: e, symbol: sym },
-                  'Error fetching price for symbol',
-                )
+        await Promise.all(
+          symbols.map(async (sym) => {
+            try {
+              const price = await getSymbolPrice(sym)
+              if (price && isFinite(price) && price > 0) {
+                priceMap.set(sym, price)
+              } else {
+                log.debug({ symbol: sym, price }, 'Invalid price for symbol')
               }
-            }),
-          )
-
-          const enriched = rows.map((r) => {
-            const mark = priceMap.get(r.symbol)
-            if (!mark || !isFinite(mark) || mark <= 0) {
+            } catch (e) {
               log.debug(
-                { symbol: r.symbol, mark, hasMark: !!mark },
-                'Missing or invalid mark price for symbol',
+                { err: e, symbol: sym },
+                'Error fetching price for symbol',
               )
-              return { ...r, markPrice: null, pnl_unrealized: null }
             }
-            const entryPrice = Number(r.entry_price)
-            const quantity = Number(r.quantity)
-            if (
-              !isFinite(entryPrice) ||
-              entryPrice <= 0 ||
-              !isFinite(quantity) ||
-              quantity <= 0
-            ) {
-              log.warn(
-                { symbol: r.symbol, entryPrice, quantity, tradeId: r.id },
-                'Invalid entry_price or quantity for trade',
-              )
-              return { ...r, markPrice: mark, pnl_unrealized: null }
-            }
-            const direction = r.side === 'BUY' ? 1 : -1
-            const pnl = direction * (mark - entryPrice) * quantity
-            console.log('PNL', pnl)
-            console.log('MARK', mark)
-            console.log('ENTRY PRICE', entryPrice)
-            console.log('QUANTITY', quantity)
-            console.log('DIRECTION', direction)
-            const pnlRounded = Number(pnl.toFixed(2))
-            return {
-              ...r,
-              markPrice: mark,
-              pnl_unrealized: pnlRounded,
-            }
-          })
-          return res.json(enriched)
-        } catch (innerErr) {
-          const log =
-            req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
-          log.warn(
-            { err: innerErr, correlationId: req.correlationId },
-            'PnL enrichment failed, returning fallback',
-          )
-          return res.json(fallback)
-        }
+          }),
+        )
+
+        const enriched = await tradesService.listWithPnL(
+          req.user!.userId,
+          priceMap,
+        )
+
+        return res.json(enriched)
       } catch (err) {
-        const log =
-          req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
-        if (rows !== null) {
-          const safeFallback = rows.map((r) => ({
-            ...r,
-            markPrice: null,
-            pnl_unrealized: null,
-          }))
-          log.warn(
-            { err, correlationId: req.correlationId },
-            'PnL route outer catch, returning safe fallback',
-          )
-          return res.json(safeFallback)
-        }
         log.error(
           { err, correlationId: req.correlationId },
           'Failed to compute PnL',
@@ -518,118 +287,16 @@ export function tradeIdeasRouter(
     async (req: Request, res: Response) => {
       try {
         const tradeId = Number(req.params.id)
-        const trade = await _db
-          .selectFrom('trades')
-          .selectAll()
-          .where('id', '=', tradeId)
-          .where('user_id', '=', req.user!.userId)
-          .executeTakeFirst()
-        if (!trade) return res.status(404).json({ error: 'Trade not found' })
-        const history = await _db
-          .selectFrom('trade_pnl')
-          .selectAll()
-          .where('trade_id', '=', tradeId)
-          .orderBy('ts', 'desc')
-          .limit(200)
-          .execute()
+        const trade = await tradesService.findById(req.user!.userId, tradeId)
+
+        if (!trade) {
+          return res.status(404).json({ error: 'Trade not found' })
+        }
+
+        const history = await tradesService.getHistory(tradeId)
         return res.json({ trade, history })
       } catch (err) {
         return res.status(500).json({ error: 'Failed to load trade detail' })
-      }
-    },
-  )
-
-  r.post(
-    '/v1/trade-ideas/refresh',
-    authMiddleware(authService, logger),
-    async (req: Request, res: Response) => {
-      const log =
-        req.logger || logger.child({ endpoint: '/v1/trade-ideas/refresh' })
-      try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 10000)
-        const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr', {
-          signal: controller.signal,
-        })
-        clearTimeout(timeout)
-        if (!resp.ok)
-          return res.status(502).json({ error: 'Failed to fetch tickers' })
-        const tickers = (await resp.json()) as any[]
-        const MIN_QUOTE_USD = 5_000_000 // minimum 24h quote volume in USD for liquidity
-        const BASES = ['USDT', 'USDC', 'FDUSD', 'TUSD']
-        const candidates = (Array.isArray(tickers) ? tickers : [])
-          .filter((t: any) => {
-            if (typeof t.symbol !== 'string') return false
-            const hasSupportedBase = BASES.some((b) => t.symbol.endsWith(b))
-            return (
-              hasSupportedBase &&
-              isFinite(Number(t.priceChangePercent)) &&
-              isFinite(Number(t.quoteVolume)) &&
-              Number(t.quoteVolume) >= MIN_QUOTE_USD
-            )
-          })
-          .map((t: any) => ({
-            symbol: t.symbol as string,
-            change: Number(t.priceChangePercent),
-            quoteVolume: Number(t.quoteVolume),
-          }))
-          .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
-
-        // Rotation: use time-based offset in minutes unless explicit ?offset provided
-        const takeCount = 60
-        const poolSize = Math.min(candidates.length, 200)
-        const offsetParam = Number((req.query?.offset as string) ?? '')
-        const baseOffset = Number.isFinite(offsetParam)
-          ? Math.max(0, offsetParam) % (poolSize || 1)
-          : Math.floor(Date.now() / 60_000) % (poolSize || 1)
-        const end = baseOffset + takeCount
-        const movers =
-          end <= poolSize
-            ? candidates.slice(baseOffset, end)
-            : [
-                ...candidates.slice(baseOffset, poolSize),
-                ...candidates.slice(0, end - poolSize),
-              ]
-
-        const userId = req.user!.userId
-        const nowIso = new Date().toISOString()
-        let count = 0
-        await Promise.all(
-          movers.map(async (m) => {
-            const side = m.change >= 0 ? 'BUY' : 'SELL'
-            const score = Math.min(1, Math.abs(m.change) / 25)
-            const historyEntry = {
-              ts: nowIso,
-              side,
-              score,
-              reason: `24h change ${m.change.toFixed(2)}%`,
-              metadata: { changePct: m.change, quoteVolume: m.quoteVolume },
-            }
-            await sql`
-              insert into trade_ideas
-                (user_id, exchange, symbol, side, score, reason, metadata, history)
-              values
-                (${userId}, ${'binance'}, ${m.symbol}, ${side}, ${score}, ${`24h change ${m.change.toFixed(2)}%`}, ${JSON.stringify({ changePct: m.change, quoteVolume: m.quoteVolume })}::jsonb, ${JSON.stringify([historyEntry])}::jsonb)
-              on conflict (user_id, exchange, symbol)
-              do update set
-                side = excluded.side,
-                score = excluded.score,
-                reason = excluded.reason,
-                metadata = excluded.metadata,
-                history = (
-                  case when jsonb_typeof(trade_ideas.history) = 'array' then trade_ideas.history else '[]'::jsonb end
-                ) || excluded.history
-            `.execute(_db)
-            count += 1
-          }),
-        )
-        return res.json({ ok: true, count })
-      } catch (err) {
-        log.error(
-          { err, correlationId: req.correlationId },
-          'Failed to refresh trade ideas',
-        )
-        return res.status(500).json({ error: 'Failed to refresh trade ideas' })
       }
     },
   )
