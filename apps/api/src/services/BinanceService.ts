@@ -91,6 +91,12 @@ export class BinanceService {
     return await buildPortfolio(balances)
   }
 
+  async getEarnBalances(): Promise<Balance[]> {
+    const http = await this.createHttpClient()
+    const earnClient = new BinanceEarnClient(http)
+    return await earnClient.getEarnBalances()
+  }
+
   async getPortfolioWithEarn(): Promise<{
     assets: Array<{
       asset: string
@@ -108,10 +114,7 @@ export class BinanceService {
     const adapter = await this.createAdapter()
     const spotBalances = await adapter.getBalances('spot')
 
-    const http = await this.createHttpClient()
-    const earnClient = new BinanceEarnClient(http)
-    const earnBalances = await earnClient.getEarnBalances()
-
+    const earnBalances = await this.getEarnBalances()
     const allBalances = [...spotBalances, ...earnBalances]
     return await buildPortfolio(allBalances)
   }

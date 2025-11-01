@@ -1,29 +1,16 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
+import { filterBalances } from '../services/balanceFilter'
+import { BinanceService } from '../services/BinanceService'
 import {
-  BinanceAdapter,
-  BinanceHttpClient,
-  BinanceEarnClient,
-  type BinanceConfig,
-  type Balance,
-} from '@pkg/exchange-adapters'
+  getRebalancingAdvice,
+  OpenAIProvider,
+} from '../services/aiPredictionService'
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import { sql } from 'kysely'
 import { makeEncryptDecrypt } from '../services/crypto'
 import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
-import { getActiveExchangeConfig } from '../services/exchangeConfigService'
-import { filterBalances } from '../services/balanceFilter'
-import { buildPortfolio } from '../services/portfolioService'
-import { computeSpotTrades } from '../services/aiTrades'
-import {
-  calculateConversion,
-  type ConversionTarget,
-} from '../services/conversionService'
-import {
-  getRebalancingAdvice,
-  OpenAIProvider,
-} from '../services/aiPredictionService'
 import type { Logger } from '../logger'
 
 export function binanceRouter(
@@ -33,6 +20,7 @@ export function binanceRouter(
 ): Router {
   const r = Router()
   const { encrypt } = makeEncryptDecrypt(encKey)
+  const binanceService = new BinanceService(db, logger, encKey)
 
   r.post('/v1/binance/config', (req: Request, res: Response) => {
     const log = req.logger || logger.child({ endpoint: '/v1/binance/config' })
@@ -110,45 +98,8 @@ export function binanceRouter(
 
     try {
       log.info('Fetching balances')
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'binance')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          log.warn('Binance config not set')
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      log.debug({ env: cfg.env }, 'Creating Binance adapter')
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-
-      log.debug('Fetching spot balances')
-      const spotRaw = await adapter.getBalances('spot')
-      log.debug({ count: spotRaw.length }, 'Spot balances fetched')
-
-      log.debug('Skipping futures balances (Spot only)')
-      const futuresRaw: Balance[] = []
-
-      const { spot, futures } = filterBalances(spotRaw, futuresRaw)
+      const balances = await binanceService.getBalances()
+      const { spot, futures } = filterBalances(balances.spot, balances.futures)
 
       const duration = Date.now() - startTime
       log.info(
@@ -183,40 +134,7 @@ export function binanceRouter(
     const log =
       req.logger || logger.child({ endpoint: '/v1/binance/positions' })
     try {
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'binance')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      if (!cfg) {
-        return res.status(400).json({ error: 'Binance config not set' })
-      }
-
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-
-      const positions = await adapter.getPositions()
+      const positions = await binanceService.getPositions()
       return res.json({ positions })
     } catch (err) {
       log.error(
@@ -238,30 +156,8 @@ export function binanceRouter(
     const log =
       req.logger || logger.child({ endpoint: '/v1/binance/portfolio/spot' })
     try {
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'binance')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-      })
-      const spotBalances = await adapter.getBalances('spot')
-      const portfolio = await buildPortfolio(spotBalances)
+      const balances = await binanceService.getBalances()
+      const portfolio = await binanceService.getPortfolio(balances.spot)
       return res.json(portfolio)
     } catch (err) {
       log.error({ err }, 'Failed to build spot portfolio')
@@ -272,42 +168,9 @@ export function binanceRouter(
   r.get('/v1/binance/orders', async (req: Request, res: Response) => {
     const log = req.logger || logger.child({ endpoint: '/v1/binance/orders' })
     try {
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'binance')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      if (!cfg) {
-        return res.status(400).json({ error: 'Binance config not set' })
-      }
-
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-
       const status =
         typeof req.query.status === 'string' ? req.query.status : undefined
-      const orders = await adapter.listOrders(status)
+      const orders = await binanceService.getOrders(status)
       return res.json({ orders })
     } catch (err) {
       log.error(
@@ -332,55 +195,7 @@ export function binanceRouter(
 
     try {
       log.info('Fetching portfolio')
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'binance')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          log.warn('Binance config not set')
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      if (!cfg) {
-        return res.status(400).json({ error: 'Binance config not set' })
-      }
-
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-
-      log.debug('Fetching all spot balances')
-      const spotBalances = await adapter.getBalances('spot')
-      log.debug({ count: spotBalances.length }, 'All balances fetched')
-
-      const http = new BinanceHttpClient({
-        key: cfg.key,
-        secret: cfg.secret,
-        baseUrl: cfg.baseUrl || 'https://api.binance.com',
-        env: cfg.env || 'live',
-      })
-      const earnClient = new BinanceEarnClient(http)
-      const earnBalances = await earnClient.getEarnBalances()
-      const allBalances = [...spotBalances, ...earnBalances]
-
-      const portfolio = await buildPortfolio(allBalances)
+      const portfolio = await binanceService.getPortfolioWithEarn()
 
       const duration = Date.now() - startTime
       log.info(
@@ -429,42 +244,9 @@ export function binanceRouter(
         return res.status(400).json({ error: parsed.error.flatten() })
       }
 
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'binance')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      if (!cfg) {
-        return res.status(400).json({ error: 'Binance config not set' })
-      }
-
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-
-      const balances = await adapter.getBalances('spot')
-      const conversion = await calculateConversion(
-        balances,
+      const balances = await binanceService.getBalances()
+      const conversion = await binanceService.calculateConversion(
+        balances.spot,
         parsed.data.fromAsset,
         parsed.data.fromAmount,
         parsed.data.toAsset,
@@ -509,56 +291,23 @@ export function binanceRouter(
       })
       const parsed = Schema.safeParse(req.body)
 
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'binance')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      if (!cfg) {
-        return res.status(400).json({ error: 'Binance config not set' })
-      }
-
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
       const mode = parsed.success ? parsed.data.mode : 'overview'
-      let balances: Balance[] = []
-      if (mode === 'spot' || mode === 'overview') {
-        const spot = await adapter.getBalances('spot')
-        balances = spot
+      let balances: Array<{ asset: string; free: number; locked?: number }> =
+        []
+
+      if (mode === 'spot') {
+        const spotBalances = await binanceService.getBalances()
+        balances = spotBalances.spot
+      } else if (mode === 'earn') {
+        balances = await binanceService.getEarnBalances()
+      } else {
+        // overview mode: combine spot and earn
+        const spotBalances = await binanceService.getBalances()
+        const earnBalances = await binanceService.getEarnBalances()
+        balances = [...spotBalances.spot, ...earnBalances]
       }
-      if (mode === 'earn' || mode === 'overview') {
-        const http = new BinanceHttpClient({
-          key: cfg.key,
-          secret: cfg.secret,
-          baseUrl: cfg.baseUrl || 'https://api.binance.com',
-          env: cfg.env || 'live',
-        })
-        const earnClient = new BinanceEarnClient(http)
-        const earn = await earnClient.getEarnBalances()
-        balances = mode === 'overview' ? [...balances, ...earn] : earn
-      }
-      const portfolio = await buildPortfolio(balances)
+
+      const portfolio = await binanceService.getPortfolio(balances)
 
       const portfolioData = portfolio.assets.map((asset) => ({
         asset: asset.asset,
@@ -605,44 +354,12 @@ export function binanceRouter(
     }
   })
 
-  // Generate AI spot trade suggestions (does not execute trades)
   r.post('/v1/binance/ai/spot-trades', async (req: Request, res: Response) => {
     const log =
       req.logger || logger.child({ endpoint: '/v1/binance/ai/spot-trades' })
     try {
-      // Ensure config
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(
-          db,
-          (process as any).env.ENCRYPTION_KEY,
-          'binance',
-        )
-        if (!dbConfig)
-          return res.status(400).json({ error: 'Binance config not set' })
-        cfg = {
-          key: dbConfig.key,
-          secret: dbConfig.secret,
-          env: dbConfig.env,
-          baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-        }
-        setBinanceConfig(cfg)
-      }
-
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-      const spot = await adapter.getBalances('spot')
-      const portfolio = await buildPortfolio(spot)
+      const balances = await binanceService.getBalances()
+      const portfolio = await binanceService.getPortfolio(balances.spot)
 
       const portfolioData = portfolio.assets.map((asset) => ({
         asset: asset.asset,
@@ -669,7 +386,8 @@ export function binanceRouter(
           s.recommendedAllocation,
         ]),
       )
-      const trades = computeSpotTrades(
+
+      const trades = await binanceService.getRebalancingTrades(
         portfolioData,
         recommended,
         portfolio.totalValueUSD,
