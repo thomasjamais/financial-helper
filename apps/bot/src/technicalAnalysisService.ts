@@ -1,4 +1,4 @@
-import { SMA } from 'technicalindicators'
+import { SMA, RSI, MACD, BollingerBands } from 'technicalindicators'
 import axios from 'axios'
 
 interface Candle {
@@ -10,6 +10,15 @@ interface Candle {
   volume: number
 }
 
+export interface IndicatorResult {
+  name: string
+  side: 'BUY' | 'SELL'
+  score: number
+  reason: string
+  validated: boolean
+  details?: Record<string, any>
+}
+
 export interface TechnicalTradeIdea {
   symbol: string
   side: 'BUY' | 'SELL'
@@ -19,14 +28,12 @@ export interface TechnicalTradeIdea {
   takeProfitPct: number
   stopLossPct: number
   exitStrategy: string
+  validatedIndicators: IndicatorResult[]
   metadata: {
-    fastPeriod: number
-    slowPeriod: number
-    fastSma: number
-    slowSma: number
     currentPrice: number
     atr?: number
     volatility?: number
+    indicators: IndicatorResult[]
   }
 }
 
@@ -82,21 +89,14 @@ function calculateATR(candles: Candle[], period: number = 14): number {
 }
 
 /**
- * Computes a trade idea based on moving average crossover
+ * Analyzes MA Crossover indicator
  */
-function computeMaCrossover(
+function analyzeMaCrossover(
   candles: Candle[],
   fastPeriod: number = 20,
   slowPeriod: number = 50,
-): {
-  side: 'BUY' | 'SELL'
-  score: number
-  reason: string
-  fastSma: number
-  slowSma: number
-  currentPrice: number
-  atr: number
-} | null {
+  minScore: number = 0.6,
+): IndicatorResult | null {
   if (candles.length < slowPeriod) return null
 
   const closes = candles.map((c) => c.close)
@@ -105,7 +105,6 @@ function computeMaCrossover(
 
   const fastLatest = fastSma[fastSma.length - 1]
   const slowLatest = slowSma[slowSma.length - 1]
-  const currentPrice = closes[closes.length - 1]
 
   if (fastLatest === undefined || slowLatest === undefined) return null
 
@@ -118,18 +117,257 @@ function computeMaCrossover(
 
   const reason = `MA${fastPeriod}-${slowPeriod} crossover: fast=${fastLatest.toFixed(
     2,
-  )}, slow=${slowLatest.toFixed(2)}, diff=${(percentageDiff * 100).toFixed(
-    2,
-  )}%`
-
-  const atr = calculateATR(candles)
+  )}, slow=${slowLatest.toFixed(2)}, diff=${(percentageDiff * 100).toFixed(2)}%`
 
   return {
+    name: 'MA_Crossover',
     side,
     score,
     reason,
-    fastSma: fastLatest,
-    slowSma: slowLatest,
+    validated: score >= minScore,
+    details: {
+      fastPeriod,
+      slowPeriod,
+      fastSma: fastLatest,
+      slowSma: slowLatest,
+    },
+  }
+}
+
+/**
+ * Analyzes RSI indicator
+ */
+function analyzeRSI(
+  candles: Candle[],
+  period: number = 14,
+  minScore: number = 0.6,
+): IndicatorResult | null {
+  if (candles.length < period + 1) return null
+
+  const closes = candles.map((c) => c.close)
+  const rsiValues = RSI.calculate({ values: closes, period })
+
+  if (rsiValues.length === 0) return null
+
+  const rsi = rsiValues[rsiValues.length - 1]
+  if (rsi === undefined || !isFinite(rsi)) return null
+
+  let side: 'BUY' | 'SELL'
+  let score: number
+  let reason: string
+
+  // RSI > 70: overbought (SELL signal)
+  // RSI < 30: oversold (BUY signal)
+  if (rsi >= 70) {
+    side = 'SELL'
+    score = Math.min(1, (rsi - 70) / 30) // Normalize: 70-100 -> 0-1
+    reason = `RSI overbought: ${rsi.toFixed(2)} (SELL signal)`
+  } else if (rsi <= 30) {
+    side = 'BUY'
+    score = Math.min(1, (30 - rsi) / 30) // Normalize: 0-30 -> 1-0
+    reason = `RSI oversold: ${rsi.toFixed(2)} (BUY signal)`
+  } else {
+    // Neutral zone, calculate score based on distance from center (50)
+    const distanceFromCenter = Math.abs(rsi - 50)
+    score = Math.min(1, distanceFromCenter / 50) // Normalize to 0-1
+    side = rsi > 50 ? 'SELL' : 'BUY'
+    reason = `RSI neutral: ${rsi.toFixed(2)}`
+  }
+
+  return {
+    name: 'RSI',
+    side,
+    score,
+    reason,
+    validated: score >= minScore,
+    details: {
+      period,
+      rsi,
+    },
+  }
+}
+
+/**
+ * Analyzes MACD indicator
+ */
+function analyzeMACD(
+  candles: Candle[],
+  fastPeriod: number = 12,
+  slowPeriod: number = 26,
+  signalPeriod: number = 9,
+  minScore: number = 0.6,
+): IndicatorResult | null {
+  if (candles.length < slowPeriod + signalPeriod) return null
+
+  const closes = candles.map((c) => c.close)
+  const macdInput = {
+    values: closes,
+    fastPeriod,
+    slowPeriod,
+    signalPeriod,
+    SimpleMAOscillator: false,
+    SimpleMASignal: false,
+  }
+
+  const macdResults = MACD.calculate(macdInput)
+
+  if (macdResults.length === 0) return null
+
+  const latest = macdResults[macdResults.length - 1]
+  if (!latest || latest.MACD === undefined || latest.signal === undefined) {
+    return null
+  }
+
+  const macd = latest.MACD
+  const signal = latest.signal
+  const histogram = macd - signal
+
+  // BUY: MACD crosses above signal (histogram positive and increasing)
+  // SELL: MACD crosses below signal (histogram negative and decreasing)
+  const side: 'BUY' | 'SELL' = histogram >= 0 ? 'BUY' : 'SELL'
+
+  // Score based on histogram strength
+  const histogramAbs = Math.abs(histogram)
+  const avgPrice = closes.slice(-20).reduce((a, b) => a + b, 0) / 20
+  const normalizedHistogram = histogramAbs / avgPrice
+  const score = Math.min(1, normalizedHistogram * 100) // Scale to 0-1
+
+  const reason = `MACD: ${macd.toFixed(4)}, Signal: ${signal.toFixed(4)}, Histogram: ${histogram.toFixed(4)}`
+
+  return {
+    name: 'MACD',
+    side,
+    score,
+    reason,
+    validated: score >= minScore,
+    details: {
+      fastPeriod,
+      slowPeriod,
+      signalPeriod,
+      macd,
+      signal,
+      histogram,
+    },
+  }
+}
+
+/**
+ * Analyzes Bollinger Bands indicator
+ */
+function analyzeBollingerBands(
+  candles: Candle[],
+  period: number = 20,
+  stdDev: number = 2,
+  minScore: number = 0.6,
+): IndicatorResult | null {
+  if (candles.length < period) return null
+
+  const closes = candles.map((c) => c.close)
+  const bbInput = {
+    values: closes,
+    period,
+    stdDev,
+  }
+
+  const bbResults = BollingerBands.calculate(bbInput)
+
+  if (bbResults.length === 0) return null
+
+  const latest = bbResults[bbResults.length - 1]
+  const currentPrice = closes[closes.length - 1]
+
+  if (
+    !latest ||
+    latest.upper === undefined ||
+    latest.middle === undefined ||
+    latest.lower === undefined
+  ) {
+    return null
+  }
+
+  // Price near upper band: overbought (SELL signal)
+  // Price near lower band: oversold (BUY signal)
+  const upperDistance = (currentPrice - latest.upper) / latest.upper
+  const lowerDistance = (latest.lower - currentPrice) / latest.lower
+  const middleDistance = Math.abs(currentPrice - latest.middle) / latest.middle
+
+  let side: 'BUY' | 'SELL'
+  let score: number
+  let reason: string
+
+  if (currentPrice >= latest.upper) {
+    // Price above upper band
+    side = 'SELL'
+    score = Math.min(1, Math.abs(upperDistance) * 50) // Scale based on distance
+    reason = `Price above upper BB: ${currentPrice.toFixed(2)} > ${latest.upper.toFixed(2)}`
+  } else if (currentPrice <= latest.lower) {
+    // Price below lower band
+    side = 'BUY'
+    score = Math.min(1, Math.abs(lowerDistance) * 50)
+    reason = `Price below lower BB: ${currentPrice.toFixed(2)} < ${latest.lower.toFixed(2)}`
+  } else {
+    // Price in middle zone
+    side = currentPrice > latest.middle ? 'SELL' : 'BUY'
+    score = Math.min(1, middleDistance * 20) // Lower score for middle zone
+    reason = `Price in BB middle zone: ${currentPrice.toFixed(2)}`
+  }
+
+  return {
+    name: 'Bollinger_Bands',
+    side,
+    score,
+    reason,
+    validated: score >= minScore,
+    details: {
+      period,
+      stdDev,
+      upper: latest.upper,
+      middle: latest.middle,
+      lower: latest.lower,
+      currentPrice,
+    },
+  }
+}
+
+/**
+ * Analyzes all technical indicators for a symbol
+ */
+export async function analyzeAllIndicators(
+  symbol: string,
+  minScore: number = 0.6,
+): Promise<{
+  indicators: IndicatorResult[]
+  validatedIndicators: IndicatorResult[]
+  currentPrice: number
+  atr: number
+}> {
+  const candles = await fetchKlines(symbol, '1h', 200)
+  const currentPrice = candles[candles.length - 1].close
+  const atr = calculateATR(candles)
+
+  const indicators: IndicatorResult[] = []
+
+  // Analyze MA Crossover
+  const maResult = analyzeMaCrossover(candles, 20, 50, minScore)
+  if (maResult) indicators.push(maResult)
+
+  // Analyze RSI
+  const rsiResult = analyzeRSI(candles, 14, minScore)
+  if (rsiResult) indicators.push(rsiResult)
+
+  // Analyze MACD
+  const macdResult = analyzeMACD(candles, 12, 26, 9, minScore)
+  if (macdResult) indicators.push(macdResult)
+
+  // Analyze Bollinger Bands
+  const bbResult = analyzeBollingerBands(candles, 20, 2, minScore)
+  if (bbResult) indicators.push(bbResult)
+
+  const validatedIndicators = indicators.filter((ind) => ind.validated)
+
+  return {
+    indicators,
+    validatedIndicators,
     currentPrice,
     atr,
   }
@@ -178,47 +416,83 @@ function calculateTPSL(
 }
 
 /**
- * Generate a technical analysis trade idea for a symbol
+ * Determines overall side based on validated indicators
+ */
+function determineOverallSide(
+  validatedIndicators: IndicatorResult[],
+): 'BUY' | 'SELL' | null {
+  if (validatedIndicators.length === 0) return null
+
+  const buyCount = validatedIndicators.filter(
+    (ind) => ind.side === 'BUY',
+  ).length
+  const sellCount = validatedIndicators.filter(
+    (ind) => ind.side === 'SELL',
+  ).length
+
+  // Weighted by score
+  const buyScore = validatedIndicators
+    .filter((ind) => ind.side === 'BUY')
+    .reduce((sum, ind) => sum + ind.score, 0)
+  const sellScore = validatedIndicators
+    .filter((ind) => ind.side === 'SELL')
+    .reduce((sum, ind) => sum + ind.score, 0)
+
+  return buyScore > sellScore ? 'BUY' : 'SELL'
+}
+
+/**
+ * Generates a technical analysis trade idea for a symbol using multiple indicators
  */
 export async function generateTechnicalTradeIdea(
   symbol: string,
-  fastPeriod: number = 20,
-  slowPeriod: number = 50,
   minScore: number = 0.6,
 ): Promise<TechnicalTradeIdea | null> {
   try {
-    const candles = await fetchKlines(symbol, '1h', 200)
-    if (candles.length < slowPeriod) {
+    const { indicators, validatedIndicators, currentPrice, atr } =
+      await analyzeAllIndicators(symbol, minScore)
+
+    // Only create trade idea if at least one indicator is validated
+    if (validatedIndicators.length === 0) {
       return null
     }
 
-    const result = computeMaCrossover(candles, fastPeriod, slowPeriod)
-    if (!result || result.score < minScore) {
+    const overallSide = determineOverallSide(validatedIndicators)
+    if (!overallSide) {
       return null
     }
+
+    // Calculate overall score as average of validated indicators
+    const overallScore =
+      validatedIndicators.reduce((sum, ind) => sum + ind.score, 0) /
+      validatedIndicators.length
+
+    // Create reason from validated indicators
+    const reasons = validatedIndicators.map(
+      (ind) => `${ind.name}: ${ind.reason}`,
+    )
+    const reason = `Validated indicators (${validatedIndicators.length}/${indicators.length}): ${reasons.join('; ')}`
 
     const { entryPrice, takeProfitPct, stopLossPct, exitStrategy } =
-      calculateTPSL(result.currentPrice, result.side, result.atr)
+      calculateTPSL(currentPrice, overallSide, atr)
 
-    const volatility = result.atr / result.currentPrice
+    const volatility = atr / currentPrice
 
     return {
       symbol,
-      side: result.side,
-      score: result.score,
-      reason: result.reason,
+      side: overallSide,
+      score: overallScore,
+      reason,
       entryPrice,
       takeProfitPct,
       stopLossPct,
       exitStrategy,
+      validatedIndicators,
       metadata: {
-        fastPeriod,
-        slowPeriod,
-        fastSma: result.fastSma,
-        slowSma: result.slowSma,
-        currentPrice: result.currentPrice,
-        atr: result.atr,
+        currentPrice,
+        atr,
         volatility,
+        indicators,
       },
     }
   } catch (err) {
@@ -234,10 +508,9 @@ export async function getTopCryptosByVolume(
   count: number = 15,
 ): Promise<string[]> {
   try {
-    const resp = await axios.get(
-      'https://api.binance.com/api/v3/ticker/24hr',
-      { timeout: 10000 },
-    )
+    const resp = await axios.get('https://api.binance.com/api/v3/ticker/24hr', {
+      timeout: 10000,
+    })
 
     const tickers = resp.data as any[]
     const usdtPairs = tickers
@@ -274,4 +547,3 @@ export async function getTopCryptosByVolume(
     ]
   }
 }
-

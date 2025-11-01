@@ -12,6 +12,17 @@ export type TradeIdea = {
   score: number
   reason?: string
   created_at: string
+  metadata?: {
+    source?: string
+    validatedIndicators?: Array<{
+      name: string
+      side: 'BUY' | 'SELL'
+      score: number
+      reason: string
+      details?: Record<string, any>
+    }>
+    [key: string]: any
+  }
 }
 
 export type SortBy = 'score' | 'side' | 'created_at'

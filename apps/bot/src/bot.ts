@@ -68,6 +68,13 @@ async function postTradeIdea(idea: TechnicalTradeIdea, userId?: string) {
           takeProfitPct: idea.takeProfitPct,
           stopLossPct: idea.stopLossPct,
           exitStrategy: idea.exitStrategy,
+          validatedIndicators: idea.validatedIndicators.map((ind) => ({
+            name: ind.name,
+            side: ind.side,
+            score: ind.score,
+            reason: ind.reason,
+            details: ind.details,
+          })),
           source: 'technical_analysis',
         },
       },
@@ -116,16 +123,17 @@ async function technicalAnalysisTick() {
       try {
         const idea = await generateTechnicalTradeIdea(
           symbol,
-          20, // fastPeriod
-          50, // slowPeriod
           MIN_CONFIDENCE_SCORE, // minScore
         )
 
-        if (idea && idea.score >= MIN_CONFIDENCE_SCORE) {
+        if (idea && idea.validatedIndicators.length > 0) {
           await postTradeIdea(idea)
           results.push({ symbol, idea })
+          const indicatorsList = idea.validatedIndicators
+            .map((ind) => ind.name)
+            .join(', ')
           console.log(
-            `✓ ${symbol}: ${idea.side} signal (score: ${(idea.score * 100).toFixed(1)}%, TP: ${(idea.takeProfitPct * 100).toFixed(2)}%, SL: ${(idea.stopLossPct * 100).toFixed(2)}%)`,
+            `✓ ${symbol}: ${idea.side} signal (score: ${(idea.score * 100).toFixed(1)}%, indicators: ${indicatorsList}, TP: ${(idea.takeProfitPct * 100).toFixed(2)}%, SL: ${(idea.stopLossPct * 100).toFixed(2)}%)`,
           )
         } else {
           results.push({ symbol, idea: null })
