@@ -338,18 +338,16 @@ export function tradeIdeasRouter(
         // Get current price to calculate final PnL
         const currentPrice = await getSymbolPrice(trade.symbol)
         if (!currentPrice || !isFinite(currentPrice) || currentPrice <= 0) {
-          return res.status(502).json({ error: 'Failed to fetch current price' })
+          return res
+            .status(502)
+            .json({ error: 'Failed to fetch current price' })
         }
 
         // For non-USD pairs, we need the actual pair price, not USD price
         let exitPrice: number = currentPrice
         if (!isUSDQuoted(trade.symbol)) {
           const pairPrice = await getTradingPairPrice(trade.symbol)
-          if (
-            pairPrice &&
-            isFinite(pairPrice) &&
-            pairPrice > 0
-          ) {
+          if (pairPrice && isFinite(pairPrice) && pairPrice > 0) {
             exitPrice = pairPrice
           } else {
             return res.status(502).json({

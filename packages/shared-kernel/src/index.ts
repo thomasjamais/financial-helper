@@ -8,6 +8,11 @@ export type Money = {
 export * from './types'
 export * from './priceService'
 export * from './priceHelper'
+export {
+  getTradingPairPrice,
+  isUSDQuoted,
+  extractQuoteAsset,
+} from './priceHelper'
 export * from './portfolioService'
 export * from './conversionService'
 export * from './tradeService'
