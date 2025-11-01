@@ -28,9 +28,12 @@ export type TradeIdea = {
 export type SortBy = 'score' | 'side' | 'created_at'
 export type SortOrder = 'asc' | 'desc'
 
-export function useTradeIdeas(sortBy: SortBy = 'created_at', sortOrder: SortOrder = 'desc') {
+export function useTradeIdeas(
+  sortBy: SortBy = 'created_at',
+  sortOrder: SortOrder = 'desc',
+) {
   const { accessToken } = useAuth()
-  
+
   return useQuery({
     queryKey: ['trade-ideas', sortBy, sortOrder],
     queryFn: async () =>
@@ -56,7 +59,7 @@ export type ExecuteTradeIdeaParams = {
 export function useExecuteTradeIdea() {
   const { accessToken } = useAuth()
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async (params: ExecuteTradeIdeaParams) => {
       const response = await axios.post(
@@ -70,7 +73,7 @@ export function useExecuteTradeIdea() {
           headers: accessToken
             ? { Authorization: `Bearer ${accessToken}` }
             : undefined,
-        }
+        },
       )
       return response.data
     },
@@ -81,21 +84,24 @@ export function useExecuteTradeIdea() {
   })
 }
 
-export function validateBudget(budgetStr: string | null): { valid: boolean; budget?: number; error?: string } {
+export function validateBudget(budgetStr: string | null): {
+  valid: boolean
+  budget?: number
+  error?: string
+} {
   if (!budgetStr) {
     return { valid: false, error: 'Budget is required' }
   }
-  
+
   const budget = Number(budgetStr)
-  
+
   if (!isFinite(budget)) {
     return { valid: false, error: 'Budget must be a number' }
   }
-  
+
   if (budget <= 0) {
     return { valid: false, error: 'Budget must be greater than 0' }
   }
-  
+
   return { valid: true, budget }
 }
-
