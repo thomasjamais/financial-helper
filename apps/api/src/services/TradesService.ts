@@ -433,18 +433,25 @@ export class TradesService {
       
       // Convert PnL to USD if needed
       // For non-USD pairs, PnL is in quote asset units
-      // To convert to USD: we need to know the quote asset price
+      // To convert to USD: PnL in quote asset * quote asset price in USD
       let pnlUSD: number = pnl
       if (!isUSDQuoted(trade.symbol)) {
-        // PnL is in quote asset units (e.g., BTC for FETBTC)
-        // To convert to USD, we need the quote asset price in USD
         const quoteAsset = extractQuoteAsset(trade.symbol)
-        if (quoteAsset && usdPrice && pairPrice && entryPrice > 0) {
-          // Get quote asset price in USD (e.g., BTC in USD)
-          const quoteAssetUsdPrice = await getSymbolPrice(`${quoteAsset}USDT`)
+        if (quoteAsset) {
+          const quoteAssetUsdPrice = quoteAssetPrices.get(quoteAsset)
           if (quoteAssetUsdPrice && isFinite(quoteAssetUsdPrice) && quoteAssetUsdPrice > 0) {
             // PnL in quote asset * quote asset price in USD = PnL in USD
             pnlUSD = pnl * quoteAssetUsdPrice
+          } else {
+            // Fallback: calculate PnL directly in USD using current prices
+            // entryPriceUSD = entryPrice * (usdPrice / pairPrice)
+            if (usdPrice && pairPrice && pairPrice > 0) {
+              const entryPriceUSD = entryPrice * (usdPrice / pairPrice)
+              const markPriceUSD = usdPrice
+              pnlUSD = trade.side === 'BUY'
+                ? (markPriceUSD - entryPriceUSD) * quantity
+                : (entryPriceUSD - markPriceUSD) * quantity
+            }
           }
         }
       }

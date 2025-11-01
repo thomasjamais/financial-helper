@@ -194,7 +194,7 @@ export function tradeIdeasRouter(
         // For USD pairs, we can use the USD price directly
         let entryPrice: number
         let entryPriceInUSD: number | null = null // For PnL calculations later
-        
+
         if (entryPriceFromMetadata) {
           entryPrice = entryPriceFromMetadata
           // If metadata price exists, it's likely already in USD (from technical analysis)
@@ -231,7 +231,7 @@ export function tradeIdeasRouter(
               })
             }
             entryPrice = pairPrice
-            
+
             // Also get USD price for budget calculations
             const usdPrice = await getSymbolPrice(idea.symbol)
             if (!usdPrice || !isFinite(usdPrice) || usdPrice <= 0) {
@@ -305,7 +305,7 @@ export function tradeIdeasRouter(
           )
 
           conversionTradeId = conversionTrade.id
-          
+
           // Calculate how much quote asset we got from the conversion
           // quantity = budgetUSD / conversionPairPrice (where price is in USD per quote asset)
           // So if BTCUSDC = 50000, and budget = 500, we get 500/50000 = 0.01 BTC
