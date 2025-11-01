@@ -146,17 +146,27 @@ export function tradeIdeasRouter(
     '/v1/trade-ideas/refresh',
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
-      const log = req.logger || logger.child({ endpoint: '/v1/trade-ideas/refresh' })
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trade-ideas/refresh' })
       try {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 10000)
-        const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr', { signal: controller.signal })
+        const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr', {
+          signal: controller.signal,
+        })
         clearTimeout(timeout)
-        if (!resp.ok) return res.status(502).json({ error: 'Failed to fetch tickers' })
+        if (!resp.ok)
+          return res.status(502).json({ error: 'Failed to fetch tickers' })
         const tickers = (await resp.json()) as any[]
         const movers = (Array.isArray(tickers) ? tickers : [])
-          .filter((t: any) => typeof t.symbol === 'string' && t.symbol.endsWith('USDT'))
-          .map((t: any) => ({ symbol: t.symbol as string, change: Number(t.priceChangePercent) }))
+          .filter(
+            (t: any) =>
+              typeof t.symbol === 'string' && t.symbol.endsWith('USDT'),
+          )
+          .map((t: any) => ({
+            symbol: t.symbol as string,
+            change: Number(t.priceChangePercent),
+          }))
           .filter((t: any) => isFinite(t.change))
           .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
           .slice(0, 10)
@@ -195,7 +205,10 @@ export function tradeIdeasRouter(
         )
         return res.json({ ok: true, count })
       } catch (err) {
-        log.error({ err, correlationId: req.correlationId }, 'Failed to refresh trade ideas')
+        log.error(
+          { err, correlationId: req.correlationId },
+          'Failed to refresh trade ideas',
+        )
         return res.status(500).json({ error: 'Failed to refresh trade ideas' })
       }
     },
@@ -394,7 +407,8 @@ export function tradeIdeasRouter(
           // Fetch current prices for unique symbols from Binance
           const symbols = Array.from(new Set(rows.map((r) => r.symbol)))
           const priceMap = new Map<string, number>()
-          const log = req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
+          const log =
+            req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
           await Promise.all(
             symbols.map(async (sym) => {
               try {
@@ -407,13 +421,22 @@ export function tradeIdeasRouter(
                   if (isFinite(px) && px > 0) {
                     priceMap.set(sym, px)
                   } else {
-                    log.debug({ symbol: sym, price: data.price }, 'Invalid price from Binance')
+                    log.debug(
+                      { symbol: sym, price: data.price },
+                      'Invalid price from Binance',
+                    )
                   }
                 } else {
-                  log.warn({ symbol: sym, status: resp.status }, 'Failed to fetch price from Binance')
+                  log.warn(
+                    { symbol: sym, status: resp.status },
+                    'Failed to fetch price from Binance',
+                  )
                 }
               } catch (e) {
-                log.debug({ err: e, symbol: sym }, 'Error fetching price for symbol')
+                log.debug(
+                  { err: e, symbol: sym },
+                  'Error fetching price for symbol',
+                )
               }
             }),
           )
@@ -429,7 +452,12 @@ export function tradeIdeasRouter(
             }
             const entryPrice = Number(r.entry_price)
             const quantity = Number(r.quantity)
-            if (!isFinite(entryPrice) || entryPrice <= 0 || !isFinite(quantity) || quantity <= 0) {
+            if (
+              !isFinite(entryPrice) ||
+              entryPrice <= 0 ||
+              !isFinite(quantity) ||
+              quantity <= 0
+            ) {
               log.warn(
                 { symbol: r.symbol, entryPrice, quantity, tradeId: r.id },
                 'Invalid entry_price or quantity for trade',
@@ -438,6 +466,11 @@ export function tradeIdeasRouter(
             }
             const direction = r.side === 'BUY' ? 1 : -1
             const pnl = direction * (mark - entryPrice) * quantity
+            console.log('PNL', pnl)
+            console.log('MARK', mark)
+            console.log('ENTRY PRICE', entryPrice)
+            console.log('QUANTITY', quantity)
+            console.log('DIRECTION', direction)
             const pnlRounded = Number(pnl.toFixed(2))
             return {
               ...r,
@@ -447,7 +480,8 @@ export function tradeIdeasRouter(
           })
           return res.json(enriched)
         } catch (innerErr) {
-          const log = req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
+          const log =
+            req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
           log.warn(
             { err: innerErr, correlationId: req.correlationId },
             'PnL enrichment failed, returning fallback',
@@ -455,7 +489,8 @@ export function tradeIdeasRouter(
           return res.json(fallback)
         }
       } catch (err) {
-        const log = req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
+        const log =
+          req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
         if (rows !== null) {
           const safeFallback = rows.map((r) => ({
             ...r,
