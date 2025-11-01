@@ -64,6 +64,16 @@ export function tradeIdeasRouter(
           req.correlationId,
         )
 
+        log.info(
+          {
+            symbol: parsed.data.symbol,
+            side: parsed.data.side,
+            score: parsed.data.score,
+            userId: req.user!.userId,
+          },
+          'Trade idea created successfully',
+        )
+
         return res.json({ ok: true })
       } catch (err) {
         log.error({ err }, 'Failed to accept trade idea')

@@ -54,7 +54,7 @@ async function ensureAuth(): Promise<void> {
 
 async function postTradeIdea(idea: TechnicalTradeIdea, userId?: string) {
   try {
-    await axios.post(
+    const response = await axios.post(
       `${API_BASE}/v1/trade-ideas`,
       {
         exchange: 'binance',
@@ -84,33 +84,37 @@ async function postTradeIdea(idea: TechnicalTradeIdea, userId?: string) {
           : undefined,
       },
     )
+    console.log(`✓ Trade idea posted successfully for ${idea.symbol}:`, response.data)
+    return response.data
   } catch (err) {
     if (axios.isAxiosError(err)) {
       console.error(
-        `Failed to post trade idea for ${idea.symbol}:`,
-        err.response?.status,
-        err.response?.data || err.message,
+        `✗ Failed to post trade idea for ${idea.symbol}:`,
+        `Status: ${err.response?.status}`,
+        `Error: ${JSON.stringify(err.response?.data || err.message)}`,
       )
     } else {
       console.error(
-        `Failed to post trade idea for ${idea.symbol}:`,
+        `✗ Failed to post trade idea for ${idea.symbol}:`,
         err instanceof Error ? err.message : String(err),
       )
     }
-    throw err
+    // Don't throw, continue with other symbols
+    return null
   }
 }
 
 async function technicalAnalysisTick() {
   try {
     await ensureAuth()
+    console.log('🔐 Authentication successful')
 
     // Get top cryptos to analyze
     const symbols = await getTopCryptosByVolume(
       TECHNICAL_ANALYSIS_SYMBOLS_COUNT,
     )
 
-    console.log(`Running technical analysis on ${symbols.length} symbols...`)
+    console.log(`🔍 Running technical analysis on ${symbols.length} symbols...`)
 
     const results: Array<{
       symbol: string
@@ -127,14 +131,19 @@ async function technicalAnalysisTick() {
         )
 
         if (idea && idea.validatedIndicators.length > 0) {
-          await postTradeIdea(idea)
-          results.push({ symbol, idea })
           const indicatorsList = idea.validatedIndicators
             .map((ind) => ind.name)
             .join(', ')
           console.log(
-            `✓ ${symbol}: ${idea.side} signal (score: ${(idea.score * 100).toFixed(1)}%, indicators: ${indicatorsList}, TP: ${(idea.takeProfitPct * 100).toFixed(2)}%, SL: ${(idea.stopLossPct * 100).toFixed(2)}%)`,
+            `📊 ${symbol}: ${idea.side} signal (score: ${(idea.score * 100).toFixed(1)}%, indicators: ${indicatorsList}, TP: ${(idea.takeProfitPct * 100).toFixed(2)}%, SL: ${(idea.stopLossPct * 100).toFixed(2)}%)`,
           )
+          const posted = await postTradeIdea(idea)
+          if (posted) {
+            results.push({ symbol, idea })
+            console.log(`✅ ${symbol}: Trade idea saved successfully`)
+          } else {
+            results.push({ symbol, idea: null, error: 'Failed to post' })
+          }
         } else {
           results.push({ symbol, idea: null })
         }
