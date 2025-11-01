@@ -146,17 +146,27 @@ export function tradeIdeasRouter(
     '/v1/trade-ideas/refresh',
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
-      const log = req.logger || logger.child({ endpoint: '/v1/trade-ideas/refresh' })
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trade-ideas/refresh' })
       try {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 10000)
-        const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr', { signal: controller.signal })
+        const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr', {
+          signal: controller.signal,
+        })
         clearTimeout(timeout)
-        if (!resp.ok) return res.status(502).json({ error: 'Failed to fetch tickers' })
+        if (!resp.ok)
+          return res.status(502).json({ error: 'Failed to fetch tickers' })
         const tickers = (await resp.json()) as any[]
         const movers = (Array.isArray(tickers) ? tickers : [])
-          .filter((t: any) => typeof t.symbol === 'string' && t.symbol.endsWith('USDT'))
-          .map((t: any) => ({ symbol: t.symbol as string, change: Number(t.priceChangePercent) }))
+          .filter(
+            (t: any) =>
+              typeof t.symbol === 'string' && t.symbol.endsWith('USDT'),
+          )
+          .map((t: any) => ({
+            symbol: t.symbol as string,
+            change: Number(t.priceChangePercent),
+          }))
           .filter((t: any) => isFinite(t.change))
           .sort((a: any, b: any) => Math.abs(b.change) - Math.abs(a.change))
           .slice(0, 10)
@@ -195,7 +205,10 @@ export function tradeIdeasRouter(
         )
         return res.json({ ok: true, count })
       } catch (err) {
-        log.error({ err, correlationId: req.correlationId }, 'Failed to refresh trade ideas')
+        log.error(
+          { err, correlationId: req.correlationId },
+          'Failed to refresh trade ideas',
+        )
         return res.status(500).json({ error: 'Failed to refresh trade ideas' })
       }
     },
@@ -394,6 +407,8 @@ export function tradeIdeasRouter(
           // Fetch current prices for unique symbols from Binance
           const symbols = Array.from(new Set(rows.map((r) => r.symbol)))
           const priceMap = new Map<string, number>()
+          const log =
+            req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
           await Promise.all(
             symbols.map(async (sym) => {
               try {
@@ -401,50 +416,94 @@ export function tradeIdeasRouter(
                   `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym)}`,
                 )
                 if (resp.ok) {
-                  const { price } = (await resp.json()) as any
-                  const px = Number(price)
-                  if (isFinite(px)) priceMap.set(sym, px)
+                  const data = (await resp.json()) as any
+                  const px = Number(data.price)
+                  if (isFinite(px) && px > 0) {
+                    priceMap.set(sym, px)
+                  } else {
+                    log.debug(
+                      { symbol: sym, price: data.price },
+                      'Invalid price from Binance',
+                    )
+                  }
+                } else {
+                  log.warn(
+                    { symbol: sym, status: resp.status },
+                    'Failed to fetch price from Binance',
+                  )
                 }
               } catch (e) {
-                // ignore per-symbol errors
+                log.debug(
+                  { err: e, symbol: sym },
+                  'Error fetching price for symbol',
+                )
               }
             }),
           )
 
           const enriched = rows.map((r) => {
             const mark = priceMap.get(r.symbol)
-            if (!mark) return { ...r, markPrice: null, pnl_unrealized: null }
+            if (!mark || !isFinite(mark) || mark <= 0) {
+              log.debug(
+                { symbol: r.symbol, mark, hasMark: !!mark },
+                'Missing or invalid mark price for symbol',
+              )
+              return { ...r, markPrice: null, pnl_unrealized: null }
+            }
+            const entryPrice = Number(r.entry_price)
+            const quantity = Number(r.quantity)
+            if (
+              !isFinite(entryPrice) ||
+              entryPrice <= 0 ||
+              !isFinite(quantity) ||
+              quantity <= 0
+            ) {
+              log.warn(
+                { symbol: r.symbol, entryPrice, quantity, tradeId: r.id },
+                'Invalid entry_price or quantity for trade',
+              )
+              return { ...r, markPrice: mark, pnl_unrealized: null }
+            }
             const direction = r.side === 'BUY' ? 1 : -1
-            const pnl =
-              direction * (mark - Number(r.entry_price)) * Number(r.quantity)
+            const pnl = direction * (mark - entryPrice) * quantity
+            console.log('PNL', pnl)
+            console.log('MARK', mark)
+            console.log('ENTRY PRICE', entryPrice)
+            console.log('QUANTITY', quantity)
+            console.log('DIRECTION', direction)
+            const pnlRounded = Number(pnl.toFixed(2))
             return {
               ...r,
               markPrice: mark,
-              pnl_unrealized: Number(pnl.toFixed(2)),
+              pnl_unrealized: pnlRounded,
             }
           })
           return res.json(enriched)
         } catch (innerErr) {
-          req.logger?.warn(
+          const log =
+            req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
+          log.warn(
             { err: innerErr, correlationId: req.correlationId },
             'PnL enrichment failed, returning fallback',
           )
           return res.json(fallback)
         }
       } catch (err) {
+        const log =
+          req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
         if (rows !== null) {
           const safeFallback = rows.map((r) => ({
             ...r,
             markPrice: null,
             pnl_unrealized: null,
           }))
-          req.logger?.warn(
+          log.warn(
             { err, correlationId: req.correlationId },
             'PnL route outer catch, returning safe fallback',
           )
           return res.json(safeFallback)
         }
-        req.logger?.error(
+        log.error(
           { err, correlationId: req.correlationId },
           'Failed to compute PnL',
         )
