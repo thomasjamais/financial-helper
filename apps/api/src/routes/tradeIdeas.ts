@@ -206,6 +206,66 @@ export function tradeIdeasRouter(
         const tpPct = tpPctFromMetadata ?? 0.04
         const slPct = slPctFromMetadata ?? 0.02
 
+        // Check if symbol is not USD-quoted (e.g., FETBTC instead of FETUSDT)
+        // If so, we need to create a conversion trade from USDC to the quote asset
+        let conversionTradeId: number | null = null
+        
+        if (!isUSDQuoted(idea.symbol)) {
+          const quoteAsset = extractQuoteAsset(idea.symbol)
+          
+          if (!quoteAsset) {
+            return res.status(400).json({
+              error: `Unable to determine quote asset for symbol ${idea.symbol}`,
+            })
+          }
+
+          // Try to find USDC pair first, then USDT as fallback
+          let conversionSymbol = `${quoteAsset}USDC`
+          let conversionPairPrice = await getTradingPairPrice(conversionSymbol)
+          
+          if (!conversionPairPrice || !isFinite(conversionPairPrice) || conversionPairPrice <= 0) {
+            // Try USDT instead
+            conversionSymbol = `${quoteAsset}USDT`
+            conversionPairPrice = await getTradingPairPrice(conversionSymbol)
+            
+            if (!conversionPairPrice || !isFinite(conversionPairPrice) || conversionPairPrice <= 0) {
+              return res.status(502).json({
+                error: `Failed to fetch conversion pair price for ${quoteAsset}. Tried both USDC and USDT pairs.`,
+              })
+            }
+          }
+
+          // Create conversion trade: BUY quoteAsset with USDC/USDT
+          // This ensures we have the quote asset needed for the actual trade
+          const conversionTrade = await tradesService.create(
+            req.user!.userId,
+            {
+              ideaId: null, // Conversion trade, not from an idea
+              exchange: idea.exchange,
+              symbol: conversionSymbol,
+              side: 'BUY', // Always BUY to convert USDC to quote asset
+              budgetUSD: budget,
+              entryPrice: conversionPairPrice,
+              tpPct: 0, // No TP/SL for conversion trades
+              slPct: 0,
+              risk: 'conversion',
+            },
+            req.correlationId,
+          )
+          
+          conversionTradeId = conversionTrade.id
+          
+          log.info(
+            {
+              symbol: idea.symbol,
+              quoteAsset,
+              conversionSymbol,
+              conversionTradeId,
+            },
+            'Created conversion trade for non-USD pair',
+          )
+        }
+
         const inserted = await tradesService.create(
           req.user!.userId,
           {
@@ -218,11 +278,16 @@ export function tradeIdeasRouter(
             tpPct,
             slPct,
             risk: parsed.data.risk,
+            conversionTradeId, // Store reference to conversion trade if any
           },
           req.correlationId,
         )
 
-        return res.json({ executed: true, tradeId: inserted.id })
+        return res.json({
+          executed: true,
+          tradeId: inserted.id,
+          conversionTradeId,
+        })
       } catch (err) {
         log.error({ err }, 'Failed to execute idea')
         return res.status(500).json({ error: 'Failed to execute idea' })
