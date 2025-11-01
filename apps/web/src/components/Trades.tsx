@@ -63,7 +63,8 @@ export default function Trades() {
                 <th className="text-right p-3 text-slate-300">Mark</th>
                 <th className="text-right p-3 text-slate-300">Qty</th>
                 <th className="text-right p-3 text-slate-300">Budget USD</th>
-                <th className="text-right p-3 text-slate-300">TP/SL</th>
+                <th className="text-right p-3 text-slate-300">TP Price</th>
+                <th className="text-right p-3 text-slate-300">SL Price</th>
                 <th className="text-right p-3 text-slate-300">
                   {pnlDisplayMode === 'amount' ? 'PnL' : 'PnL %'}
                 </th>
@@ -94,17 +95,18 @@ export default function Trades() {
                   <td className="p-3 text-right text-slate-300">
                     {formatCurrency(t.budget_usd)}
                   </td>
-                  <td className="p-3 text-right text-slate-300">
+                  <td className="p-3 text-right text-slate-300 font-mono text-sm">
                     {t.tpPrice ? (
-                      <span className="text-green-400 font-mono text-sm">
+                      <span className="text-green-400">
                         {formatPrice(t.tpPrice)}
                       </span>
                     ) : (
                       <span className="text-slate-500">-</span>
-                    )}{' '}
-                    /{' '}
+                    )}
+                  </td>
+                  <td className="p-3 text-right text-slate-300 font-mono text-sm">
                     {t.slPrice ? (
-                      <span className="text-red-400 font-mono text-sm">
+                      <span className="text-red-400">
                         {formatPrice(t.slPrice)}
                       </span>
                     ) : (
@@ -165,7 +167,7 @@ export default function Trades() {
               ))}
               {(!data || data.length === 0) && !isLoading && (
                 <tr>
-                  <td colSpan={11} className="p-4 text-center text-slate-400">
+                  <td colSpan={12} className="p-4 text-center text-slate-400">
                     No trades
                   </td>
                 </tr>
