@@ -97,39 +97,77 @@ export default function TradeIdeas() {
                   {sortBy === 'score' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
                 <th className="text-left p-3 text-slate-300">Reason</th>
+                <th className="text-left p-3 text-slate-300">Indicators</th>
                 <th className="text-right p-3 text-slate-300">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {(data || []).map((s) => (
-                <tr
-                  key={s.id}
-                  className="border-t border-slate-700 hover:bg-slate-800"
-                >
-                  <td className="p-3 text-slate-300">
-                    {new Date(s.created_at).toLocaleString()}
-                  </td>
-                  <td className="p-3 text-slate-300">{s.exchange}</td>
-                  <td className="p-3 text-white">{s.symbol}</td>
-                  <td className="p-3 text-slate-300">{s.side}</td>
-                  <td className="p-3 text-right text-slate-300">
-                    {(s.score * 100).toFixed(0)}%
-                  </td>
-                  <td className="p-3 text-slate-300">{s.reason || '-'}</td>
-                  <td className="p-3 text-right">
-                    <button
-                      onClick={() => handleExecuteClick(s.id)}
-                      disabled={executeIdea.isPending}
-                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm disabled:opacity-50"
-                    >
-                      {executeIdea.isPending ? 'Executing...' : 'Execute'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {(data || []).map((s) => {
+                const metadata = s.metadata || {}
+                const validatedIndicators = metadata.validatedIndicators || []
+                const source = metadata.source || 'unknown'
+
+                return (
+                  <tr
+                    key={s.id}
+                    className="border-t border-slate-700 hover:bg-slate-800"
+                  >
+                    <td className="p-3 text-slate-300">
+                      {new Date(s.created_at).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-slate-300">{s.exchange}</td>
+                    <td className="p-3 text-white">{s.symbol}</td>
+                    <td className="p-3 text-slate-300">{s.side}</td>
+                    <td className="p-3 text-right text-slate-300">
+                      {(s.score * 100).toFixed(0)}%
+                    </td>
+                    <td className="p-3 text-slate-300">{s.reason || '-'}</td>
+                    <td className="p-3">
+                      {validatedIndicators.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {validatedIndicators.map(
+                            (ind: {
+                              name: string
+                              score: number
+                              side: 'BUY' | 'SELL'
+                            }) => (
+                              <span
+                                key={ind.name}
+                                className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                  ind.side === 'BUY'
+                                    ? 'bg-green-600 text-white'
+                                    : 'bg-red-600 text-white'
+                                }`}
+                                title={`${ind.name}: ${(ind.score * 100).toFixed(0)}% confidence`}
+                              >
+                                {ind.name.replace(/_/g, ' ')}
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      ) : source === 'technical_analysis' ? (
+                        <span className="text-xs text-slate-400">
+                          No indicators validated
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right">
+                      <button
+                        onClick={() => handleExecuteClick(s.id)}
+                        disabled={executeIdea.isPending}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm disabled:opacity-50"
+                      >
+                        {executeIdea.isPending ? 'Executing...' : 'Execute'}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
               {(!data || data.length === 0) && !isLoading && (
                 <tr>
-                  <td colSpan={7} className="p-4 text-center text-slate-400">
+                  <td colSpan={8} className="p-4 text-center text-slate-400">
                     No trade ideas
                   </td>
                 </tr>
