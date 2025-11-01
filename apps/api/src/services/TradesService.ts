@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
-import { calculatePnL, calculateQuantity } from '@pkg/shared-kernel'
+import { calculatePnL, calculateQuantity, getSymbolPrice } from '@pkg/shared-kernel'
 
 export type CreateTradeInput = {
   ideaId: number
@@ -175,7 +175,7 @@ export class TradesService {
 
     return trades.map((trade) => {
       const markPrice = priceMap.get(trade.symbol)
-      
+
       if (!markPrice || !isFinite(markPrice) || markPrice <= 0) {
         return {
           ...trade,
@@ -213,6 +213,36 @@ export class TradesService {
         pnl_unrealized: pnl,
       }
     })
+  }
+
+  async listWithPnLAndFetchPrices(
+    userId: string,
+    logger: Logger,
+    limit = 200,
+  ): Promise<TradeWithPnL[]> {
+    const trades = await this.list(userId, limit)
+    const symbols = Array.from(new Set(trades.map((t) => t.symbol)))
+    
+    const priceMap = new Map<string, number>()
+    await Promise.all(
+      symbols.map(async (sym) => {
+        try {
+          const price = await getSymbolPrice(sym)
+          if (price && isFinite(price) && price > 0) {
+            priceMap.set(sym, price)
+          } else {
+            logger.debug({ symbol: sym, price }, 'Invalid price for symbol')
+          }
+        } catch (e) {
+          logger.debug(
+            { err: e, symbol: sym },
+            'Error fetching price for symbol',
+          )
+        }
+      }),
+    )
+    
+    return this.listWithPnL(userId, priceMap, limit)
   }
 
   async createSnapshot(

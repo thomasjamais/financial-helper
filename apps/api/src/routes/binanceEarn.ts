@@ -3,18 +3,15 @@ import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
 import { z } from 'zod'
-import { scoreOpportunity } from '@pkg/shared-kernel/src/opportunityScoring'
-import {
-  BinanceEarnClient,
-  BinanceHttpClient,
-  BinanceAdapter,
-} from '@pkg/exchange-adapters'
-import { getBinanceConfig, setBinanceConfig } from '../services/binanceState'
-import { getActiveExchangeConfig } from '../services/exchangeConfigService'
-import { buildPortfolio } from '../services/portfolioService'
+import { BinanceEarnService } from '../services/BinanceEarnService'
 
-export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
+export function binanceEarnRouter(
+  db: Kysely<DB>,
+  logger: Logger,
+  encKey: string,
+): Router {
   const r = Router()
+  const earnService = new BinanceEarnService(db, logger, encKey)
 
   r.get(
     '/v1/binance/earn/opportunities',
@@ -28,80 +25,8 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
             ? Number(req.query.minScore)
             : 0
 
-        const ProductSchema = z.object({
-          id: z.string(),
-          asset: z.string(),
-          name: z.string(),
-          type: z
-            .enum(['flexible', 'locked', 'staking', 'launchpool'])
-            .optional(),
-          apr: z.number().min(0),
-          durationDays: z.number().optional(),
-          redeemable: z.boolean(),
-        })
-        const Output = z.array(
-          ProductSchema.extend({ score: z.number().min(0).max(1) }),
-        )
-
-        // Ensure config
-        let cfg = getBinanceConfig()
-        if (!cfg) {
-          const dbConfig = await getActiveExchangeConfig(
-            _db,
-            (process as any).env.ENCRYPTION_KEY,
-            'binance',
-          )
-          if (!dbConfig)
-            return res.status(400).json({ error: 'Binance config not set' })
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        }
-
-        // Load live products
-        const http = new BinanceHttpClient({
-          key: cfg.key,
-          secret: cfg.secret,
-          baseUrl: cfg.baseUrl || 'https://api.binance.com',
-          env: cfg.env || 'live',
-        })
-        const earn = new BinanceEarnClient(http)
-        const live = await earn.listProducts()
-
-        // Map, score, filter — skip incomplete rows coming from upstream
-        const mapped: Array<z.infer<typeof ProductSchema>> = live
-          .filter(
-            (p) =>
-              typeof p.asset === 'string' &&
-              typeof p.name === 'string' &&
-              typeof p.apr === 'number',
-          )
-          .map((p) => ({
-            id: p.id,
-            asset: p.asset as string,
-            name: p.name as string,
-            type: p.type,
-            apr: Number(p.apr),
-            durationDays:
-              typeof p.durationDays === 'number' ? p.durationDays : undefined,
-            redeemable:
-              typeof p.redeemable === 'boolean' ? p.redeemable : false,
-          }))
-        const scored = mapped.map((p) => ({
-          ...p,
-          score: scoreOpportunity({
-            apr: p.apr,
-            durationDays: p.durationDays,
-            redeemable: p.redeemable,
-          }),
-        }))
-        const filtered = scored.filter((x) => x.score >= minScore)
-        const validated = Output.parse(filtered)
-        return res.json(validated)
+        const opportunities = await earnService.listOpportunities(minScore)
+        return res.json(opportunities)
       } catch (err) {
         log.error({ err }, 'Failed to load opportunities')
         return res.status(500).json({ error: 'Failed to load opportunities' })
@@ -111,34 +36,7 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
 
   r.get('/v1/binance/earn/balances', async (_req: Request, res: Response) => {
     try {
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(
-          _db,
-          (process as any).env.ENCRYPTION_KEY,
-          'binance',
-        )
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      const http = new BinanceHttpClient({
-        key: cfg.key,
-        secret: cfg.secret,
-        baseUrl: cfg.baseUrl || 'https://api.binance.com',
-        env: cfg.env || 'live',
-      })
-      const client = new BinanceEarnClient(http)
-      const earn = await client.getEarnBalances()
+      const earn = await earnService.getEarnBalances()
       return res.json({ earn })
     } catch (err) {
       return res.status(500).json({ error: 'Failed to fetch earn balances' })
@@ -147,42 +45,13 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
 
   r.get('/v1/binance/portfolio/earn', async (_req: Request, res: Response) => {
     try {
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(
-          _db,
-          (process as any).env.ENCRYPTION_KEY,
-          'binance',
-        )
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      const http = new BinanceHttpClient({
-        key: cfg.key,
-        secret: cfg.secret,
-        baseUrl: cfg.baseUrl || 'https://api.binance.com',
-        env: cfg.env || 'live',
-      })
-      const client = new BinanceEarnClient(http)
-      const earn = await client.getEarnBalances()
-      const portfolio = await buildPortfolio(earn)
+      const portfolio = await earnService.getEarnPortfolio()
       return res.json(portfolio)
     } catch (err) {
       return res.status(500).json({ error: 'Failed to build earn portfolio' })
     }
   })
 
-  // Auto plan (dry-run): select flexible products over minApr and propose allocations from stablecoin spot balance
   const AutoPlanSchema = z.object({
     assetPool: z.array(z.enum(['USDT', 'USDC'])).optional(),
     minApr: z.number().min(0).optional(),
@@ -207,128 +76,8 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
         })
       }
 
-      let cfg = getBinanceConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(
-          _db,
-          (process as any).env.ENCRYPTION_KEY,
-          'binance',
-        )
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-          }
-          setBinanceConfig(cfg)
-        } else {
-          return res.status(400).json({ error: 'Binance config not set' })
-        }
-      }
-
-      // load defaults from settings if fields omitted
-      let assetPool = parsed.data.assetPool ?? ['USDT', 'USDC']
-      let minApr = parsed.data.minApr ?? 0.03
-      let totalPct = parsed.data.totalPct ?? 0.5
-      const maxPerProductPct = parsed.data.maxPerProductPct ?? 0.2
-      const minAmount = parsed.data.minAmount ?? 5 // ignore tiny lines (<5 units)
-      const roundTo = parsed.data.roundTo ?? 0.01 // round to 2 decimals by default
-
-      // If client uses an opportunity fund, it should send adjusted totalPct.
-
-      const http = new BinanceHttpClient({
-        key: cfg.key,
-        secret: cfg.secret,
-        baseUrl: cfg.baseUrl || 'https://api.binance.com',
-        env: cfg.env || 'live',
-      })
-      const earn = new BinanceEarnClient(http)
-
-      // For spot balances, use adapter with config
-      const adapter = new BinanceAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        baseUrl: cfg.baseUrl || 'https://api.binance.com',
-        env: cfg.env || 'live',
-      })
-      const spot = await adapter.getBalances('spot')
-      const stableFree = (
-        spot as Array<{ asset: 'USDT' | 'USDC' | string; free: number }>
-      )
-        .filter((b) =>
-          (assetPool as Array<'USDT' | 'USDC'>).includes(b.asset as any),
-        )
-        .reduce<Record<string, number>>((acc, b) => {
-          acc[b.asset] = (acc[b.asset] || 0) + Number(b.free || 0)
-          return acc
-        }, {})
-
-      const products = (await earn.listProducts())
-        .filter(
-          (p) =>
-            p.type === 'flexible' &&
-            p.apr >= minApr &&
-            (assetPool as ReadonlyArray<string>).includes(p.asset),
-        )
-        .sort((a, b) => b.apr - a.apr)
-
-      const plan: Array<{
-        productId: string
-        asset: string
-        apr: number
-        amount: number
-      }> = []
-      let cappedCount = 0
-      let unusedBudgetTotal = 0
-      for (const asset of assetPool) {
-        const free = stableFree[asset] || 0
-        if (free <= 0) continue
-        const budget = free * totalPct
-        let remaining = budget
-        const assetProducts = products.filter((p) => p.asset === asset)
-        for (const p of assetProducts) {
-          if (remaining <= 0) break
-          const cap = budget * maxPerProductPct
-          let amount = Math.min(cap, remaining)
-          // round to step
-          amount = Math.floor(amount / roundTo) * roundTo
-          if (amount >= minAmount) {
-            plan.push({
-              productId: p.id,
-              asset: p.asset,
-              apr: p.apr,
-              amount: Number(amount.toFixed(2)),
-            })
-            remaining -= amount
-            if (amount + 1e-9 >= cap) cappedCount += 1
-          }
-        }
-        if (remaining > 0) unusedBudgetTotal += Number(remaining.toFixed(2))
-      }
-
-      const totalPlanned = plan.reduce((s, x) => s + x.amount, 0)
-      return res.json({
-        assetPool,
-        minApr,
-        totalPct,
-        maxPerProductPct,
-        minAmount,
-        roundTo,
-        spotStable: stableFree,
-        selectedProducts: products.map((p) => ({
-          id: p.id,
-          asset: p.asset,
-          apr: p.apr,
-        })),
-        plan,
-        dryRun: true,
-        stats: {
-          totalPlanned,
-          unusedBudgetTotal,
-          cappedCount,
-        },
-      })
+      const plan = await earnService.generateAutoPlan(parsed.data)
+      return res.json(plan)
     } catch (err) {
       logger.error({ err }, 'Failed to build auto plan')
       return res.status(500).json({ error: 'Failed to build auto plan' })
@@ -365,7 +114,7 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
             correlationId: req.correlationId,
           })
         }
-        // Require non-empty plan only when executing live
+
         if (!parsed.data.dryRun && parsed.data.plan.length === 0) {
           return res.status(400).json({
             type: 'https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.1',
@@ -377,62 +126,13 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
           })
         }
 
-        let cfg = getBinanceConfig()
-        if (!cfg) {
-          const dbConfig = await getActiveExchangeConfig(
-            _db,
-            (process as any).env.ENCRYPTION_KEY,
-            'binance',
-          )
-          if (dbConfig) {
-            cfg = {
-              key: dbConfig.key,
-              secret: dbConfig.secret,
-              env: dbConfig.env,
-              baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-            }
-            setBinanceConfig(cfg)
-          } else {
-            return res.status(400).json({ error: 'Binance config not set' })
-          }
-        }
+        const result = await earnService.executeAutoPlan(
+          parsed.data.plan,
+          parsed.data.dryRun,
+          parsed.data.confirm,
+        )
 
-        const { dryRun, confirm, plan } = parsed.data
-        const http = new BinanceHttpClient({
-          key: cfg.key,
-          secret: cfg.secret,
-          baseUrl: cfg.baseUrl || 'https://api.binance.com',
-          env: cfg.env || 'live',
-        })
-        const earn = new BinanceEarnClient(http)
-
-        // Dry-run path
-        if (dryRun) {
-          return res.json({
-            executed: false,
-            dryRun: true,
-            steps: plan.map((p) => ({ action: 'subscribe', ...p })),
-          })
-        }
-
-        if (!confirm) {
-          return res
-            .status(400)
-            .json({ error: 'Confirmation required for live execution' })
-        }
-
-        // Live execution: subscribe to flexible products only
-        const results: Array<{ asset: string; amount: number; ok: boolean }> =
-          []
-        for (const p of plan) {
-          try {
-            await earn.subscribeFlexible({ asset: p.asset, amount: p.amount })
-            results.push({ asset: p.asset, amount: p.amount, ok: true })
-          } catch {
-            results.push({ asset: p.asset, amount: p.amount, ok: false })
-          }
-        }
-        return res.json({ executed: true, dryRun: false, results })
+        return res.json(result)
       } catch (err) {
         logger.error({ err }, 'Failed to execute auto plan')
         return res.status(500).json({ error: 'Failed to execute auto plan' })
@@ -440,7 +140,6 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
     },
   )
 
-  // Unsubscribe plan: propose redeem amounts for assets with APR below threshold or to free target stable amount
   const UnsubPlanSchema = z.object({
     minApr: z.number().min(0).default(0.02),
     targetFreeAmount: z.number().min(0).default(0),
@@ -464,96 +163,8 @@ export function binanceEarnRouter(_db: Kysely<DB>, logger: Logger): Router {
           })
         }
 
-        let cfg = getBinanceConfig()
-        if (!cfg) {
-          const dbConfig = await getActiveExchangeConfig(
-            _db,
-            (process as any).env.ENCRYPTION_KEY,
-            'binance',
-          )
-          if (dbConfig) {
-            cfg = {
-              key: dbConfig.key,
-              secret: dbConfig.secret,
-              env: dbConfig.env,
-              baseUrl: dbConfig.baseUrl || 'https://api.binance.com',
-            }
-            setBinanceConfig(cfg)
-          } else {
-            return res.status(400).json({ error: 'Binance config not set' })
-          }
-        }
-
-        const { minApr, targetFreeAmount, assetPool } = parsed.data
-        const http = new BinanceHttpClient({
-          key: cfg.key,
-          secret: cfg.secret,
-          baseUrl: cfg.baseUrl || 'https://api.binance.com',
-          env: cfg.env || 'live',
-        })
-        const earn = new BinanceEarnClient(http)
-
-        // approximate positions via earn balances per asset
-        const positions = await earn.getEarnBalances()
-        const products = (await earn.listProducts()).filter(
-          (p) => p.type === 'flexible',
-        )
-        const assetApr = new Map<string, number>()
-        for (const p of products) {
-          if (!assetApr.has(p.asset)) assetApr.set(p.asset, p.apr)
-          else
-            assetApr.set(p.asset, Math.max(assetApr.get(p.asset) || 0, p.apr))
-        }
-
-        let remaining = targetFreeAmount
-        const plan: Array<{
-          asset: string
-          amount: number
-          reason: string
-          apr?: number
-        }> = []
-
-        for (const pos of positions) {
-          if (!assetPool.includes(pos.asset as any)) continue
-          const apr = assetApr.get(pos.asset) || 0
-          const amt = Number(pos.free || 0)
-          if (amt <= 0) continue
-          if (apr < minApr) {
-            plan.push({
-              asset: pos.asset,
-              amount: Number(amt.toFixed(2)),
-              reason: 'apr_below_threshold',
-              apr,
-            })
-            remaining -= amt
-          }
-        }
-
-        if (remaining > 0) {
-          // still need to free funds: pick highest APR first but only up to remaining (conservative)
-          const candidates = positions
-            .filter((p) => assetPool.includes(p.asset as any))
-            .map((p) => ({
-              asset: p.asset,
-              amt: Number(p.free || 0),
-              apr: assetApr.get(p.asset) || 0,
-            }))
-            .sort((a, b) => b.apr - a.apr)
-          for (const c of candidates) {
-            if (remaining <= 0) break
-            if (c.amt <= 0) continue
-            const take = Math.min(c.amt, remaining)
-            plan.push({
-              asset: c.asset,
-              amount: Number(take.toFixed(2)),
-              reason: 'free_liquidity',
-              apr: c.apr,
-            })
-            remaining -= take
-          }
-        }
-
-        return res.json({ minApr, targetFreeAmount, plan, dryRun: true })
+        const plan = await earnService.generateUnsubscribePlan(parsed.data)
+        return res.json(plan)
       } catch (err) {
         logger.error({ err }, 'Failed to build unsubscribe plan')
         return res

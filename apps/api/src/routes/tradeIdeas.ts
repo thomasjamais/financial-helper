@@ -7,8 +7,7 @@ import type { AuthService } from '../services/AuthService'
 import { TradeIdeasService } from '../services/TradeIdeasService'
 import { TradesService } from '../services/TradesService'
 import { z } from 'zod'
-import { getSymbolPrice } from '@pkg/shared-kernel'
-import { calculateQuantity } from '@pkg/shared-kernel'
+import { calculateQuantity, getSymbolPrice } from '@pkg/shared-kernel'
 
 export function tradeIdeasRouter(
   db: Kysely<DB>,
@@ -242,32 +241,9 @@ export function tradeIdeasRouter(
       const log =
         req.logger || logger.child({ endpoint: '/v1/trades/with-pnl' })
       try {
-        const trades = await tradesService.list(req.user!.userId)
-
-        const symbols = Array.from(new Set(trades.map((t) => t.symbol)))
-        const priceMap = new Map<string, number>()
-
-        await Promise.all(
-          symbols.map(async (sym) => {
-            try {
-              const price = await getSymbolPrice(sym)
-              if (price && isFinite(price) && price > 0) {
-                priceMap.set(sym, price)
-              } else {
-                log.debug({ symbol: sym, price }, 'Invalid price for symbol')
-              }
-            } catch (e) {
-              log.debug(
-                { err: e, symbol: sym },
-                'Error fetching price for symbol',
-              )
-            }
-          }),
-        )
-
-        const enriched = await tradesService.listWithPnL(
+        const enriched = await tradesService.listWithPnLAndFetchPrices(
           req.user!.userId,
-          priceMap,
+          log,
         )
 
         return res.json(enriched)

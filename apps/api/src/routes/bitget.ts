@@ -1,13 +1,12 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { BitgetAdapter, type BitgetConfig } from '@pkg/exchange-adapters'
+import { filterBalances } from '../services/balanceFilter'
+import { BitgetService } from '../services/BitgetService'
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import { sql } from 'kysely'
 import { makeEncryptDecrypt } from '../services/crypto'
 import { getBitgetConfig, setBitgetConfig } from '../services/bitgetState'
-import { getActiveExchangeConfig } from '../services/exchangeConfigService'
-import { filterBalances } from '../services/balanceFilter'
 import type { Logger } from '../logger'
 
 export function bitgetRouter(
@@ -17,6 +16,7 @@ export function bitgetRouter(
 ): Router {
   const r = Router()
   const { encrypt } = makeEncryptDecrypt(encKey)
+  const bitgetService = new BitgetService(db, logger, encKey)
 
   r.post('/v1/bitget/config', (req: Request, res: Response) => {
     const log = req.logger || logger.child({ endpoint: '/v1/bitget/config' })
@@ -93,53 +93,11 @@ export function bitgetRouter(
 
     try {
       log.info('Fetching balances')
-      let cfg = getBitgetConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'bitget')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            passphrase: dbConfig.passphrase || '',
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.bitget.com',
-          }
-          setBitgetConfig(cfg)
-        } else {
-          log.warn('Bitget config not set')
-          return res.status(400).json({ error: 'Bitget config not set' })
-        }
-      }
-
-      if (!cfg) {
-        log.warn('Bitget config not set')
-        return res.status(400).json({ error: 'Bitget config not set' })
-      }
-
-      log.debug({ env: cfg.env }, 'Creating Bitget adapter')
-      const adapter = new BitgetAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        passphrase: cfg.passphrase,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-
-      log.debug('Fetching spot balances')
-      const spotRaw = await adapter.getBalances('spot')
-      log.debug({ count: spotRaw.length }, 'Spot balances fetched')
-
-      log.debug('Fetching futures balances')
-      const futuresRaw = await adapter.getBalances('futures')
-      log.debug({ count: futuresRaw.length }, 'Futures balances fetched')
-
-      const { spot, futures } = filterBalances(spotRaw, futuresRaw)
+      const balances = await bitgetService.getBalances()
+      const { spot, futures } = filterBalances(
+        balances.spot,
+        balances.futures,
+      )
 
       const duration = Date.now() - startTime
       log.info(
@@ -177,38 +135,7 @@ export function bitgetRouter(
 
     try {
       log.info('Fetching positions')
-      let cfg = getBitgetConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'bitget')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            passphrase: dbConfig.passphrase || '',
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.bitget.com',
-          }
-          setBitgetConfig(cfg)
-        } else {
-          log.warn('Bitget config not set')
-          return res.status(400).json({ error: 'Bitget config not set' })
-        }
-      }
-
-      const adapter = new BitgetAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        passphrase: cfg.passphrase,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-      const positions = await adapter.getPositions()
+      const positions = await bitgetService.getPositions()
 
       const duration = Date.now() - startTime
       log.info(
@@ -256,45 +183,16 @@ export function bitgetRouter(
       })
       const parsed = PlaceOrderSchema.safeParse(req.body)
       if (!parsed.success) {
-        log.warn({ errors: parsed.error.flatten() }, 'Order validation failed')
+        log.warn(
+          { errors: parsed.error.flatten() },
+          'Order validation failed',
+        )
         return res.status(400).json({ error: parsed.error.flatten() })
       }
 
       log.info({ order: parsed.data }, 'Validated order request')
 
-      let cfg = getBitgetConfig()
-      if (!cfg) {
-        const dbConfig = await getActiveExchangeConfig(db, encKey, 'bitget')
-        if (dbConfig) {
-          cfg = {
-            key: dbConfig.key,
-            secret: dbConfig.secret,
-            passphrase: dbConfig.passphrase || '',
-            env: dbConfig.env,
-            baseUrl: dbConfig.baseUrl || 'https://api.bitget.com',
-          }
-          setBitgetConfig(cfg)
-        } else {
-          log.warn('Bitget config not set')
-          return res.status(400).json({ error: 'Bitget config not set' })
-        }
-      }
-
-      const adapter = new BitgetAdapter({
-        key: cfg.key,
-        secret: cfg.secret,
-        passphrase: cfg.passphrase,
-        env: cfg.env,
-        baseUrl: cfg.baseUrl,
-        logger: {
-          debug: (msg: string, data?: unknown) => log.debug(data, msg),
-          info: (msg: string, data?: unknown) => log.info(data, msg),
-          warn: (msg: string, data?: unknown) => log.warn(data, msg),
-          error: (msg: string, data?: unknown) => log.error(data, msg),
-        },
-      })
-      log.debug('Placing order via adapter')
-      const order = await adapter.placeOrder(parsed.data)
+      const order = await bitgetService.placeOrder(parsed.data)
 
       const duration = Date.now() - startTime
       log.info(
