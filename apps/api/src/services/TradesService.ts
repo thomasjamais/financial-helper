@@ -33,6 +33,8 @@ export type TradeWithPnL = {
   metadata: any
   markPrice: number | null
   pnl_unrealized: number | null
+  tpPrice: number | null
+  slPrice: number | null
 }
 
 export class TradesService {
@@ -175,17 +177,32 @@ export class TradesService {
 
     return trades.map((trade) => {
       const markPrice = priceMap.get(trade.symbol)
+      const entryPrice = Number(trade.entry_price)
+      const quantity = Number(trade.quantity)
+
+      // Calculate TP and SL prices based on entry price
+      let tpPrice: number | null = null
+      let slPrice: number | null = null
+      
+      if (isFinite(entryPrice) && entryPrice > 0) {
+        if (trade.side === 'BUY') {
+          tpPrice = entryPrice * (1 + trade.tp_pct)
+          slPrice = entryPrice * (1 - trade.sl_pct)
+        } else {
+          tpPrice = entryPrice * (1 - trade.tp_pct)
+          slPrice = entryPrice * (1 + trade.sl_pct)
+        }
+      }
 
       if (!markPrice || !isFinite(markPrice) || markPrice <= 0) {
         return {
           ...trade,
           markPrice: null,
           pnl_unrealized: null,
+          tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+          slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
         }
       }
-
-      const entryPrice = Number(trade.entry_price)
-      const quantity = Number(trade.quantity)
 
       if (
         !isFinite(entryPrice) ||
@@ -197,6 +214,8 @@ export class TradesService {
           ...trade,
           markPrice,
           pnl_unrealized: null,
+          tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+          slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
         }
       }
 
@@ -211,6 +230,8 @@ export class TradesService {
         ...trade,
         markPrice,
         pnl_unrealized: pnl,
+        tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+        slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
       }
     })
   }
@@ -223,15 +244,40 @@ export class TradesService {
     const trades = await this.list(userId, limit)
     const symbols = Array.from(new Set(trades.map((t) => t.symbol)))
     
-    const priceMap = new Map<string, number>()
+    // For each symbol, we need:
+    // - The actual pair price (for calculating PnL with entry_price)
+    // - The USD price (for display in frontend)
+    const pairPriceMap = new Map<string, number>() // Real pair price (e.g., FETBTC in BTC)
+    const usdPriceMap = new Map<string, number>() // USD price for display
+    
     await Promise.all(
       symbols.map(async (sym) => {
         try {
-          const price = await getSymbolPrice(sym)
-          if (price && isFinite(price) && price > 0) {
-            priceMap.set(sym, price)
+          if (isUSDQuoted(sym)) {
+            // USD pair: same price for both
+            const price = await getSymbolPrice(sym)
+            if (price && isFinite(price) && price > 0) {
+              pairPriceMap.set(sym, price)
+              usdPriceMap.set(sym, price)
+            } else {
+              logger.debug({ symbol: sym, price }, 'Invalid price for symbol')
+            }
           } else {
-            logger.debug({ symbol: sym, price }, 'Invalid price for symbol')
+            // Non-USD pair: get actual pair price and USD price separately
+            const pairPrice = await getTradingPairPrice(sym)
+            const usdPrice = await getSymbolPrice(sym)
+            
+            if (pairPrice && isFinite(pairPrice) && pairPrice > 0) {
+              pairPriceMap.set(sym, pairPrice)
+            } else {
+              logger.debug({ symbol: sym, pairPrice }, 'Invalid pair price for symbol')
+            }
+            
+            if (usdPrice && isFinite(usdPrice) && usdPrice > 0) {
+              usdPriceMap.set(sym, usdPrice)
+            } else {
+              logger.debug({ symbol: sym, usdPrice }, 'Invalid USD price for symbol')
+            }
           }
         } catch (e) {
           logger.debug(
@@ -242,7 +288,115 @@ export class TradesService {
       }),
     )
     
-    return this.listWithPnL(userId, priceMap, limit)
+    // Fetch quote asset prices for non-USD pairs to convert PnL to USD
+    const quoteAssetPrices = new Map<string, number>()
+    const nonUSDSymbols = trades
+      .map((t) => t.symbol)
+      .filter((sym) => !isUSDQuoted(sym))
+      .map((sym) => extractQuoteAsset(sym))
+      .filter((asset): asset is string => asset !== null)
+    
+    const uniqueQuoteAssets = Array.from(new Set(nonUSDSymbols))
+    
+    await Promise.all(
+      uniqueQuoteAssets.map(async (quoteAsset) => {
+        try {
+          const price = await getSymbolPrice(`${quoteAsset}USDT`)
+          if (price && isFinite(price) && price > 0) {
+            quoteAssetPrices.set(quoteAsset, price)
+          }
+        } catch (e) {
+          logger.debug({ err: e, quoteAsset }, 'Error fetching quote asset price')
+        }
+      }),
+    )
+
+    // Use pair prices for PnL calculation (entry and mark must be in same unit)
+    // But return USD prices in markPrice for display
+    return trades.map((trade) => {
+      const pairPrice = pairPriceMap.get(trade.symbol) // Real pair price (e.g., FETBTC in BTC)
+      const usdPrice = usdPriceMap.get(trade.symbol) // USD price for display
+      
+      const entryPrice = Number(trade.entry_price)
+      const quantity = Number(trade.quantity)
+
+      // Calculate TP and SL prices based on entry price (in same unit as entry_price)
+      let tpPrice: number | null = null
+      let slPrice: number | null = null
+      
+      if (isFinite(entryPrice) && entryPrice > 0) {
+        if (trade.side === 'BUY') {
+          tpPrice = entryPrice * (1 + trade.tp_pct)
+          slPrice = entryPrice * (1 - trade.sl_pct)
+        } else {
+          tpPrice = entryPrice * (1 - trade.tp_pct)
+          slPrice = entryPrice * (1 + trade.sl_pct)
+        }
+      }
+      
+      if (!pairPrice || !isFinite(pairPrice) || pairPrice <= 0) {
+        return {
+          ...trade,
+          markPrice: usdPrice ?? null, // USD price for display
+          pnl_unrealized: null,
+          tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+          slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
+        }
+      }
+
+      if (
+        !isFinite(entryPrice) ||
+        entryPrice <= 0 ||
+        !isFinite(quantity) ||
+        quantity <= 0
+      ) {
+        return {
+          ...trade,
+          markPrice: usdPrice ?? null, // USD price for display
+          pnl_unrealized: null,
+          tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+          slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
+        }
+      }
+
+      // Calculate PnL using actual pair prices (entry and mark must be in same unit)
+      const pnl = calculatePnL({
+        side: trade.side,
+        entryPrice,
+        quantity,
+        markPrice: pairPrice, // Use actual pair price for PnL calculation
+      })
+      
+      // Convert PnL to USD if needed
+      let pnlUSD: number = pnl
+      if (!isUSDQuoted(trade.symbol)) {
+        const quoteAsset = extractQuoteAsset(trade.symbol)
+        if (quoteAsset) {
+          const quoteAssetUsdPrice = quoteAssetPrices.get(quoteAsset)
+          if (quoteAssetUsdPrice && isFinite(quoteAssetUsdPrice) && quoteAssetUsdPrice > 0) {
+            // PnL in quote asset * quote asset price in USD = PnL in USD
+            pnlUSD = pnl * quoteAssetUsdPrice
+          } else {
+            // Fallback: calculate PnL directly in USD using current prices
+            if (usdPrice && pairPrice && pairPrice > 0) {
+              const entryPriceUSD = entryPrice * (usdPrice / pairPrice)
+              const markPriceUSD = usdPrice
+              pnlUSD = trade.side === 'BUY'
+                ? (markPriceUSD - entryPriceUSD) * quantity
+                : (entryPriceUSD - markPriceUSD) * quantity
+            }
+          }
+        }
+      }
+
+      return {
+        ...trade,
+        markPrice: usdPrice ?? null, // USD price for display in frontend
+        pnl_unrealized: isFinite(pnlUSD) ? Number(pnlUSD.toFixed(2)) : null,
+        tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+        slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
+      }
+    })
   }
 
   async createSnapshot(
