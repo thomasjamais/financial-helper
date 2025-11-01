@@ -95,7 +95,15 @@ export function tradeIdeasRouter(
     authMiddleware(authService, logger),
     async (req: Request, res: Response) => {
       try {
-        const rows = await _db
+        const sortBy = (req.query?.sortBy as string) || 'created_at'
+        const sortOrder = (req.query?.sortOrder as string) || 'desc'
+        const validSortBy = ['score', 'side', 'created_at']
+        const validSortOrder = ['asc', 'desc']
+        const finalSortBy = validSortBy.includes(sortBy) ? sortBy : 'created_at'
+        const finalSortOrder = validSortOrder.includes(sortOrder)
+          ? sortOrder
+          : 'desc'
+        let query = _db
           .selectFrom('trade_ideas')
           .select([
             'id',
@@ -109,9 +117,23 @@ export function tradeIdeasRouter(
             'history',
           ])
           .where('user_id', '=', req.user!.userId)
-          .orderBy('created_at', 'desc')
-          .limit(200)
-          .execute()
+        if (finalSortBy === 'score') {
+          query =
+            finalSortOrder === 'asc'
+              ? query.orderBy('score', 'asc')
+              : query.orderBy('score', 'desc')
+        } else if (finalSortBy === 'side') {
+          query =
+            finalSortOrder === 'asc'
+              ? query.orderBy('side', 'asc')
+              : query.orderBy('side', 'desc')
+        } else {
+          query =
+            finalSortOrder === 'asc'
+              ? query.orderBy('created_at', 'asc')
+              : query.orderBy('created_at', 'desc')
+        }
+        const rows = await query.limit(200).execute()
         return res.json(rows)
       } catch (err) {
         return res.status(500).json({ error: 'Failed to list trade ideas' })
@@ -505,7 +527,10 @@ export function tradeIdeasRouter(
         const movers =
           end <= poolSize
             ? candidates.slice(baseOffset, end)
-            : [...candidates.slice(baseOffset, poolSize), ...candidates.slice(0, end - poolSize)]
+            : [
+                ...candidates.slice(baseOffset, poolSize),
+                ...candidates.slice(0, end - poolSize),
+              ]
 
         const userId = req.user!.userId
         const nowIso = new Date().toISOString()
