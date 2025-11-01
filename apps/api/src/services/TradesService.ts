@@ -212,21 +212,6 @@ export class TradesService {
       }
 
       if (!markPrice || !isFinite(markPrice) || markPrice <= 0) {
-        // Calculate TP/SL prices even if mark price is not available
-        const entryPrice = Number(trade.entry_price)
-        let tpPrice: number | null = null
-        let slPrice: number | null = null
-        
-        if (isFinite(entryPrice) && entryPrice > 0) {
-          if (trade.side === 'BUY') {
-            tpPrice = entryPrice * (1 + trade.tp_pct)
-            slPrice = entryPrice * (1 - trade.sl_pct)
-          } else {
-            tpPrice = entryPrice * (1 - trade.tp_pct)
-            slPrice = entryPrice * (1 + trade.sl_pct)
-          }
-        }
-        
         return {
           ...trade,
           markPrice: null,
@@ -242,20 +227,6 @@ export class TradesService {
         !isFinite(quantity) ||
         quantity <= 0
       ) {
-        // Calculate TP/SL prices even if entry price or quantity is invalid
-        let tpPrice: number | null = null
-        let slPrice: number | null = null
-        
-        if (isFinite(entryPrice) && entryPrice > 0) {
-          if (trade.side === 'BUY') {
-            tpPrice = entryPrice * (1 + trade.tp_pct)
-            slPrice = entryPrice * (1 - trade.sl_pct)
-          } else {
-            tpPrice = entryPrice * (1 - trade.tp_pct)
-            slPrice = entryPrice * (1 + trade.sl_pct)
-          }
-        }
-        
         return {
           ...trade,
           markPrice,
@@ -271,21 +242,6 @@ export class TradesService {
         quantity,
         markPrice,
       })
-
-      // Calculate TP and SL prices
-      // For BUY: TP above entry, SL below entry
-      // For SELL: TP below entry, SL above entry
-      let tpPrice: number | null = null
-      let slPrice: number | null = null
-      
-      if (trade.side === 'BUY') {
-        tpPrice = entryPrice * (1 + trade.tp_pct)
-        slPrice = entryPrice * (1 - trade.sl_pct)
-      } else {
-        // SELL
-        tpPrice = entryPrice * (1 - trade.tp_pct)
-        slPrice = entryPrice * (1 + trade.sl_pct)
-      }
 
       return {
         ...trade,
