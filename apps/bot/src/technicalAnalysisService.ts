@@ -503,6 +503,7 @@ export async function generateTechnicalTradeIdea(
 
 /**
  * Get top cryptocurrencies by 24h volume from Binance
+ * This includes all trading pairs on Binance, not just USDT pairs
  */
 export async function getTopCryptosByVolume(
   count: number = 15,
@@ -513,8 +514,14 @@ export async function getTopCryptosByVolume(
     })
 
     const tickers = resp.data as any[]
-    const usdtPairs = tickers
-      .filter((t: any) => t.symbol?.endsWith('USDT'))
+    // Filter for all valid trading pairs (including USDT, USDC, BTC, ETH, BNB as quote)
+    const supportedQuotes = ['USDT', 'USDC', 'BTC', 'ETH', 'BNB', 'FDUSD', 'TUSD']
+    const validPairs = tickers
+      .filter((t: any) => {
+        if (!t.symbol || typeof t.symbol !== 'string') return false
+        // Check if symbol ends with any supported quote asset
+        return supportedQuotes.some((quote) => t.symbol.endsWith(quote))
+      })
       .map((t: any) => ({
         symbol: t.symbol as string,
         quoteVolume: Number(t.quoteVolume || 0),
@@ -524,7 +531,7 @@ export async function getTopCryptosByVolume(
       .slice(0, count)
       .map((t) => t.symbol)
 
-    return usdtPairs
+    return validPairs
   } catch (err) {
     console.error('Failed to fetch top cryptos:', err)
     // Fallback to top 15 known symbols
