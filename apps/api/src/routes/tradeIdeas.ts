@@ -466,6 +466,11 @@ export function tradeIdeasRouter(
             }
             const direction = r.side === 'BUY' ? 1 : -1
             const pnl = direction * (mark - entryPrice) * quantity
+            console.log('PNL', pnl)
+            console.log('MARK', mark)
+            console.log('ENTRY PRICE', entryPrice)
+            console.log('QUANTITY', quantity)
+            console.log('DIRECTION', direction)
             const pnlRounded = Number(pnl.toFixed(2))
             return {
               ...r,
