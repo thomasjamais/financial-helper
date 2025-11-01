@@ -1,35 +1,11 @@
-import axios from 'axios'
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
 import RebalanceSummary from './RebalanceSummary'
 import RebalanceSuggestions from './RebalanceSuggestions'
-
-type RebalancingSuggestion = {
-  asset: string
-  currentAllocation: number
-  recommendedAllocation: number
-  action: 'BUY' | 'SELL' | 'HOLD'
-  reason: string
-}
-
-type RebalanceAdvice = {
-  suggestions: RebalancingSuggestion[]
-  summary: string
-  confidence: number
-}
+import { useRebalance } from '../hooks/useBinancePortfolio'
 
 export default function RebalancePanel() {
   const [rebalanceMode, setRebalanceMode] = useState<'spot' | 'earn' | 'overview'>('overview')
-  const rebalance = useMutation({
-    mutationFn: async (params: { mode: 'spot' | 'earn' | 'overview' }) => {
-      const res = await axios.post<RebalanceAdvice>(
-        '/v1/binance/rebalance',
-        params,
-        { baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080' },
-      )
-      return res.data
-    },
-  })
+  const rebalance = useRebalance()
 
   return (
     <div className="border rounded-lg p-4 bg-slate-800 border-slate-700">

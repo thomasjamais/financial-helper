@@ -1,39 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useState } from 'react'
-import { useAuth } from './AuthContext'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
-
-type SortBy = 'score' | 'side' | 'created_at'
-type SortOrder = 'asc' | 'desc'
+import {
+  useTradeIdeas,
+  useExecuteTradeIdea,
+  validateBudget,
+  type SortBy,
+  type SortOrder,
+} from '../hooks/useTradeIdeas'
 
 export default function TradeIdeas() {
-  const { accessToken } = useAuth()
   const [sortBy, setSortBy] = useState<SortBy>('created_at')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['trade-ideas', sortBy, sortOrder],
-    queryFn: async () =>
-      (
-        await axios.get(`${API_BASE}/v1/trade-ideas`, {
-          params: { sortBy, sortOrder },
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        })
-      ).data as Array<{
-        id: number
-        exchange: string
-        symbol: string
-        side: 'BUY' | 'SELL'
-        score: number
-        reason?: string
-        created_at: string
-      }>,
-    enabled: !!accessToken,
-    refetchInterval: 60000,
-  })
+  const { data, isLoading, error, refetch, isFetching } = useTradeIdeas(
+    sortBy,
+    sortOrder,
+  )
+  const executeIdea = useExecuteTradeIdea()
+
   function handleSortClick(column: SortBy) {
     if (sortBy === column) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
@@ -42,23 +24,35 @@ export default function TradeIdeas() {
       setSortOrder('desc')
     }
   }
-  const budgetById = new Map<number, number>()
-  async function executeIdea(id: number) {
+
+  function handleExecuteClick(id: number) {
     const budgetStr = prompt('Budget in USD for this trade?', '50')
-    if (!budgetStr) return
-    const budget = Number(budgetStr)
-    if (!isFinite(budget) || budget <= 0) return
-    if (!confirm('Execute this idea with moderate risk TL/TP?')) return
-    await axios.post(
-      `${API_BASE}/v1/trade-ideas/${id}/execute`,
-      { confirm: true, budgetUSD: budget, risk: 'moderate' },
+    const validation = validateBudget(budgetStr)
+
+    if (!validation.valid) {
+      alert(validation.error || 'Invalid budget')
+      return
+    }
+
+    if (!confirm('Execute this idea with moderate risk TL/TP?')) {
+      return
+    }
+
+    executeIdea.mutate(
       {
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined,
+        id,
+        budgetUSD: validation.budget!,
+        risk: 'moderate',
+      },
+      {
+        onSuccess: () => {
+          alert('Trade idea executed successfully')
+        },
+        onError: (err: any) => {
+          alert(err?.response?.data?.error || 'Failed to execute trade idea')
+        },
       },
     )
-    await refetch()
   }
 
   return (
@@ -124,10 +118,11 @@ export default function TradeIdeas() {
                   <td className="p-3 text-slate-300">{s.reason || '-'}</td>
                   <td className="p-3 text-right">
                     <button
-                      onClick={() => executeIdea(s.id)}
-                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
+                      onClick={() => handleExecuteClick(s.id)}
+                      disabled={executeIdea.isPending}
+                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm disabled:opacity-50"
                     >
-                      Execute
+                      {executeIdea.isPending ? 'Executing...' : 'Execute'}
                     </button>
                   </td>
                 </tr>

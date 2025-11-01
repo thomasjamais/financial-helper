@@ -2,93 +2,13 @@ import { useState } from 'react'
 import { useCurrency } from './CurrencyContext'
 import { formatNumber } from '../lib/format'
 import RebalancePanel from './RebalancePanel'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-
-type Currency = 'USD' | 'EUR'
-
-type PortfolioAsset = {
-  asset: string
-  amount: number
-  amountLocked?: number
-  priceUSD: number
-  priceEUR: number
-  valueUSD: number
-  valueEUR: number
-}
-
-type Portfolio = {
-  assets: PortfolioAsset[]
-  totalValueUSD: number
-  totalValueEUR: number
-  timestamp: number
-}
-
-type ConversionResult = {
-  fromAsset: string
-  fromAmount: number
-  toAsset: string
-  toAmount: number
-  rate: number
-}
-
-function usePortfolio() {
-  return useQuery({
-    queryKey: ['portfolio', 'binance'],
-    queryFn: async () =>
-      (
-        await axios.get<Portfolio>('/v1/binance/portfolio', {
-          baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
-        })
-      ).data,
-    retry: false,
-    refetchInterval: 30000,
-  })
-}
-
-function useConvert() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (params: {
-      fromAsset: string
-      fromAmount: number
-      toAsset: 'BTC' | 'BNB' | 'ETH'
-    }) =>
-      (
-        await axios.post<ConversionResult>('/v1/binance/convert', params, {
-          baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
-        })
-      ).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['portfolio'] }),
-  })
-}
-
-type RebalancingSuggestion = {
-  asset: string
-  currentAllocation: number
-  recommendedAllocation: number
-  action: 'BUY' | 'SELL' | 'HOLD'
-  reason: string
-}
-
-type RebalanceAdvice = {
-  suggestions: RebalancingSuggestion[]
-  summary: string
-  confidence: number
-}
-
-function useRebalanceMutation() {
-  return useMutation({
-    mutationFn: async (params: { mode: 'spot' | 'earn' | 'overview' }) => {
-      const res = await axios.post<RebalanceAdvice>(
-        '/v1/binance/rebalance',
-        params,
-        { baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080' },
-      )
-      return res.data
-    },
-  })
-}
+import {
+  usePortfolio,
+  useConvert,
+  useRebalance,
+  validateConversionAmount,
+  type PortfolioAsset,
+} from '../hooks/useBinancePortfolio'
 
 export function BinancePortfolio() {
   const { currency } = useCurrency()
@@ -100,27 +20,34 @@ export function BinancePortfolio() {
 
   const { data: portfolio, isLoading, error } = usePortfolio()
   const convert = useConvert()
-  const rebalance = useRebalanceMutation()
+  const rebalance = useRebalance()
 
   const totalValue =
     currency === 'USD' ? portfolio?.totalValueUSD : portfolio?.totalValueEUR
 
   const handleConvert = () => {
-    if (!selectedAsset || !convertAmount) return
-    const amount = parseFloat(convertAmount)
-    if (isNaN(amount) || amount <= 0) return
+    if (!selectedAsset) {
+      alert('Please select an asset to convert')
+      return
+    }
+
+    const validation = validateConversionAmount(convertAmount)
+    if (!validation.valid) {
+      alert(validation.error || 'Invalid amount')
+      return
+    }
 
     convert.mutate(
       {
         fromAsset: selectedAsset,
-        fromAmount: amount,
+        fromAmount: validation.amount!,
         toAsset: convertTo,
       },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           setConvertAmount('')
           alert(
-            `Conversion: ${amount} ${selectedAsset} = ${convert.data?.toAmount.toFixed(8)} ${convertTo}`,
+            `Conversion: ${validation.amount} ${selectedAsset} = ${data.toAmount.toFixed(8)} ${convertTo}`,
           )
         },
         onError: (err: any) => {
