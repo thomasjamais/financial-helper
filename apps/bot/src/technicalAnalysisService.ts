@@ -502,7 +502,8 @@ export async function generateTechnicalTradeIdea(
 }
 
 /**
- * Get top cryptocurrencies by 24h volume from Binance
+ * Get 15 cryptocurrencies with rotation from Binance
+ * This includes all trading pairs on Binance, rotates which ones are selected
  */
 export async function getTopCryptosByVolume(
   count: number = 15,
@@ -513,18 +514,53 @@ export async function getTopCryptosByVolume(
     })
 
     const tickers = resp.data as any[]
-    const usdtPairs = tickers
-      .filter((t: any) => t.symbol?.endsWith('USDT'))
+    // Filter for all valid trading pairs (including USDT, USDC, BTC, ETH, BNB as quote)
+    const supportedQuotes = [
+      'USDT',
+      'USDC',
+      'BTC',
+      'ETH',
+      'BNB',
+      'FDUSD',
+      'TUSD',
+    ]
+    const validPairs = tickers
+      .filter((t: any) => {
+        if (!t.symbol || typeof t.symbol !== 'string') return false
+        // Check if symbol ends with any supported quote asset
+        return supportedQuotes.some((quote) => t.symbol.endsWith(quote))
+      })
       .map((t: any) => ({
         symbol: t.symbol as string,
         quoteVolume: Number(t.quoteVolume || 0),
       }))
       .filter((t) => isFinite(t.quoteVolume) && t.quoteVolume > 0)
       .sort((a, b) => b.quoteVolume - a.quoteVolume)
-      .slice(0, count)
-      .map((t) => t.symbol)
 
-    return usdtPairs
+    // Rotate selection based on current time (every 5 seconds, we'll have a different offset)
+    // Calculate offset based on seconds since epoch, rotating every interval
+    const rotationInterval = 5 // seconds
+    const currentSecond = Math.floor(Date.now() / 1000)
+    const rotationIndex = Math.floor(currentSecond / rotationInterval)
+
+    // Use rotationIndex to determine which 15 cryptos to analyze
+    // This ensures we rotate through different cryptos over time
+    const poolSize = validPairs.length
+    const offset = (rotationIndex * count) % poolSize
+    const end = offset + count
+
+    let selected: typeof validPairs
+    if (end <= poolSize) {
+      selected = validPairs.slice(offset, end)
+    } else {
+      // Wrap around if we exceed the pool
+      selected = [
+        ...validPairs.slice(offset, poolSize),
+        ...validPairs.slice(0, end - poolSize),
+      ]
+    }
+
+    return selected.map((t) => t.symbol)
   } catch (err) {
     console.error('Failed to fetch top cryptos:', err)
     // Fallback to top 15 known symbols
