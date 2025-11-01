@@ -1,4 +1,5 @@
 import { useTrades } from '../hooks/useTrades'
+import { formatPrice, formatQuantity, formatCurrency } from '../lib/numberFormat'
 
 export default function Trades() {
   const { data, isLoading, error, refetch, isFetching } = useTrades()
@@ -48,26 +49,26 @@ export default function Trades() {
                   </td>
                   <td className="p-3 text-white">{t.symbol}</td>
                   <td className="p-3 text-slate-300">{t.side}</td>
-                  <td className="p-3 text-right text-slate-300">
-                    {t.entry_price.toFixed(6)}
+                  <td className="p-3 text-right text-slate-300 font-mono text-sm">
+                    {formatPrice(t.entry_price)}
+                  </td>
+                  <td className="p-3 text-right text-slate-300 font-mono text-sm">
+                    {formatPrice(t.markPrice)}
+                  </td>
+                  <td className="p-3 text-right text-slate-300 font-mono text-sm">
+                    {formatQuantity(t.quantity)}
                   </td>
                   <td className="p-3 text-right text-slate-300">
-                    {(t.markPrice ?? 0).toFixed(6)}
-                  </td>
-                  <td className="p-3 text-right text-slate-300">
-                    {t.quantity.toFixed(6)}
-                  </td>
-                  <td className="p-3 text-right text-slate-300">
-                    {t.budget_usd.toFixed(2)}
+                    {formatCurrency(t.budget_usd)}
                   </td>
                   <td className="p-3 text-right text-slate-300">
                     {(t.tp_pct * 100).toFixed(1)}% /{' '}
                     {(t.sl_pct * 100).toFixed(1)}%
                   </td>
                   <td
-                    className={`p-3 text-right ${(t.pnl_unrealized ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                    className={`p-3 text-right font-semibold ${(t.pnl_unrealized ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}
                   >
-                    {(t.pnl_unrealized ?? 0).toFixed(2)}
+                    {formatCurrency(t.pnl_unrealized)}
                   </td>
                   <td className="p-3 text-slate-300">{t.status}</td>
                   <td className="p-3 text-right">

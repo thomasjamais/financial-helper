@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { useAuth } from './AuthContext'
+import { formatPrice, formatQuantity, formatCurrency } from '../lib/numberFormat'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
@@ -50,9 +51,9 @@ export default function TradeDetail({ tradeId }: { tradeId: number }) {
         <button onClick={snapshot} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">Record snapshot</button>
       </div>
       <div className="grid grid-cols-2 gap-4 text-slate-300">
-        <div>Entry: {Number(t.entry_price).toFixed(6)}</div>
-        <div>Qty: {Number(t.quantity).toFixed(6)}</div>
-        <div>Budget USD: {Number(t.budget_usd).toFixed(2)}</div>
+        <div>Entry: <span className="font-mono">{formatPrice(Number(t.entry_price))}</span></div>
+        <div>Qty: <span className="font-mono">{formatQuantity(Number(t.quantity))}</span></div>
+        <div>Budget USD: {formatCurrency(Number(t.budget_usd))}</div>
         <div>TP/SL: {(Number(t.tp_pct)*100).toFixed(1)}% / {(Number(t.sl_pct)*100).toFixed(1)}%</div>
         <div>Status: {t.status}</div>
         <div>Opened: {new Date(t.opened_at).toLocaleString()}</div>
@@ -73,8 +74,8 @@ export default function TradeDetail({ tradeId }: { tradeId: number }) {
               {history.map((h, idx) => (
                 <tr key={idx} className="border-t border-slate-700 hover:bg-slate-800">
                   <td className="p-3 text-slate-300">{new Date(h.ts).toLocaleString()}</td>
-                  <td className="p-3 text-right text-slate-300">{Number(h.mark_price).toFixed(6)}</td>
-                  <td className={`p-3 text-right ${h.pnl_usd >= 0 ? 'text-green-400' : 'text-red-400'}`}>{Number(h.pnl_usd).toFixed(2)}</td>
+                  <td className="p-3 text-right text-slate-300 font-mono text-sm">{formatPrice(Number(h.mark_price))}</td>
+                  <td className={`p-3 text-right font-semibold ${h.pnl_usd >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatCurrency(h.pnl_usd)}</td>
                 </tr>
               ))}
               {history.length === 0 && (
