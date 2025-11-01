@@ -1,7 +1,14 @@
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from '../logger'
-import { calculatePnL, calculateQuantity, getSymbolPrice } from '@pkg/shared-kernel'
+import {
+  calculatePnL,
+  calculateQuantity,
+  getSymbolPrice,
+  getTradingPairPrice,
+  isUSDQuoted,
+  extractQuoteAsset,
+} from '@pkg/shared-kernel'
 
 export type CreateTradeInput = {
   ideaId: number
@@ -301,6 +308,112 @@ export class TradesService {
       .orderBy('ts', 'desc')
       .limit(limit)
       .execute()
+  }
+
+  async closeTrade(
+    userId: string,
+    tradeId: number,
+    exitPrice: number,
+    correlationId?: string,
+  ): Promise<{
+    trade: {
+      id: number
+      symbol: string
+      side: 'BUY' | 'SELL'
+      budget_usd: number
+      quantity: number
+      entry_price: number
+      exit_price: number
+      pnl_usd: number
+      pnl_pct: number
+      status: string
+      closed_at: Date
+    }
+    pnl: number
+    pnlPct: number
+  }> {
+    const log = this.logger.child({ correlationId, userId, tradeId })
+
+    const trade = await this.findById(userId, tradeId)
+
+    if (!trade) {
+      throw new Error('Trade not found')
+    }
+
+    if (trade.status === 'closed') {
+      throw new Error('Trade is already closed')
+    }
+
+    const entryPrice = Number(trade.entry_price)
+    const quantity = Number(trade.quantity)
+
+    if (!isFinite(entryPrice) || entryPrice <= 0 || !isFinite(quantity) || quantity <= 0) {
+      throw new Error('Invalid trade entry price or quantity')
+    }
+
+    // Calculate PnL using actual pair prices
+    const pnl = calculatePnL({
+      side: trade.side,
+      entryPrice,
+      quantity,
+      markPrice: exitPrice,
+    })
+
+    // Convert PnL to USD if needed (for non-USD pairs)
+    let pnlUSD: number = pnl
+    if (!isUSDQuoted(trade.symbol)) {
+      const quoteAsset = extractQuoteAsset(trade.symbol)
+      if (quoteAsset) {
+        const quoteAssetUsdPrice = await getSymbolPrice(`${quoteAsset}USDT`)
+        if (quoteAssetUsdPrice && isFinite(quoteAssetUsdPrice) && quoteAssetUsdPrice > 0) {
+          pnlUSD = pnl * quoteAssetUsdPrice
+        }
+      }
+    }
+
+    // Calculate PnL percentage
+    const pnlPct = trade.budget_usd > 0 ? (pnlUSD / trade.budget_usd) * 100 : 0
+
+    // Update trade to closed status
+    await this.db
+      .updateTable('trades')
+      .set({
+        status: 'closed',
+        closed_at: new Date(),
+        pnl_usd: pnlUSD,
+      })
+      .where('id', '=', tradeId)
+      .where('user_id', '=', userId)
+      .execute()
+
+    log.info(
+      {
+        symbol: trade.symbol,
+        entryPrice,
+        exitPrice,
+        pnl: pnlUSD,
+        pnlPct,
+      },
+      'Trade closed',
+    )
+
+    return {
+      trade: {
+        id: trade.id,
+        symbol: trade.symbol,
+        side: trade.side,
+        budget_usd: trade.budget_usd,
+        quantity,
+        entry_price: entryPrice,
+        exit_price: exitPrice,
+        pnl_usd: pnlUSD,
+        pnl_pct: pnlPct,
+        status: 'closed',
+        closed_at: new Date(),
+      },
+      pnl: pnlUSD,
+      pnlPct,
+    }
   }
 }
 

@@ -7,7 +7,13 @@ import type { AuthService } from '../services/AuthService'
 import { TradeIdeasService } from '../services/TradeIdeasService'
 import { TradesService } from '../services/TradesService'
 import { z } from 'zod'
-import { calculateQuantity, getSymbolPrice } from '@pkg/shared-kernel'
+import {
+  calculateQuantity,
+  getSymbolPrice,
+  isUSDQuoted,
+  extractQuoteAsset,
+  getTradingPairPrice,
+} from '@pkg/shared-kernel'
 
 export function tradeIdeasRouter(
   db: Kysely<DB>,
@@ -307,6 +313,65 @@ export function tradeIdeasRouter(
         return res.json({ trade, history })
       } catch (err) {
         return res.status(500).json({ error: 'Failed to load trade detail' })
+      }
+    },
+  )
+
+  r.post(
+    '/v1/trades/:id/close',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trades/:id/close' })
+      try {
+        const tradeId = Number(req.params.id)
+        const trade = await tradesService.findById(req.user!.userId, tradeId)
+
+        if (!trade) {
+          return res.status(404).json({ error: 'Trade not found' })
+        }
+
+        if (trade.status === 'closed') {
+          return res.status(400).json({ error: 'Trade is already closed' })
+        }
+
+        // Get current price to calculate final PnL
+        const currentPrice = await getSymbolPrice(trade.symbol)
+        if (!currentPrice || !isFinite(currentPrice) || currentPrice <= 0) {
+          return res
+            .status(502)
+            .json({ error: 'Failed to fetch current price' })
+        }
+
+        // For non-USD pairs, we need the actual pair price, not USD price
+        let exitPrice: number = currentPrice
+        if (!isUSDQuoted(trade.symbol)) {
+          const pairPrice = await getTradingPairPrice(trade.symbol)
+          if (pairPrice && isFinite(pairPrice) && pairPrice > 0) {
+            exitPrice = pairPrice
+          } else {
+            return res.status(502).json({
+              error: 'Failed to fetch pair price for closing',
+            })
+          }
+        }
+
+        const result = await tradesService.closeTrade(
+          req.user!.userId,
+          tradeId,
+          exitPrice,
+          req.correlationId,
+        )
+
+        return res.json({
+          ok: true,
+          trade: result.trade,
+          pnl: result.pnl,
+          pnlPct: result.pnlPct,
+        })
+      } catch (err) {
+        log.error({ err }, 'Failed to close trade')
+        return res.status(500).json({ error: 'Failed to close trade' })
       }
     },
   )

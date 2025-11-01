@@ -15,8 +15,12 @@ export type Trade = {
   sl_pct: number
   status: string
   opened_at: string
+  closed_at?: string | null
   pnl_unrealized?: number | null
+  pnl_usd?: number | null
   markPrice?: number | null
+  tpPrice?: number | null
+  slPrice?: number | null
 }
 
 export function useTrades() {
