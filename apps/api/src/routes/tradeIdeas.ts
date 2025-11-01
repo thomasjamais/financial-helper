@@ -190,15 +190,57 @@ export function tradeIdeasRouter(
             : null
 
         // Use entry price from metadata if available, otherwise fetch current price
+        // For non-USD pairs, we need the actual pair price (e.g., FETBTC in BTC, not USD)
+        // For USD pairs, we can use the USD price directly
         let entryPrice: number
+        let entryPriceInUSD: number | null = null // For PnL calculations later
+        
         if (entryPriceFromMetadata) {
           entryPrice = entryPriceFromMetadata
-        } else {
-          const price = await getSymbolPrice(idea.symbol)
-          if (!price || !isFinite(price) || price <= 0) {
-            return res.status(502).json({ error: 'Failed to fetch price' })
+          // If metadata price exists, it's likely already in USD (from technical analysis)
+          // But we should still check if it's a non-USD pair
+          if (!isUSDQuoted(idea.symbol)) {
+            // Metadata price is in USD, but we need the actual pair price
+            // Get the actual trading pair price
+            const pairPrice = await getTradingPairPrice(idea.symbol)
+            if (!pairPrice || !isFinite(pairPrice) || pairPrice <= 0) {
+              return res.status(502).json({
+                error: 'Failed to fetch pair price for non-USD symbol',
+              })
+            }
+            entryPrice = pairPrice
+            entryPriceInUSD = entryPriceFromMetadata
+          } else {
+            entryPriceInUSD = entryPriceFromMetadata
           }
-          entryPrice = price
+        } else {
+          if (isUSDQuoted(idea.symbol)) {
+            // USD pair: get price in USD directly
+            const price = await getSymbolPrice(idea.symbol)
+            if (!price || !isFinite(price) || price <= 0) {
+              return res.status(502).json({ error: 'Failed to fetch price' })
+            }
+            entryPrice = price
+            entryPriceInUSD = price
+          } else {
+            // Non-USD pair: get actual pair price (e.g., FETBTC in BTC)
+            const pairPrice = await getTradingPairPrice(idea.symbol)
+            if (!pairPrice || !isFinite(pairPrice) || pairPrice <= 0) {
+              return res.status(502).json({
+                error: 'Failed to fetch pair price',
+              })
+            }
+            entryPrice = pairPrice
+            
+            // Also get USD price for budget calculations
+            const usdPrice = await getSymbolPrice(idea.symbol)
+            if (!usdPrice || !isFinite(usdPrice) || usdPrice <= 0) {
+              return res.status(502).json({
+                error: 'Failed to fetch USD price for conversion',
+              })
+            }
+            entryPriceInUSD = usdPrice
+          }
         }
 
         const budget = parsed.data.budgetUSD
@@ -209,10 +251,11 @@ export function tradeIdeasRouter(
         // Check if symbol is not USD-quoted (e.g., FETBTC instead of FETUSDT)
         // If so, we need to create a conversion trade from USDC to the quote asset
         let conversionTradeId: number | null = null
-        
+        let quoteAssetBudget: number | null = null // Budget in quote asset after conversion
+
         if (!isUSDQuoted(idea.symbol)) {
           const quoteAsset = extractQuoteAsset(idea.symbol)
-          
+
           if (!quoteAsset) {
             return res.status(400).json({
               error: `Unable to determine quote asset for symbol ${idea.symbol}`,
@@ -222,13 +265,21 @@ export function tradeIdeasRouter(
           // Try to find USDC pair first, then USDT as fallback
           let conversionSymbol = `${quoteAsset}USDC`
           let conversionPairPrice = await getTradingPairPrice(conversionSymbol)
-          
-          if (!conversionPairPrice || !isFinite(conversionPairPrice) || conversionPairPrice <= 0) {
+
+          if (
+            !conversionPairPrice ||
+            !isFinite(conversionPairPrice) ||
+            conversionPairPrice <= 0
+          ) {
             // Try USDT instead
             conversionSymbol = `${quoteAsset}USDT`
             conversionPairPrice = await getTradingPairPrice(conversionSymbol)
-            
-            if (!conversionPairPrice || !isFinite(conversionPairPrice) || conversionPairPrice <= 0) {
+
+            if (
+              !conversionPairPrice ||
+              !isFinite(conversionPairPrice) ||
+              conversionPairPrice <= 0
+            ) {
               return res.status(502).json({
                 error: `Failed to fetch conversion pair price for ${quoteAsset}. Tried both USDC and USDT pairs.`,
               })
@@ -252,19 +303,30 @@ export function tradeIdeasRouter(
             },
             req.correlationId,
           )
-          
+
           conversionTradeId = conversionTrade.id
           
+          // Calculate how much quote asset we got from the conversion
+          // quantity = budgetUSD / conversionPairPrice (where price is in USD per quote asset)
+          // So if BTCUSDC = 50000, and budget = 500, we get 500/50000 = 0.01 BTC
+          quoteAssetBudget = budget / conversionPairPrice
+
           log.info(
             {
               symbol: idea.symbol,
               quoteAsset,
               conversionSymbol,
               conversionTradeId,
+              quoteAssetBudget,
             },
             'Created conversion trade for non-USD pair',
           )
         }
+
+        // For non-USD pairs, calculate quantity using quote asset budget and entry price in quote asset
+        // For USD pairs, use USD budget and entry price in USD
+        const quantityToUse = quoteAssetBudget ?? budget
+        // entryPrice is already in the correct unit (pair price for non-USD, USD price for USD pairs)
 
         const inserted = await tradesService.create(
           req.user!.userId,
@@ -275,6 +337,7 @@ export function tradeIdeasRouter(
             side: idea.side,
             budgetUSD: budget,
             entryPrice,
+            quantity: quantityToUse / entryPrice, // Calculate quantity correctly
             tpPct,
             slPct,
             risk: parsed.data.risk,
