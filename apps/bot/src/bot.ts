@@ -23,10 +23,14 @@ let accessTokenExpiresAt = 0
 async function ensureAuth(): Promise<void> {
   const now = Date.now()
   // Refresh if token expiring in <= 60s
-  if (accessToken && now < accessTokenExpiresAt - 60_000) return
+  if (accessToken && now < accessTokenExpiresAt - 60_000) {
+    console.log('✅ Using existing access token')
+    return
+  }
 
   if (refreshToken) {
     try {
+      console.log('🔄 Refreshing access token...')
       const { data } = await axios.post(`${API_BASE}/v1/auth/refresh`, {
         refreshToken,
       })
@@ -34,8 +38,17 @@ async function ensureAuth(): Promise<void> {
       refreshToken = data.refreshToken
       // access token lifetime ~15m; set expiry conservatively to now+14m
       accessTokenExpiresAt = now + 14 * 60_000
+      console.log('✅ Token refreshed successfully')
       return
-    } catch {}
+    } catch (err) {
+      console.warn(
+        '⚠️ Token refresh failed, will sign in:',
+        axios.isAxiosError(err)
+          ? `${err.response?.status} ${JSON.stringify(err.response?.data)}`
+          : err,
+      )
+      refreshToken = null // Clear invalid refresh token
+    }
   }
 
   if (!AUTH_EMAIL || !AUTH_PASSWORD) {
@@ -43,6 +56,7 @@ async function ensureAuth(): Promise<void> {
       'Bot auth missing. Provide AUTH_EMAIL and AUTH_PASSWORD or REFRESH_TOKEN.',
     )
   }
+  console.log(`🔑 Signing in with email: ${AUTH_EMAIL}`)
   const { data } = await axios.post(`${API_BASE}/v1/auth/signin`, {
     email: AUTH_EMAIL,
     password: AUTH_PASSWORD,
@@ -50,6 +64,7 @@ async function ensureAuth(): Promise<void> {
   accessToken = data.accessToken
   refreshToken = data.refreshToken
   accessTokenExpiresAt = now + 14 * 60_000
+  console.log('✅ Sign in successful')
 }
 
 async function postTradeIdea(idea: TechnicalTradeIdea, userId?: string) {
