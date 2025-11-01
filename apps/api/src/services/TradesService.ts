@@ -194,6 +194,22 @@ export class TradesService {
 
     return trades.map((trade) => {
       const markPrice = priceMap.get(trade.symbol)
+      const entryPrice = Number(trade.entry_price)
+      const quantity = Number(trade.quantity)
+
+      // Calculate TP and SL prices based on entry price
+      let tpPrice: number | null = null
+      let slPrice: number | null = null
+      
+      if (isFinite(entryPrice) && entryPrice > 0) {
+        if (trade.side === 'BUY') {
+          tpPrice = entryPrice * (1 + trade.tp_pct)
+          slPrice = entryPrice * (1 - trade.sl_pct)
+        } else {
+          tpPrice = entryPrice * (1 - trade.tp_pct)
+          slPrice = entryPrice * (1 + trade.sl_pct)
+        }
+      }
 
       if (!markPrice || !isFinite(markPrice) || markPrice <= 0) {
         // Calculate TP/SL prices even if mark price is not available
@@ -219,9 +235,6 @@ export class TradesService {
           slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
         }
       }
-
-      const entryPrice = Number(trade.entry_price)
-      const quantity = Number(trade.quantity)
 
       if (
         !isFinite(entryPrice) ||
@@ -278,8 +291,8 @@ export class TradesService {
         ...trade,
         markPrice,
         pnl_unrealized: pnl,
-        tpPrice: isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
-        slPrice: isFinite(slPrice) && slPrice > 0 ? slPrice : null,
+        tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+        slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
       }
     })
   }
@@ -365,6 +378,7 @@ export class TradesService {
       const pairPrice = pairPriceMap.get(trade.symbol) // Real pair price (e.g., FETBTC in BTC)
       const usdPrice = usdPriceMap.get(trade.symbol) // USD price for display
       
+<<<<<<< HEAD
       if (!pairPrice || !isFinite(pairPrice) || pairPrice <= 0) {
         // Calculate TP/SL prices even if mark price is not available
         const entryPrice = Number(trade.entry_price)
@@ -381,6 +395,26 @@ export class TradesService {
           }
         }
         
+=======
+      const entryPrice = Number(trade.entry_price)
+      const quantity = Number(trade.quantity)
+
+      // Calculate TP and SL prices based on entry price (in same unit as entry_price)
+      let tpPrice: number | null = null
+      let slPrice: number | null = null
+      
+      if (isFinite(entryPrice) && entryPrice > 0) {
+        if (trade.side === 'BUY') {
+          tpPrice = entryPrice * (1 + trade.tp_pct)
+          slPrice = entryPrice * (1 - trade.sl_pct)
+        } else {
+          tpPrice = entryPrice * (1 - trade.tp_pct)
+          slPrice = entryPrice * (1 + trade.sl_pct)
+        }
+      }
+      
+      if (!pairPrice || !isFinite(pairPrice) || pairPrice <= 0) {
+>>>>>>> fix/trade-display-issues
         return {
           ...trade,
           markPrice: usdPrice ?? null, // USD price for display
@@ -390,15 +424,19 @@ export class TradesService {
         }
       }
 
+<<<<<<< HEAD
       const entryPrice = Number(trade.entry_price)
       const quantity = Number(trade.quantity)
 
+=======
+>>>>>>> fix/trade-display-issues
       if (
         !isFinite(entryPrice) ||
         entryPrice <= 0 ||
         !isFinite(quantity) ||
         quantity <= 0
       ) {
+<<<<<<< HEAD
         // Calculate TP/SL prices even if entry price or quantity is invalid
         let tpPrice: number | null = null
         let slPrice: number | null = null
@@ -413,6 +451,8 @@ export class TradesService {
           }
         }
         
+=======
+>>>>>>> fix/trade-display-issues
         return {
           ...trade,
           markPrice: usdPrice ?? null, // USD price for display
@@ -423,7 +463,10 @@ export class TradesService {
       }
 
       // Calculate PnL using actual pair prices (entry and mark must be in same unit)
+<<<<<<< HEAD
       // Both entry_price and pairPrice are in the same unit (real pair price)
+=======
+>>>>>>> fix/trade-display-issues
       const pnl = calculatePnL({
         side: trade.side,
         entryPrice,
@@ -432,8 +475,11 @@ export class TradesService {
       })
       
       // Convert PnL to USD if needed
+<<<<<<< HEAD
       // For non-USD pairs, PnL is in quote asset units
       // To convert to USD: PnL in quote asset * quote asset price in USD
+=======
+>>>>>>> fix/trade-display-issues
       let pnlUSD: number = pnl
       if (!isUSDQuoted(trade.symbol)) {
         const quoteAsset = extractQuoteAsset(trade.symbol)
@@ -444,7 +490,10 @@ export class TradesService {
             pnlUSD = pnl * quoteAssetUsdPrice
           } else {
             // Fallback: calculate PnL directly in USD using current prices
+<<<<<<< HEAD
             // entryPriceUSD = entryPrice * (usdPrice / pairPrice)
+=======
+>>>>>>> fix/trade-display-issues
             if (usdPrice && pairPrice && pairPrice > 0) {
               const entryPriceUSD = entryPrice * (usdPrice / pairPrice)
               const markPriceUSD = usdPrice
@@ -456,6 +505,7 @@ export class TradesService {
         }
       }
 
+<<<<<<< HEAD
       // Calculate TP and SL prices
       // TP/SL prices should be in the same unit as entry_price (pair price for non-USD)
       let tpPrice: number | null = null
@@ -469,12 +519,19 @@ export class TradesService {
         slPrice = entryPrice * (1 + trade.sl_pct)
       }
 
+=======
+>>>>>>> fix/trade-display-issues
       return {
         ...trade,
         markPrice: usdPrice ?? null, // USD price for display in frontend
         pnl_unrealized: isFinite(pnlUSD) ? Number(pnlUSD.toFixed(2)) : null,
+<<<<<<< HEAD
         tpPrice: isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
         slPrice: isFinite(slPrice) && slPrice > 0 ? slPrice : null,
+=======
+        tpPrice: tpPrice && isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null,
+        slPrice: slPrice && isFinite(slPrice) && slPrice > 0 ? slPrice : null,
+>>>>>>> fix/trade-display-issues
       }
     })
   }
