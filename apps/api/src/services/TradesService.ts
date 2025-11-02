@@ -22,6 +22,8 @@ export type CreateTradeInput = {
   slPct: number
   risk?: string
   conversionTradeId?: number | null
+  realTrade?: boolean // If true, place actual order on exchange
+  orderId?: string // Order ID from exchange if real trade was placed
 }
 
 export type TradeWithPnL = {
@@ -67,7 +69,11 @@ export class TradesService {
     const metadata: any = {
       risk: input.risk,
       conversionTradeId: input.conversionTradeId ?? null,
+      realTrade: input.realTrade ?? false,
+      orderId: input.orderId ?? null,
     }
+
+    const status = input.realTrade ? 'executed' : 'simulated'
 
     const inserted = await this.db
       .insertInto('trades')
@@ -82,13 +88,16 @@ export class TradesService {
         entry_price: input.entryPrice,
         tp_pct: input.tpPct,
         sl_pct: input.slPct,
-        status: 'simulated',
+        status,
         metadata,
       })
       .returning(['id'])
       .executeTakeFirstOrThrow()
 
-    log.info({ tradeId: inserted.id, symbol: input.symbol }, 'Trade created')
+    log.info(
+      { tradeId: inserted.id, symbol: input.symbol, status, realTrade: input.realTrade },
+      'Trade created',
+    )
     return inserted
   }
 

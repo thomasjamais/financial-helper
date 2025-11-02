@@ -53,8 +53,9 @@ export function useTradeIdeas(
 
 export type ExecuteTradeIdeaParams = {
   id: number
-  budgetUSD: number
+  budgetUSD?: number // Optional: if not provided and realTrade=true, uses all available USDT
   risk: 'moderate'
+  realTrade?: boolean // Opt-in for real trading (default: false)
 }
 
 export function useExecuteTradeIdea() {
@@ -69,6 +70,7 @@ export function useExecuteTradeIdea() {
           confirm: true,
           budgetUSD: params.budgetUSD,
           risk: params.risk,
+          realTrade: params.realTrade ?? false,
         },
         {
           headers: accessToken
