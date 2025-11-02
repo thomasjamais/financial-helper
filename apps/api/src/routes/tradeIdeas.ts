@@ -6,6 +6,8 @@ import { authMiddleware } from '../middleware/auth'
 import type { AuthService } from '../services/AuthService'
 import { TradeIdeasService } from '../services/TradeIdeasService'
 import { TradesService } from '../services/TradesService'
+import { BinanceService } from '../services/BinanceService'
+import { AutoTradeService } from '../services/AutoTradeService'
 import { z } from 'zod'
 import {
   calculateQuantity,
@@ -19,10 +21,13 @@ export function tradeIdeasRouter(
   db: Kysely<DB>,
   logger: Logger,
   authService: AuthService,
+  encKey: string,
 ): Router {
   const r = Router()
   const tradeIdeasService = new TradeIdeasService(db, logger)
   const tradesService = new TradesService(db, logger)
+  const binanceService = new BinanceService(db, logger, encKey)
+  const autoTradeService = new AutoTradeService(db, logger, encKey)
 
   const IdeaSchema = z.object({
     exchange: z.string().default('binance'),
@@ -142,8 +147,9 @@ export function tradeIdeasRouter(
 
   const ExecSchema = z.object({
     confirm: z.boolean().default(false),
-    budgetUSD: z.number().min(10).default(50),
+    budgetUSD: z.number().min(10).optional(),
     risk: z.enum(['moderate']).default('moderate'),
+    realTrade: z.boolean().default(false), // Opt-in for real trading
   })
 
   r.post(
@@ -243,7 +249,37 @@ export function tradeIdeasRouter(
           }
         }
 
-        const budget = parsed.data.budgetUSD
+        const realTrade = parsed.data.realTrade ?? false
+        let budget = parsed.data.budgetUSD
+
+        // If realTrade is true and no budget specified, calculate from available USDT
+        if (realTrade && !budget) {
+          try {
+            const availableUSDT = await binanceService.getUSDTBalance()
+            if (availableUSDT < 10) {
+              return res.status(400).json({
+                error: `Insufficient USDT balance. Available: ${availableUSDT.toFixed(2)} USDT. Minimum required: 10 USDT.`,
+              })
+            }
+            // Use all available USDT for real trades when no budget specified
+            budget = availableUSDT
+            log.info(
+              { availableUSDT, budget },
+              'Using available USDT for real trade',
+            )
+          } catch (err) {
+            log.error({ err }, 'Failed to get USDT balance')
+            return res.status(500).json({
+              error: 'Failed to get available USDT balance for real trade',
+            })
+          }
+        }
+
+        // Default budget if not specified and not real trade
+        if (!budget) {
+          budget = 50
+        }
+
         // Use TP/SL from metadata if available (technical analysis), otherwise defaults
         const tpPct = tpPctFromMetadata ?? 0.04
         const slPct = slPctFromMetadata ?? 0.02
@@ -327,6 +363,70 @@ export function tradeIdeasRouter(
         // For USD pairs, use USD budget and entry price in USD
         const quantityToUse = quoteAssetBudget ?? budget
         // entryPrice is already in the correct unit (pair price for non-USD, USD price for USD pairs)
+        const calculatedQuantity = quantityToUse / entryPrice
+
+        let orderId: string | undefined
+        let actualQuantity = calculatedQuantity
+
+        // Place real order if realTrade is true
+        if (realTrade && idea.exchange === 'binance') {
+          try {
+            log.info(
+              {
+                symbol: idea.symbol,
+                side: idea.side,
+                quantity: calculatedQuantity,
+                entryPrice,
+                realTrade,
+              },
+              'Placing real order on Binance',
+            )
+
+            const order = await binanceService.placeSpotOrder({
+              symbol: idea.symbol,
+              side: idea.side,
+              type: 'MARKET', // Use market orders for immediate execution
+              quantity: calculatedQuantity,
+            })
+
+            orderId = order.id
+            actualQuantity = order.qty
+
+            log.info(
+              {
+                orderId,
+                symbol: idea.symbol,
+                executedQty: order.qty,
+                status: order.status,
+              },
+              'Real order placed successfully',
+            )
+          } catch (err) {
+            log.error(
+              { err, symbol: idea.symbol },
+              'Failed to place real order',
+            )
+
+            // Parse Binance API error messages for better user feedback
+            let errorMessage = err instanceof Error ? err.message : String(err)
+            if (
+              errorMessage.includes('-2010') ||
+              errorMessage.includes('Symbol not whitelisted')
+            ) {
+              errorMessage = `Symbol ${idea.symbol} is not whitelisted for your Binance API key. Please check your API key settings in Binance and ensure symbol trading permissions are enabled, or disable symbol whitelisting in your API key restrictions.`
+            } else if (errorMessage.includes('-2011')) {
+              errorMessage = `Unknown order sent. Symbol ${idea.symbol} may not be available for trading.`
+            } else if (errorMessage.includes('-1022')) {
+              errorMessage = `Invalid signature. Please check your Binance API key and secret configuration.`
+            } else if (errorMessage.includes('-2015')) {
+              errorMessage = `Invalid API-key or IP permissions. Please verify your API key settings in Binance.`
+            }
+
+            return res.status(500).json({
+              error: `Failed to place real order: ${errorMessage}`,
+            })
+          }
+        }
 
         const inserted = await tradesService.create(
           req.user!.userId,
@@ -337,11 +437,13 @@ export function tradeIdeasRouter(
             side: idea.side,
             budgetUSD: budget,
             entryPrice,
-            quantity: quantityToUse / entryPrice, // Calculate quantity correctly
+            quantity: actualQuantity,
             tpPct,
             slPct,
             risk: parsed.data.risk,
             conversionTradeId, // Store reference to conversion trade if any
+            realTrade,
+            orderId,
           },
           req.correlationId,
         )
@@ -350,6 +452,8 @@ export function tradeIdeasRouter(
           executed: true,
           tradeId: inserted.id,
           conversionTradeId,
+          realTrade,
+          orderId,
         })
       } catch (err) {
         log.error({ err }, 'Failed to execute idea')
@@ -500,6 +604,35 @@ export function tradeIdeasRouter(
       } catch (err) {
         log.error({ err }, 'Failed to close trade')
         return res.status(500).json({ error: 'Failed to close trade' })
+      }
+    },
+  )
+
+  r.post(
+    '/v1/trade-ideas/auto-place',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trade-ideas/auto-place' })
+      try {
+        const result = await autoTradeService.autoPlaceTrades(req.user!.userId)
+
+        log.info(
+          {
+            checked: result.checked,
+            placed: result.placed,
+            errors: result.errors,
+          },
+          'Auto-trade placement completed',
+        )
+
+        return res.json(result)
+      } catch (err) {
+        log.error({ err }, 'Failed to execute auto-trade placement')
+        return res.status(500).json({
+          error: 'Failed to execute auto-trade placement',
+          detail: err instanceof Error ? err.message : String(err),
+        })
       }
     },
   )

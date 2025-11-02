@@ -26,12 +26,54 @@ export default function TradeIdeas() {
   }
 
   function handleExecuteClick(id: number) {
-    const budgetStr = prompt('Budget in USD for this trade?', '50')
-    const validation = validateBudget(budgetStr)
+    // Check if this is a real trade (for opt-in)
+    const realTrade = confirm(
+      'Do you want to place a REAL trade (not simulated)?\n\nClick OK for real trade, Cancel for simulated trade.',
+    )
 
-    if (!validation.valid) {
-      alert(validation.error || 'Invalid budget')
-      return
+    // If real trade, get confirmation for budget or use all available USDT
+    let budget: number | undefined = undefined
+    if (realTrade) {
+      const budgetStr = prompt(
+        'Budget in USD for this real trade? (Leave empty to use all available USDT)',
+        '',
+      )
+      if (budgetStr !== null) {
+        // User didn't cancel, validate if provided
+        if (budgetStr.trim() !== '') {
+          const validation = validateBudget(budgetStr)
+          if (!validation.valid) {
+            alert(validation.error || 'Invalid budget')
+            return
+          }
+          budget = validation.budget
+        }
+        // If empty, budget will be undefined and API will use all available USDT
+      } else {
+        // User cancelled
+        return
+      }
+
+      // Extra confirmation for real trades
+      if (
+        !confirm(
+          `WARNING: This will place a REAL trade on the exchange using ${
+            budget ? `${budget.toFixed(2)} USDT` : 'all available USDT'
+          }.\n\nAre you sure you want to proceed?`,
+        )
+      ) {
+        return
+      }
+    } else {
+      // Simulated trade - get budget
+      const budgetStr = prompt('Budget in USD for this simulated trade?', '50')
+      const validation = validateBudget(budgetStr)
+
+      if (!validation.valid) {
+        alert(validation.error || 'Invalid budget')
+        return
+      }
+      budget = validation.budget
     }
 
     if (!confirm('Execute this idea with moderate risk TL/TP?')) {
@@ -41,12 +83,19 @@ export default function TradeIdeas() {
     executeIdea.mutate(
       {
         id,
-        budgetUSD: validation.budget!,
+        budgetUSD: budget,
         risk: 'moderate',
+        realTrade,
       },
       {
-        onSuccess: () => {
-          alert('Trade idea executed successfully')
+        onSuccess: (data) => {
+          if (data.realTrade) {
+            alert(
+              `Real trade executed successfully! Order ID: ${data.orderId || 'N/A'}`,
+            )
+          } else {
+            alert('Simulated trade executed successfully')
+          }
         },
         onError: (err: any) => {
           alert(err?.response?.data?.error || 'Failed to execute trade idea')
@@ -102,7 +151,9 @@ export default function TradeIdeas() {
                     {sortBy === 'score' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
                   <th className="text-left p-3 text-slate-300">Reason</th>
-                  <th className="text-left p-3 text-slate-300">Indicators</th>
+                  <th className="text-left p-3 text-slate-300">
+                    Indicators ({side === 'BUY' ? 'Need 6+' : ''})
+                  </th>
                   <th className="text-right p-3 text-slate-300">Actions</th>
                 </tr>
               </thead>
@@ -123,7 +174,8 @@ export default function TradeIdeas() {
                       <td className="p-3 text-slate-300">{s.exchange}</td>
                       <td className="p-3 text-white">{s.symbol}</td>
                       <td className="p-3 text-right">
-                        {s.priceChange24h !== null && s.priceChange24h !== undefined ? (
+                        {s.priceChange24h !== null &&
+                        s.priceChange24h !== undefined ? (
                           <span
                             className={`font-semibold ${
                               s.priceChange24h >= 0
@@ -145,26 +197,41 @@ export default function TradeIdeas() {
                       <td className="p-3 text-slate-300">{s.reason || '-'}</td>
                       <td className="p-3">
                         {validatedIndicators.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {validatedIndicators.map(
-                              (ind: {
-                                name: string
-                                score: number
-                                side: 'BUY' | 'SELL'
-                              }) => (
-                                <span
-                                  key={ind.name}
-                                  className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                                    ind.side === 'BUY'
-                                      ? 'bg-green-600 text-white'
-                                      : 'bg-red-600 text-white'
-                                  }`}
-                                  title={`${ind.name}: ${(ind.score * 100).toFixed(0)}% confidence`}
-                                >
-                                  {ind.name.replace(/_/g, ' ')}
-                                </span>
-                              ),
-                            )}
+                          <div>
+                            <div className="flex flex-wrap gap-1 mb-1">
+                              {validatedIndicators.map(
+                                (ind: {
+                                  name: string
+                                  score: number
+                                  side: 'BUY' | 'SELL'
+                                }) => (
+                                  <span
+                                    key={ind.name}
+                                    className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                      ind.side === 'BUY'
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-red-600 text-white'
+                                    }`}
+                                    title={`${ind.name}: ${(ind.score * 100).toFixed(0)}% confidence`}
+                                  >
+                                    {ind.name.replace(/_/g, ' ')}
+                                  </span>
+                                ),
+                              )}
+                            </div>
+                            <div
+                              className={`text-xs font-semibold ${
+                                validatedIndicators.length >= 6
+                                  ? 'text-green-400'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {validatedIndicators.length} indicator
+                              {validatedIndicators.length !== 1 ? 's' : ''}
+                              {validatedIndicators.length >= 6
+                                ? ' ✓ Ready for auto-trade'
+                                : ` (need ${6 - validatedIndicators.length} more for auto-trade)`}
+                            </div>
                           </div>
                         ) : source === 'technical_analysis' ? (
                           <span className="text-xs text-slate-400">

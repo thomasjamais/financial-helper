@@ -64,7 +64,7 @@ export function createApp(
   app.use(usersRouter(db, logger))
   const authService = new AuthService(db, logger, jwtSecret, jwtRefreshSecret)
   app.use(signalsRouter(db, logger, authService))
-  app.use(tradeIdeasRouter(db, logger, authService))
+  app.use(tradeIdeasRouter(db, logger, authService, encKey))
 
   app.use(errorHandler(logger))
 
