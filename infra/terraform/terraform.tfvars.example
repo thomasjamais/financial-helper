@@ -1,0 +1,14 @@
+project = "financial-helper"
+region  = "eu-west-3"
+
+api_enc_key         = "your-api-encryption-key-here"
+jwt_secret          = "azertyuiopqsdfghjklmwxcvbnazerty"
+jwt_refresh_secret  = "azertyuiopqsdfghjklmwxcvbnazerty"
+bot_auth_email      = "thomas.jamais95@gmail.com"
+bot_auth_password   = "ti2b6kB."
+
+enable_deletion_protection = false
+log_level                  = "info"
+api_desired_count          = 1
+bot_desired_count          = 1
+

@@ -1,82 +1,113 @@
-variable "project" { type = string }
+# Infrastructure Variables for financial-helper AWS deployment
+
+variable "project" {
+  type        = string
+  description = "Project name (used for resource naming)"
+  default     = "financial-helper"
+}
+
 variable "region" {
-  type    = string
-  default = "eu-west-3"
+  type        = string
+  description = "AWS region"
+  default     = "eu-west-3" # Paris - good pricing
 }
+
 variable "vpc_cidr" {
-  type    = string
-  default = "10.60.0.0/16"
+  type        = string
+  description = "VPC CIDR block"
+  default     = "10.60.0.0/16"
 }
+
 variable "public_subnets" {
-  type    = list(string)
-  default = ["10.60.1.0/24", "10.60.2.0/24"]
+  type        = list(string)
+  description = "Public subnet CIDR blocks"
+  default     = ["10.60.1.0/24", "10.60.2.0/24"]
 }
 
-# ECS sizing
-variable "fargate_cpu" {
-  type    = number
-  default = 512
-} # 0.5 vCPU
-variable "fargate_mem" {
-  type    = number
-  default = 1024
-} # 1 GB
-
-# Container image tag to deploy (must exist in ECR)
-variable "agent_image_tag" {
-  type    = string
-  default = "latest"
+variable "private_subnets" {
+  type        = list(string)
+  description = "Private subnet CIDR blocks"
+  default     = ["10.60.10.0/24", "10.60.11.0/24"]
 }
 
-# GitHub repo settings (agent will work on this repo)
-variable "github_repo_slug" { type = string } # e.g. "youruser/crypto-trade-dashboard"
-variable "github_issue_labels" {
-  type    = string
-  default = "Ready,Help-Wanted"
+# Database Configuration
+variable "db_name" {
+  type        = string
+  description = "Database name"
+  default     = "financial_helper"
 }
 
-variable "enable_keepalive" {
-  type    = bool
-  default = false
+variable "db_username" {
+  type        = string
+  description = "Database master username"
+  default     = "financial"
 }
 
-# Initial placeholders for secrets (you can set/rotate later in console)
-variable "github_app_id" { type = string }
-variable "github_private_key_pem" { type = string } # content of private key PEM
-variable "openai_api_key" {
-  type    = string
-  default = ""
-}
-variable "anthropic_api_key" {
-  type    = string
-  default = ""
+# ECS Configuration
+variable "api_desired_count" {
+  type        = number
+  description = "Desired number of API tasks"
+  default     = 1
 }
 
-# Policy for the agent (YAML)
-variable "agent_policy_yaml" {
-  type    = string
-  default = <<-YAML
-agent:
-  mode: moderate
-  max_lines_changed: 600
-  require_tests: true
-allow:
-  paths: ["apps/**","packages/**","infra/**",".github/**"]
-  languages: ["ts","tsx","json","yml","yaml","sql","md"]
-deny:
-  paths: ["**/*.pem","**/.env","**/secrets/**"]
-tests:
-  suites:
-    - name: typecheck
-      cmd: "pnpm -w tsc -b"
-    - name: lint
-      cmd: "pnpm -w lint"
-    - name: unit
-      cmd: "pnpm -w test -- --run"
-guards:
-  forbid_live_trading: true
-  env_overrides:
-    LIVE_TRADING_ENABLED: "false"
-    BITGET_ENV: "paper"
-YAML
+variable "bot_desired_count" {
+  type        = number
+  description = "Desired number of Bot tasks"
+  default     = 1
+}
+
+variable "api_image_tag" {
+  type        = string
+  description = "API Docker image tag"
+  default     = "latest"
+}
+
+variable "bot_image_tag" {
+  type        = string
+  description = "Bot Docker image tag"
+  default     = "latest"
+}
+
+# Secrets (should be set via terraform.tfvars or environment variables)
+variable "api_enc_key" {
+  type        = string
+  description = "API encryption key (for encrypting exchange API keys)"
+  sensitive   = true
+}
+
+variable "jwt_secret" {
+  type        = string
+  description = "JWT secret for access tokens"
+  sensitive   = true
+}
+
+variable "jwt_refresh_secret" {
+  type        = string
+  description = "JWT secret for refresh tokens"
+  sensitive   = true
+}
+
+variable "bot_auth_email" {
+  type        = string
+  description = "Bot authentication email"
+  sensitive   = true
+}
+
+variable "bot_auth_password" {
+  type        = string
+  description = "Bot authentication password"
+  sensitive   = true
+}
+
+# Operational Settings
+variable "log_level" {
+  type        = string
+  description = "Log level (debug, info, warn, error)"
+  default     = "info"
+}
+
+variable "enable_deletion_protection" {
+  type        = bool
+  description = "Enable deletion protection for critical resources"
+  default     = false # Set to true in production
 }
