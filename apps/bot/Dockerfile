@@ -14,9 +14,13 @@ COPY apps/bot apps/bot
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Build the bot
-WORKDIR /app/apps/bot
-RUN pnpm build
+# Build the bot and its dependencies using turbo from root
+# This ensures all workspace dependencies are built first
+WORKDIR /app
+RUN pnpm exec turbo run build --filter=@apps/bot
+
+# Verify that the dist directory was created
+RUN test -d /app/apps/bot/dist || (echo "ERROR: dist directory not found after build" && exit 1)
 
 # Production image
 FROM node:20-alpine
