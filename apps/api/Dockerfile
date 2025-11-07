@@ -14,9 +14,13 @@ COPY apps/api apps/api
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Build the API
-WORKDIR /app/apps/api
-RUN pnpm build
+# Build the API and its dependencies using turbo from root
+# This ensures all workspace dependencies are built first
+WORKDIR /app
+RUN pnpm exec turbo run build --filter=@apps/api
+
+# Verify that the dist directory was created
+RUN test -d /app/apps/api/dist || (echo "ERROR: dist directory not found after build" && exit 1)
 
 # Production image
 FROM node:20-alpine
