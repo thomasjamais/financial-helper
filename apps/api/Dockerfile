@@ -8,6 +8,7 @@ RUN npm install -g pnpm@9.12.0
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY turbo.json tsconfig.base.json ./
+COPY scripts scripts
 COPY packages packages
 COPY apps/api apps/api
 
@@ -33,6 +34,7 @@ RUN npm install -g pnpm@9.12.0
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY turbo.json tsconfig.base.json ./
+COPY scripts scripts
 COPY packages packages
 COPY apps/api apps/api
 
