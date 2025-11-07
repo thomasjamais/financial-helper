@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
+    "noEmit": false,
     "types": ["node"],
     "strict": true,
     "esModuleInterop": true,

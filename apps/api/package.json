@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node ../../scripts/add-js-extensions.mjs dist",
     "start": "node dist/index.js",
     "test": "vitest",
     "lint": "eslint ."

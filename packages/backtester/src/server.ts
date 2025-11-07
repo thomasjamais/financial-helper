@@ -1,6 +1,6 @@
 import express from 'express'
 import { z } from 'zod'
-import { runBacktest } from './engine.js'
+import { runBacktest } from './engine'
 import type { Candle } from './types'
 import { SmaCrossParamsSchema, SmaCrossStrategy } from './strategies'
 
