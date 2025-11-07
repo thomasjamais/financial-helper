@@ -1,73 +1,56 @@
-resource "aws_secretsmanager_secret" "github_app_id" {
-  name = "${var.project}/github_app_id"
+# Secrets Manager for sensitive configuration
+
+# Database password is created in rds.tf
+
+# API Encryption Key
+resource "aws_secretsmanager_secret" "api_enc_key" {
+  name                    = "${var.project}-api-enc-key"
+  recovery_window_in_days = 0 # For cost savings in dev/staging
 }
 
-resource "aws_secretsmanager_secret_version" "github_app_id_v" {
-  secret_id     = aws_secretsmanager_secret.github_app_id.id
-  secret_string = var.github_app_id
+resource "aws_secretsmanager_secret_version" "api_enc_key" {
+  secret_id     = aws_secretsmanager_secret.api_enc_key.id
+  secret_string = var.api_enc_key
 }
 
-resource "aws_secretsmanager_secret" "github_private_key" {
-  name = "${var.project}/github_private_key_pem"
+# JWT Secrets
+resource "aws_secretsmanager_secret" "jwt_secret" {
+  name                    = "${var.project}-jwt-secret"
+  recovery_window_in_days = 0
 }
 
-resource "aws_secretsmanager_secret_version" "github_private_key_v" {
-  secret_id     = aws_secretsmanager_secret.github_private_key.id
-  secret_string = var.github_private_key_pem
+resource "aws_secretsmanager_secret_version" "jwt_secret" {
+  secret_id     = aws_secretsmanager_secret.jwt_secret.id
+  secret_string = var.jwt_secret
 }
 
-# OPENAI
-resource "aws_secretsmanager_secret" "openai" {
-  name = "${var.project}/openai_api_key"
-}
-resource "aws_secretsmanager_secret_version" "openai_v" {
-  count         = length(var.openai_api_key) > 0 ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.openai.id
-  secret_string = var.openai_api_key
+resource "aws_secretsmanager_secret" "jwt_refresh_secret" {
+  name                    = "${var.project}-jwt-refresh-secret"
+  recovery_window_in_days = 0
 }
 
-# ANTHROPIC
-resource "aws_secretsmanager_secret" "anthropic" {
-  name = "${var.project}/anthropic_api_key"
-}
-resource "aws_secretsmanager_secret_version" "anthropic_v" {
-  count         = length(var.anthropic_api_key) > 0 ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.anthropic.id
-  secret_string = var.anthropic_api_key
+resource "aws_secretsmanager_secret_version" "jwt_refresh_secret" {
+  secret_id     = aws_secretsmanager_secret.jwt_refresh_secret.id
+  secret_string = var.jwt_refresh_secret
 }
 
-resource "aws_secretsmanager_secret" "repo_slug" {
-  name = "${var.project}/github_repo_slug"
-}
-resource "aws_secretsmanager_secret_version" "repo_slug_v" {
-  secret_id     = aws_secretsmanager_secret.repo_slug.id
-  secret_string = var.github_repo_slug
+# Bot Auth Credentials
+resource "aws_secretsmanager_secret" "bot_auth_email" {
+  name                    = "${var.project}-bot-auth-email"
+  recovery_window_in_days = 0
 }
 
-resource "aws_secretsmanager_secret" "issue_labels" {
-  name = "${var.project}/github_issue_labels"
-}
-resource "aws_secretsmanager_secret_version" "issue_labels_v" {
-  secret_id     = aws_secretsmanager_secret.issue_labels.id
-  secret_string = var.github_issue_labels
+resource "aws_secretsmanager_secret_version" "bot_auth_email" {
+  secret_id     = aws_secretsmanager_secret.bot_auth_email.id
+  secret_string = var.bot_auth_email
 }
 
-resource "aws_secretsmanager_secret" "policy_yaml" {
-  name = "${var.project}/agent_policy_yaml"
-}
-resource "aws_secretsmanager_secret_version" "policy_yaml_v" {
-  secret_id     = aws_secretsmanager_secret.policy_yaml.id
-  secret_string = var.agent_policy_yaml
+resource "aws_secretsmanager_secret" "bot_auth_password" {
+  name                    = "${var.project}-bot-auth-password"
+  recovery_window_in_days = 0
 }
 
-output "secrets_arns" {
-  value = {
-    github_app_id       = aws_secretsmanager_secret.github_app_id.arn
-    github_private_key  = aws_secretsmanager_secret.github_private_key.arn
-    openai_api_key      = aws_secretsmanager_secret.openai.arn
-    anthropic_api_key   = aws_secretsmanager_secret.anthropic.arn
-    github_repo_slug    = aws_secretsmanager_secret.repo_slug.arn
-    github_issue_labels = aws_secretsmanager_secret.issue_labels.arn
-    agent_policy_yaml   = aws_secretsmanager_secret.policy_yaml.arn
-  }
+resource "aws_secretsmanager_secret_version" "bot_auth_password" {
+  secret_id     = aws_secretsmanager_secret.bot_auth_password.id
+  secret_string = var.bot_auth_password
 }
