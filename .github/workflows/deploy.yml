@@ -76,14 +76,26 @@ jobs:
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.12.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Build and deploy Web assets
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_WEB_BUCKET }}
           AWS_CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
+          pnpm exec turbo run build --filter=@apps/web
           cd apps/web
-          pnpm install --frozen-lockfile
-          pnpm build
           aws s3 sync dist/ s3://$AWS_S3_BUCKET --delete
           if [ -n "$AWS_CLOUDFRONT_DISTRIBUTION_ID" ]; then
             aws cloudfront create-invalidation --distribution-id $AWS_CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
