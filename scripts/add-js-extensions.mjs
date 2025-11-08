@@ -18,9 +18,10 @@ function processFile(filePath) {
 
   // Pattern pour trouver les imports relatifs sans extension
   // from './something' ou from "../something" mais pas from './something.js' ou from '@pkg/...'
-  const relativeImportRegex = /from\s+['"](\.\/[^'"]+?)(?<!\.js)(?<!\.json)['"]/g;
-  const sideEffectImportRegex = /^import\s+['"](\.\/[^'"]+?)(?<!\.js)(?<!\.json)['"];?$/gm;
-  const dynamicImportRegex = /import\s*\(\s*['"](\.\/[^'"]+?)(?<!\.js)(?<!\.json)['"]/g;
+  // Match both ./ and ../ patterns
+  const relativeImportRegex = /from\s+['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"]/g;
+  const sideEffectImportRegex = /^import\s+['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"];?$/gm;
+  const dynamicImportRegex = /import\s*\(\s*['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"]/g;
 
   // Remplacer les imports avec 'from'
   content = content.replace(relativeImportRegex, (match, importPath) => {
