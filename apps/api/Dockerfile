@@ -41,7 +41,13 @@ COPY apps/api apps/api
 # Install production dependencies only
 RUN pnpm install --frozen-lockfile --prod
 
-# Copy built files
+# Copy built files from packages (they are dependencies of the API)
+COPY --from=builder /app/packages/db/dist ./packages/db/dist
+COPY --from=builder /app/packages/shared-kernel/dist ./packages/shared-kernel/dist
+COPY --from=builder /app/packages/exchange-adapters/dist ./packages/exchange-adapters/dist
+COPY --from=builder /app/packages/risk-engine/dist ./packages/risk-engine/dist
+
+# Copy built API files
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 WORKDIR /app/apps/api
