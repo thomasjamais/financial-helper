@@ -80,9 +80,20 @@ function processDirectory(dirPath) {
 function main() {
   const distPath = process.argv[2] || join(__dirname, '../apps/api/dist');
 
-  if (!statSync(distPath).isDirectory()) {
-    console.error(`Error: ${distPath} is not a directory`);
-    process.exit(1);
+  // Check if directory exists
+  try {
+    const stat = statSync(distPath);
+    if (!stat.isDirectory()) {
+      console.error(`Error: ${distPath} is not a directory`);
+      process.exit(1);
+    }
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      // Directory doesn't exist, nothing to process
+      console.log(`Note: ${distPath} does not exist, skipping...`);
+      process.exit(0);
+    }
+    throw err;
   }
 
   console.log(`Processing ${distPath}...`);
