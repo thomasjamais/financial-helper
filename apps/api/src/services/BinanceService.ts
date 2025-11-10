@@ -332,5 +332,19 @@ export class BinanceService {
       clientOid: `auto_${Date.now()}_${Math.random().toString(36).substring(7)}`,
     })
   }
+
+  async placePartialExitOrder(input: {
+    symbol: string
+    side: 'BUY' | 'SELL'
+    quantity: number
+  }) {
+    // Partial exit is just a market order to sell the specified quantity
+    return await this.placeSpotOrder({
+      symbol: input.symbol,
+      side: input.side,
+      type: 'MARKET',
+      quantity: input.quantity,
+    })
+  }
 }
 

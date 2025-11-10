@@ -8,6 +8,7 @@ import { TradeIdeasService } from '../services/TradeIdeasService'
 import { TradesService } from '../services/TradesService'
 import { BinanceService } from '../services/BinanceService'
 import { AutoTradeService } from '../services/AutoTradeService'
+import { TradeMonitorService } from '../services/TradeMonitorService'
 import { z } from 'zod'
 import {
   calculateQuantity,
@@ -16,6 +17,7 @@ import {
   extractQuoteAsset,
   getTradingPairPrice,
 } from '@pkg/shared-kernel'
+import type { ExitStrategy, TrailingStopConfig } from '@pkg/trade-monitor'
 
 export function tradeIdeasRouter(
   db: Kysely<DB>,
@@ -28,6 +30,12 @@ export function tradeIdeasRouter(
   const tradesService = new TradesService(db, logger)
   const binanceService = new BinanceService(db, logger, encKey)
   const autoTradeService = new AutoTradeService(db, logger, encKey)
+  const tradeMonitorService = new TradeMonitorService(
+    db,
+    logger,
+    tradesService,
+    binanceService,
+  )
 
   const IdeaSchema = z.object({
     exchange: z.string().default('binance'),
@@ -631,6 +639,148 @@ export function tradeIdeasRouter(
         log.error({ err }, 'Failed to execute auto-trade placement')
         return res.status(500).json({
           error: 'Failed to execute auto-trade placement',
+          detail: err instanceof Error ? err.message : String(err),
+        })
+      }
+    },
+  )
+
+  const ExitStrategySchema = z.object({
+    levels: z.array(
+      z.object({
+        profitPct: z.number().min(0),
+        quantityPct: z.number().min(0).max(1),
+      }),
+    ),
+    autoCalculated: z.boolean().optional(),
+  })
+
+  r.post(
+    '/v1/trades/:id/exit-strategy',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trades/:id/exit-strategy' })
+      try {
+        const tradeId = Number(req.params.id)
+        const parsed = ExitStrategySchema.safeParse(req.body)
+
+        if (!parsed.success) {
+          return res.status(400).json({
+            type: 'https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.1',
+            title: 'Bad Request',
+            status: 400,
+            detail: 'Invalid exit strategy format',
+            errors: parsed.error.errors,
+          })
+        }
+
+        const trade = await tradesService.findById(req.user!.userId, tradeId)
+        if (!trade) {
+          return res.status(404).json({ error: 'Trade not found' })
+        }
+
+        await tradesService.updateExitStrategy(
+          req.user!.userId,
+          tradeId,
+          parsed.data as ExitStrategy,
+          req.correlationId,
+        )
+
+        return res.json({ ok: true })
+      } catch (err) {
+        log.error({ err }, 'Failed to update exit strategy')
+        return res.status(500).json({ error: 'Failed to update exit strategy' })
+      }
+    },
+  )
+
+  const TrailingStopConfigSchema = z.object({
+    enabled: z.boolean(),
+    activationProfitPct: z.number().min(0),
+    trailDistancePct: z.number().min(0),
+    minTrailDistancePct: z.number().min(0),
+  })
+
+  r.post(
+    '/v1/trades/:id/trailing-stop',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trades/:id/trailing-stop' })
+      try {
+        const tradeId = Number(req.params.id)
+        const parsed = TrailingStopConfigSchema.safeParse(req.body)
+
+        if (!parsed.success) {
+          return res.status(400).json({
+            type: 'https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.1',
+            title: 'Bad Request',
+            status: 400,
+            detail: 'Invalid trailing stop config format',
+            errors: parsed.error.errors,
+          })
+        }
+
+        const trade = await tradesService.findById(req.user!.userId, tradeId)
+        if (!trade) {
+          return res.status(404).json({ error: 'Trade not found' })
+        }
+
+        await tradesService.updateTrailingStopConfig(
+          req.user!.userId,
+          tradeId,
+          parsed.data as TrailingStopConfig,
+          req.correlationId,
+        )
+
+        return res.json({ ok: true })
+      } catch (err) {
+        log.error({ err }, 'Failed to update trailing stop config')
+        return res.status(500).json({ error: 'Failed to update trailing stop config' })
+      }
+    },
+  )
+
+  r.get(
+    '/v1/trades/:id/exits',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trades/:id/exits' })
+      try {
+        const tradeId = Number(req.params.id)
+        const limit = Number(req.query.limit) || 200
+
+        const trade = await tradesService.findById(req.user!.userId, tradeId)
+        if (!trade) {
+          return res.status(404).json({ error: 'Trade not found' })
+        }
+
+        const exits = await tradesService.getExits(tradeId, limit)
+
+        return res.json({ exits })
+      } catch (err) {
+        log.error({ err }, 'Failed to get trade exits')
+        return res.status(500).json({ error: 'Failed to get trade exits' })
+      }
+    },
+  )
+
+  r.post(
+    '/v1/trades/monitor',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trades/monitor' })
+      try {
+        const result = await tradeMonitorService.monitorTrades(req.correlationId)
+
+        return res.json(result)
+      } catch (err) {
+        log.error({ err }, 'Failed to monitor trades')
+        return res.status(500).json({
+          error: 'Failed to monitor trades',
           detail: err instanceof Error ? err.message : String(err),
         })
       }

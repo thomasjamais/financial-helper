@@ -111,6 +111,11 @@ export interface TradeTable {
   closed_at: Date | null
   pnl_usd: number | null
   metadata: unknown | null
+  exit_strategy: unknown | null
+  trailing_stop_config: unknown | null
+  current_trailing_stop_price: number | null
+  exited_quantity: number | null
+  exited_pnl_usd: number | null
 }
 
 export interface TradePnlTable {
@@ -119,6 +124,17 @@ export interface TradePnlTable {
   ts: Generated<Date>
   mark_price: number
   pnl_usd: number
+}
+
+export interface TradeExitTable {
+  id: Generated<number>
+  trade_id: number
+  exit_type: 'partial' | 'trailing_stop' | 'final'
+  quantity: number
+  price: number
+  pnl_usd: number
+  order_id: string | null
+  executed_at: Generated<Date>
 }
 
 export type User = Selectable<UserTable>
@@ -145,6 +161,7 @@ export interface DB {
   trade_ideas: TradeIdeaTable
   trades: TradeTable
   trade_pnl: TradePnlTable
+  trade_exits: TradeExitTable
 }
 
 export function createDb(connectionString?: string): Kysely<DB> {

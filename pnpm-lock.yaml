@@ -53,6 +53,9 @@ importers:
       '@pkg/shared-kernel':
         specifier: workspace:*
         version: link:../../packages/shared-kernel
+      '@pkg/trade-monitor':
+        specifier: workspace:*
+        version: link:../../packages/trade-monitor
       axios:
         specifier: ^1.7.7
         version: 1.7.7
@@ -312,6 +315,18 @@ importers:
       typescript:
         specifier: ^5.6.2
         version: 5.6.2
+
+  packages/trade-monitor:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.9.1
+        version: 24.9.2
+      typescript:
+        specifier: ^5.6.2
+        version: 5.6.2
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@24.9.2)(jsdom@25.0.1)
 
 packages:
 

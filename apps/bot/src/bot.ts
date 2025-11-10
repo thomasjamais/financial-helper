@@ -3,6 +3,7 @@ import { AuthService } from './services/AuthService'
 import { TradeIdeaApiClient } from './services/TradeIdeaApiClient'
 import { TechnicalAnalysisScheduler } from './services/TechnicalAnalysisScheduler'
 import { MarketTickerService } from './services/MarketTickerService'
+import { TradeMonitorScheduler } from './services/TradeMonitorScheduler'
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:8080'
 const AUTH_EMAIL = process.env.AUTH_EMAIL || ''
@@ -13,6 +14,10 @@ const TECHNICAL_ANALYSIS_SYMBOLS_COUNT = Number(
   process.env.TECHNICAL_ANALYSIS_SYMBOLS_COUNT || 50,
 )
 const MIN_CONFIDENCE_SCORE = Number(process.env.MIN_CONFIDENCE_SCORE || 0.6)
+const TRADE_MONITOR_ENABLED = process.env.TRADE_MONITOR_ENABLED !== 'false'
+const TRADE_MONITOR_INTERVAL_MS = Number(
+  process.env.TRADE_MONITOR_INTERVAL_MS || 30000,
+) // Default to 30 seconds
 
 // Initialize services
 const authService = new AuthService(API_BASE, AUTH_EMAIL, AUTH_PASSWORD)
@@ -28,6 +33,7 @@ const marketTickerService = new MarketTickerService(
   authService,
   tradeIdeaApiClient,
 )
+const tradeMonitorScheduler = new TradeMonitorScheduler(API_BASE, authService)
 
 async function tick() {
   try {
@@ -43,6 +49,19 @@ async function tick() {
   }
 }
 
+async function monitorTrades() {
+  try {
+    if (TRADE_MONITOR_ENABLED) {
+      const result = await tradeMonitorScheduler.runMonitoring()
+      console.log(
+        `📊 Trade monitoring: checked ${result.checked}, actions ${result.actionsExecuted}, errors ${result.errors}`,
+      )
+    }
+  } catch (err) {
+    console.error('Trade monitoring failed:', err)
+  }
+}
+
 async function main() {
   const intervalMs = Number(process.env.BOT_INTERVAL_MS || 5000) // Default to 5 seconds
   console.log(`🤖 Bot starting with ${intervalMs}ms interval`)
@@ -51,9 +70,18 @@ async function main() {
   )
   console.log(`Symbols count: ${TECHNICAL_ANALYSIS_SYMBOLS_COUNT}`)
   console.log(`Min confidence: ${MIN_CONFIDENCE_SCORE}`)
+  console.log(
+    `Trade monitoring: ${TRADE_MONITOR_ENABLED ? 'enabled' : 'disabled'} (${TRADE_MONITOR_INTERVAL_MS}ms interval)`,
+  )
 
   await tick()
   setInterval(tick, intervalMs)
+
+  // Start trade monitoring loop
+  if (TRADE_MONITOR_ENABLED) {
+    await monitorTrades()
+    setInterval(monitorTrades, TRADE_MONITOR_INTERVAL_MS)
+  }
 }
 
 main().catch((e) => {

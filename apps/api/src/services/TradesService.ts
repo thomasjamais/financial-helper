@@ -9,6 +9,7 @@ import {
   isUSDQuoted,
   extractQuoteAsset,
 } from '@pkg/shared-kernel'
+import type { ExitStrategy, TrailingStopConfig } from '@pkg/trade-monitor'
 
 export type CreateTradeInput = {
   ideaId: number | null
@@ -587,6 +588,211 @@ export class TradesService {
       pnl: pnlUSD,
       pnlPct,
     }
+  }
+
+  async getOpenTrades(): Promise<Array<{
+    id: number
+    user_id: string
+    idea_id: number | null
+    exchange: string
+    symbol: string
+    side: 'BUY' | 'SELL'
+    budget_usd: number
+    quantity: number
+    entry_price: number
+    tp_pct: number
+    sl_pct: number
+    status: string
+    opened_at: Date | null
+    exit_strategy: ExitStrategy | null
+    trailing_stop_config: TrailingStopConfig | null
+    current_trailing_stop_price: number | null
+    exited_quantity: number | null
+    exited_pnl_usd: number | null
+  }>> {
+    const rows = await this.db
+      .selectFrom('trades')
+      .selectAll()
+      .where('status', '!=', 'closed')
+      .execute()
+
+    return rows.map((row) => ({
+      id: row.id,
+      user_id: row.user_id,
+      idea_id: row.idea_id,
+      exchange: row.exchange,
+      symbol: row.symbol,
+      side: row.side as 'BUY' | 'SELL',
+      budget_usd: row.budget_usd,
+      quantity: row.quantity,
+      entry_price: row.entry_price,
+      tp_pct: row.tp_pct,
+      sl_pct: row.sl_pct,
+      status: row.status,
+      opened_at: row.opened_at,
+      exit_strategy: (row.exit_strategy as ExitStrategy | null) ?? null,
+      trailing_stop_config: (row.trailing_stop_config as TrailingStopConfig | null) ?? null,
+      current_trailing_stop_price: row.current_trailing_stop_price,
+      exited_quantity: row.exited_quantity ?? 0,
+      exited_pnl_usd: row.exited_pnl_usd ?? 0,
+    }))
+  }
+
+  async updateExitStrategy(
+    userId: string,
+    tradeId: number,
+    exitStrategy: ExitStrategy,
+    correlationId?: string,
+  ): Promise<void> {
+    const log = this.logger.child({ correlationId, userId, tradeId })
+
+    const trade = await this.findById(userId, tradeId)
+    if (!trade) {
+      throw new Error('Trade not found')
+    }
+
+    await this.db
+      .updateTable('trades')
+      .set({
+        exit_strategy: exitStrategy as unknown,
+      })
+      .where('id', '=', tradeId)
+      .where('user_id', '=', userId)
+      .execute()
+
+    log.info({ exitStrategy }, 'Exit strategy updated')
+  }
+
+  async updateTrailingStopConfig(
+    userId: string,
+    tradeId: number,
+    trailingStopConfig: TrailingStopConfig,
+    correlationId?: string,
+  ): Promise<void> {
+    const log = this.logger.child({ correlationId, userId, tradeId })
+
+    const trade = await this.findById(userId, tradeId)
+    if (!trade) {
+      throw new Error('Trade not found')
+    }
+
+    await this.db
+      .updateTable('trades')
+      .set({
+        trailing_stop_config: trailingStopConfig as unknown,
+      })
+      .where('id', '=', tradeId)
+      .where('user_id', '=', userId)
+      .execute()
+
+    log.info({ trailingStopConfig }, 'Trailing stop config updated')
+  }
+
+  async updateTrailingStopPrice(
+    tradeId: number,
+    trailingStopPrice: number,
+    correlationId?: string,
+  ): Promise<void> {
+    const log = this.logger.child({ correlationId, tradeId })
+
+    await this.db
+      .updateTable('trades')
+      .set({
+        current_trailing_stop_price: trailingStopPrice,
+      })
+      .where('id', '=', tradeId)
+      .execute()
+
+    log.debug({ trailingStopPrice }, 'Trailing stop price updated')
+  }
+
+  async recordPartialExit(
+    tradeId: number,
+    exitType: 'partial' | 'trailing_stop' | 'final',
+    quantity: number,
+    price: number,
+    pnlUSD: number,
+    orderId: string | null,
+    correlationId?: string,
+  ): Promise<{ exitId: number }> {
+    const log = this.logger.child({ correlationId, tradeId })
+
+    // Record the exit
+    const exit = await this.db
+      .insertInto('trade_exits')
+      .values({
+        trade_id: tradeId,
+        exit_type: exitType,
+        quantity,
+        price,
+        pnl_usd: pnlUSD,
+        order_id: orderId,
+      })
+      .returning(['id'])
+      .executeTakeFirstOrThrow()
+
+    // Update trade's exited quantity and PnL
+    const trade = await this.db
+      .selectFrom('trades')
+      .select(['exited_quantity', 'exited_pnl_usd'])
+      .where('id', '=', tradeId)
+      .executeTakeFirst()
+
+    if (trade) {
+      const newExitedQuantity = (trade.exited_quantity ?? 0) + quantity
+      const newExitedPnL = (trade.exited_pnl_usd ?? 0) + pnlUSD
+
+      // If this is a final exit or all quantity is exited, close the trade
+      const fullTrade = await this.db
+        .selectFrom('trades')
+        .select(['quantity'])
+        .where('id', '=', tradeId)
+        .executeTakeFirst()
+
+      const shouldClose = exitType === 'final' || (fullTrade && newExitedQuantity >= fullTrade.quantity)
+
+      await this.db
+        .updateTable('trades')
+        .set({
+          exited_quantity: newExitedQuantity,
+          exited_pnl_usd: newExitedPnL,
+          ...(shouldClose
+            ? {
+                status: 'closed',
+                closed_at: new Date(),
+              }
+            : {}),
+        })
+        .where('id', '=', tradeId)
+        .execute()
+
+      if (shouldClose) {
+        log.info({ exitType, quantity, pnlUSD }, 'Trade closed via partial exit')
+      } else {
+        log.info({ exitType, quantity, pnlUSD }, 'Partial exit recorded')
+      }
+    }
+
+    return { exitId: exit.id }
+  }
+
+  async getExits(tradeId: number, limit = 200): Promise<Array<{
+    id: number
+    trade_id: number
+    exit_type: 'partial' | 'trailing_stop' | 'final'
+    quantity: number
+    price: number
+    pnl_usd: number
+    order_id: string | null
+    executed_at: Date
+  }>> {
+    return await this.db
+      .selectFrom('trade_exits')
+      .selectAll()
+      .where('trade_id', '=', tradeId)
+      .orderBy('executed_at', 'desc')
+      .limit(limit)
+      .execute()
   }
 }
 
