@@ -44,7 +44,7 @@ resource "aws_s3_bucket_public_access_block" "web" {
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
-  restrict_public_buckets  = true
+  restrict_public_buckets = true
 }
 
 # S3 Bucket Policy for CloudFront OAC
@@ -123,6 +123,28 @@ resource "aws_cloudfront_distribution" "web" {
       origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
+  }
+
+  # Cache behavior for /healthz endpoint (proxy to ALB)
+  ordered_cache_behavior {
+    path_pattern     = "/healthz"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "ALB-${aws_lb.api.dns_name}"
+
+    forwarded_values {
+      query_string = false
+      headers      = []
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
+    compress               = true
   }
 
   # Cache behavior for API requests (proxy to ALB)
