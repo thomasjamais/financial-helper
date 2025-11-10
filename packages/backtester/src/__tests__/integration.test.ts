@@ -29,3 +29,4 @@ describe('integration backtest (100 candles, SMA crossover)', () => {
 
 
 
+

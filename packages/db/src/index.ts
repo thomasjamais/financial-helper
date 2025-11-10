@@ -149,8 +149,22 @@ export interface DB {
 
 export function createDb(connectionString?: string): Kysely<DB> {
   const { Pool } = pg
+  const dbUrl = connectionString ?? process.env.DATABASE_URL
+  
+  // Determine if we should use SSL
+  // Use SSL for RDS connections (contains .rds.amazonaws.com) or in production
+  const useSSL = 
+    process.env.NODE_ENV === 'production' ||
+    (dbUrl && (dbUrl.includes('.rds.amazonaws.com') || dbUrl.includes('?sslmode=')))
+  
   const pool = new Pool({
-    connectionString: connectionString ?? process.env.DATABASE_URL,
+    connectionString: dbUrl,
+    // Enable SSL for RDS connections
+    ssl: useSSL
+      ? {
+          rejectUnauthorized: false, // RDS uses AWS-managed certificates
+        }
+      : undefined,
   })
   return new Kysely<DB>({
     dialect: new PostgresDialect({ pool }),
