@@ -94,6 +94,14 @@ jobs:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_WEB_BUCKET }}
           AWS_CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
+          # Get CloudFront distribution domain name
+          if [ -n "$AWS_CLOUDFRONT_DISTRIBUTION_ID" ]; then
+            CLOUDFRONT_DOMAIN=$(aws cloudfront get-distribution --id $AWS_CLOUDFRONT_DISTRIBUTION_ID --query 'Distribution.DomainName' --output text)
+            export VITE_API_URL="https://${CLOUDFRONT_DOMAIN}"
+            echo "Setting VITE_API_URL to ${VITE_API_URL}"
+          else
+            echo "Warning: AWS_CLOUDFRONT_DISTRIBUTION_ID not set, using default API URL"
+          fi
           pnpm exec turbo run build --filter=@apps/web
           cd apps/web
           aws s3 sync dist/ s3://$AWS_S3_BUCKET --delete
