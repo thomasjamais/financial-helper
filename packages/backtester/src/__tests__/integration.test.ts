@@ -7,7 +7,13 @@ function genSineLike(n: number): Candle[] {
   const arr: Candle[] = []
   for (let i = 0; i < n; i++) {
     const price = 100 + Math.sin(i / 5) * 5 + i * 0.05 // mild trend with cycles
-    arr.push({ timestamp: i, open: price, high: price, low: price, close: price })
+    arr.push({
+      timestamp: i,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+    })
   }
   return arr
 }
@@ -23,10 +29,3 @@ describe('integration backtest (100 candles, SMA crossover)', () => {
     expect(finalEquity).toBeLessThan(12000)
   })
 })
-
-
-
-
-
-
-

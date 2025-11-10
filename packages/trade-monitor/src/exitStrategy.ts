@@ -67,23 +67,34 @@ export function calculateExitStrategy(
 }
 
 /**
- * Get the next exit level that hasn't been executed yet
+ * Get the next exit level that should be executed
+ * Returns the first level that has been reached and has quantity remaining,
+ * or the next unreached level if no reached levels are found
  */
-export function getNextExitLevel(
-  trade: TradeState,
-): ExitLevel | null {
+export function getNextExitLevel(trade: TradeState): ExitLevel | null {
   if (!trade.exitStrategy || trade.exitStrategy.levels.length === 0) {
     return null
   }
 
   const currentProfitPct = calculateCurrentProfitPct(trade)
-  const remainingQuantityPct = 1.0 - (trade.exitedQuantity / trade.quantity)
+  const remainingQuantityPct = 1.0 - trade.exitedQuantity / trade.quantity
 
-  // Find the first level that:
-  // 1. Hasn't been reached yet (profitPct > currentProfitPct)
-  // 2. Has quantity remaining (quantityPct <= remainingQuantityPct)
+  // First, look for levels that have been reached (profit target met) and have quantity remaining
   for (const level of trade.exitStrategy.levels) {
-    if (level.profitPct > currentProfitPct && level.quantityPct <= remainingQuantityPct) {
+    if (
+      currentProfitPct >= level.profitPct &&
+      level.quantityPct <= remainingQuantityPct
+    ) {
+      return level
+    }
+  }
+
+  // If no reached levels, find the next unreached level
+  for (const level of trade.exitStrategy.levels) {
+    if (
+      level.profitPct > currentProfitPct &&
+      level.quantityPct <= remainingQuantityPct
+    ) {
       return level
     }
   }
@@ -99,7 +110,7 @@ export function shouldExecutePartialExit(
   level: ExitLevel,
 ): boolean {
   const currentProfitPct = calculateCurrentProfitPct(trade)
-  const remainingQuantityPct = 1.0 - (trade.exitedQuantity / trade.quantity)
+  const remainingQuantityPct = 1.0 - trade.exitedQuantity / trade.quantity
 
   // Execute if:
   // 1. Current profit has reached or exceeded the level's profit target
@@ -121,6 +132,16 @@ export function calculateExitQuantity(
   const exitQuantity = remainingQuantity * level.quantityPct
 
   // Don't exit more than remaining quantity
+  // If the calculated exit is less than remaining but we're trying to exit a significant portion,
+  // and there's only a small amount remaining, exit all remaining
+  if (exitQuantity < remainingQuantity && remainingQuantity > 0) {
+    // If remaining is very small (less than 2x the calculated exit), exit all remaining
+    if (remainingQuantity <= exitQuantity * 2) {
+      return remainingQuantity
+    }
+    return exitQuantity
+  }
+
   return Math.min(exitQuantity, remainingQuantity)
 }
 
@@ -139,4 +160,3 @@ function calculateCurrentProfitPct(trade: TradeState): number {
     return (trade.entryPrice - trade.currentPrice) / trade.entryPrice
   }
 }
-

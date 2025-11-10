@@ -22,21 +22,23 @@ export function calculateTrailingStop(
   if (trade.side === 'BUY') {
     // For BUY: trailing stop is below current price
     const trailingStopPrice = trade.currentPrice * (1 - config.trailDistancePct)
-    
-    // Ensure it's not below the minimum trail distance
-    const minTrailingStopPrice = trade.currentPrice * (1 - config.minTrailDistancePct)
-    
-    // Use the higher of the two (closer to current price = tighter stop)
-    return Math.max(trailingStopPrice, minTrailingStopPrice)
+
+    // Ensure it's not tighter than the minimum trail distance (use the wider stop)
+    const minTrailingStopPrice =
+      trade.currentPrice * (1 - config.minTrailDistancePct)
+
+    // Use the lower of the two (wider stop = more room, but not tighter than min)
+    return Math.min(trailingStopPrice, minTrailingStopPrice)
   } else {
     // For SELL: trailing stop is above current price
     const trailingStopPrice = trade.currentPrice * (1 + config.trailDistancePct)
-    
-    // Ensure it's not above the maximum trail distance
-    const maxTrailingStopPrice = trade.currentPrice * (1 + config.minTrailDistancePct)
-    
-    // Use the lower of the two (closer to current price = tighter stop)
-    return Math.min(trailingStopPrice, maxTrailingStopPrice)
+
+    // Ensure it's not tighter than the minimum trail distance (use the wider stop)
+    const maxTrailingStopPrice =
+      trade.currentPrice * (1 + config.minTrailDistancePct)
+
+    // Use the higher of the two (wider stop = more room, but not tighter than min)
+    return Math.max(trailingStopPrice, maxTrailingStopPrice)
   }
 }
 
@@ -76,9 +78,7 @@ export function shouldUpdateTrailingStop(
 /**
  * Check if trailing stop has been triggered
  */
-export function shouldTriggerTrailingStop(
-  trade: TradeState,
-): boolean {
+export function shouldTriggerTrailingStop(trade: TradeState): boolean {
   if (
     !trade.trailingStopConfig ||
     !trade.trailingStopConfig.enabled ||
@@ -156,4 +156,3 @@ function calculateCurrentProfitPct(trade: TradeState): number {
     return (trade.entryPrice - trade.currentPrice) / trade.entryPrice
   }
 }
-

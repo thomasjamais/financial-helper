@@ -3,10 +3,22 @@ import request from 'supertest'
 import app from '../server'
 
 function mkCandles(n: number) {
-  const arr = [] as { timestamp: number; open: number; high: number; low: number; close: number }[]
+  const arr = [] as {
+    timestamp: number
+    open: number
+    high: number
+    low: number
+    close: number
+  }[]
   for (let i = 0; i < n; i++) {
     const price = 100 + Math.sin(i / 5) * 5 + i * 0.05
-    arr.push({ timestamp: i, open: price, high: price, low: price, close: price })
+    arr.push({
+      timestamp: i,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+    })
   }
   return arr
 }
@@ -19,7 +31,7 @@ describe('server /backtest', () => {
         candles: mkCandles(100),
         strategy: 'smaCross',
         params: { shortWindow: 5, longWindow: 20 },
-        initialBalance: 10000
+        initialBalance: 10000,
       })
       .set('Content-Type', 'application/json')
 
@@ -29,10 +41,3 @@ describe('server /backtest', () => {
     expect(res.body.result.snapshots.length).toBe(100)
   })
 })
-
-
-
-
-
-
-

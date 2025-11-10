@@ -1,8 +1,5 @@
-export { SmaCrossStrategy, SmaCrossParamsSchema, type SmaCrossParams } from './smaCross'
-
-
-
-
-
-
-
+export {
+  SmaCrossStrategy,
+  SmaCrossParamsSchema,
+  type SmaCrossParams,
+} from './smaCross'

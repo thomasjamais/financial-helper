@@ -1,4 +1,10 @@
-import type { Candle, PortfolioSnapshot, Strategy, StrategySignal, Trade } from './types'
+import type {
+  Candle,
+  PortfolioSnapshot,
+  Strategy,
+  StrategySignal,
+  Trade,
+} from './types'
 
 export type BacktestResult = {
   trades: Trade[]
@@ -11,7 +17,7 @@ export type BacktestResult = {
 export function runBacktest(
   candles: Candle[],
   strategy: Strategy,
-  initialBalance: number
+  initialBalance: number,
 ): BacktestResult {
   if (candles.length === 0) {
     return {
@@ -19,7 +25,7 @@ export function runBacktest(
       snapshots: [],
       finalEquity: initialBalance,
       initialBalance,
-      totalReturnPct: 0
+      totalReturnPct: 0,
     }
   }
 
@@ -30,7 +36,11 @@ export function runBacktest(
   const trades: Trade[] = []
   const snapshots: PortfolioSnapshot[] = []
 
-  const execute = (signal: StrategySignal, price: number, timestamp: number) => {
+  const execute = (
+    signal: StrategySignal,
+    price: number,
+    timestamp: number,
+  ) => {
     if (signal === 'buy' && positionQuantity === 0 && cash > 0) {
       // Buy with full cash at current close price
       positionQuantity = cash / price
@@ -39,7 +49,12 @@ export function runBacktest(
     } else if (signal === 'sell' && positionQuantity > 0) {
       // Sell entire position
       const proceeds = positionQuantity * price
-      trades.push({ timestamp, side: 'sell', price, quantity: positionQuantity })
+      trades.push({
+        timestamp,
+        side: 'sell',
+        price,
+        quantity: positionQuantity,
+      })
       cash = proceeds
       positionQuantity = 0
     }
@@ -57,7 +72,7 @@ export function runBacktest(
       price,
       cash,
       positionQuantity,
-      equity
+      equity,
     })
   }
 
@@ -66,10 +81,3 @@ export function runBacktest(
 
   return { trades, snapshots, finalEquity, initialBalance, totalReturnPct }
 }
-
-
-
-
-
-
-

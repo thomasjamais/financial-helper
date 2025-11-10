@@ -29,10 +29,3 @@ export interface Strategy {
   initialize(candles: Candle[]): void
   onCandle(candle: Candle, index: number, candles: Candle[]): StrategySignal
 }
-
-
-
-
-
-
-

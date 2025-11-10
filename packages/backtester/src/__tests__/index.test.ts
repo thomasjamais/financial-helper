@@ -7,10 +7,3 @@ describe('index exports', () => {
     expect(exported).toHaveProperty('SmaCrossStrategy')
   })
 })
-
-
-
-
-
-
-
