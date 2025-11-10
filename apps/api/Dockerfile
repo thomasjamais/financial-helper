@@ -46,6 +46,7 @@ COPY --from=builder /app/packages/db/dist ./packages/db/dist
 COPY --from=builder /app/packages/shared-kernel/dist ./packages/shared-kernel/dist
 COPY --from=builder /app/packages/exchange-adapters/dist ./packages/exchange-adapters/dist
 COPY --from=builder /app/packages/risk-engine/dist ./packages/risk-engine/dist
+COPY --from=builder /app/packages/trade-monitor/dist ./packages/trade-monitor/dist
 
 # Copy built API files
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
