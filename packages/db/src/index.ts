@@ -160,6 +160,43 @@ export interface StrategyBacktestTable {
   created_at: Generated<Date>
 }
 
+export interface BacktestJobTable {
+  id: Generated<number>
+  user_id: string
+  strategy_id: number
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  input: unknown
+  result_id: number | null
+  error_message: string | null
+  progress_pct: number
+  created_at: Generated<Date>
+  started_at: Date | null
+  completed_at: Date | null
+}
+
+export interface StrategyExecutionTable {
+  id: Generated<number>
+  strategy_id: number
+  user_id: string
+  symbols: string[]
+  interval: string
+  status: 'active' | 'paused' | 'stopped'
+  last_execution_at: Date | null
+  next_execution_at: Date | null
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+}
+
+export interface StrategyTradeTable {
+  id: Generated<number>
+  strategy_id: number
+  strategy_execution_id: number
+  trade_id: number
+  signal: 'buy' | 'sell'
+  symbol: string
+  created_at: Generated<Date>
+}
+
 export interface TradeFeelingTable {
   id: Generated<number>
   trade_id: number
@@ -197,6 +234,9 @@ export interface DB {
   trade_exits: TradeExitTable
   strategies: StrategyTable
   strategy_backtests: StrategyBacktestTable
+  backtest_jobs: BacktestJobTable
+  strategy_executions: StrategyExecutionTable
+  strategy_trades: StrategyTradeTable
   trade_feelings: TradeFeelingTable
 }
 

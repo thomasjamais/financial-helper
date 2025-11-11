@@ -11,10 +11,12 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@pkg/backtesting-engine": "workspace:*",
     "@pkg/backtester": "workspace:*",
     "@pkg/db": "workspace:*",
     "@pkg/exchange-adapters": "workspace:*",
     "@pkg/shared-kernel": "workspace:*",
+    "@pkg/strategies": "workspace:*",
     "@pkg/strategy-engine": "workspace:*",
     "@pkg/trade-monitor": "workspace:*",
     "axios": "^1.7.7",

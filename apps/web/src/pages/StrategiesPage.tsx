@@ -3,6 +3,9 @@ import { StrategyList } from '../components/StrategyList'
 import { StrategyEditor } from '../components/StrategyEditor'
 import { BacktestRunner } from '../components/BacktestRunner'
 import { BacktestResults } from '../components/BacktestResults'
+import { BacktestJobsList } from '../components/BacktestJobsList'
+import { BacktestResultsList } from '../components/BacktestResultsList'
+import { StrategyExecutionStatus } from '../components/StrategyExecutionStatus'
 import {
   useCreateStrategy,
   useUpdateStrategy,
@@ -12,7 +15,7 @@ import {
   type UpdateStrategyInput,
 } from '../hooks/useStrategies'
 
-type View = 'list' | 'editor' | 'backtest' | 'results'
+type View = 'list' | 'editor' | 'backtest' | 'results' | 'jobs' | 'execution'
 
 export default function StrategiesPage() {
   const [view, setView] = useState<View>('list')
@@ -87,13 +90,36 @@ export default function StrategiesPage() {
           onCancel={handleBackToList}
         />
         {strategy && (
-          <div className="mt-6">
-            <button
-              onClick={() => handleBacktest(strategy)}
-              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Run Backtest
-            </button>
+          <div className="mt-6 space-y-4">
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleBacktest(strategy)}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                Run Backtest
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedStrategyId(strategy.id)
+                  setView('jobs')
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                View Backtest Jobs
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedStrategyId(strategy.id)
+                  setView('execution')
+                }}
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              >
+                Execution Status
+              </button>
+            </div>
+            <div className="mt-6">
+              <BacktestResultsList strategyId={strategy.id} />
+            </div>
           </div>
         )}
       </div>
@@ -128,6 +154,38 @@ export default function StrategiesPage() {
           </button>
         </div>
         <BacktestResults result={backtestResult as any} />
+      </div>
+    )
+  }
+
+  if (view === 'jobs' && selectedStrategyId) {
+    return (
+      <div>
+        <div className="mb-4">
+          <button
+            onClick={() => setView('editor')}
+            className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+          >
+            ← Back to Editor
+          </button>
+        </div>
+        <BacktestJobsList strategyId={selectedStrategyId} />
+      </div>
+    )
+  }
+
+  if (view === 'execution' && selectedStrategyId) {
+    return (
+      <div>
+        <div className="mb-4">
+          <button
+            onClick={() => setView('editor')}
+            className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+          >
+            ← Back to Editor
+          </button>
+        </div>
+        <StrategyExecutionStatus strategyId={selectedStrategyId} />
       </div>
     )
   }

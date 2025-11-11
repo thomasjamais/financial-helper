@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useBacktest, type Strategy } from '../hooks/useStrategies'
+import { useBacktestJob, useBacktestJobResult } from '../hooks/useBacktestJobs'
 
 type BacktestRunnerProps = {
   strategy: Strategy
@@ -26,7 +27,9 @@ export function BacktestRunner({ strategy, onBacktestComplete }: BacktestRunnerP
   const [months, setMonths] = useState(6)
   const [initialBalance, setInitialBalance] = useState(strategy.allocated_amount_usd || 1000)
   const backtest = useBacktest()
-  const [result, setResult] = useState<unknown | null>(null)
+  const [jobId, setJobId] = useState<number | null>(null)
+  const { data: job } = useBacktestJob(jobId ?? 0)
+  const { data: result } = useBacktestJobResult(jobId ?? 0)
 
   function handleSymbolToggle(symbol: string) {
     if (selectedSymbols.includes(symbol)) {
@@ -50,7 +53,7 @@ export function BacktestRunner({ strategy, onBacktestComplete }: BacktestRunnerP
     }
 
     try {
-      const result = await backtest.mutateAsync({
+      const response = await backtest.mutateAsync({
         id: strategy.id,
         input: {
           symbols: selectedSymbols,
@@ -59,14 +62,17 @@ export function BacktestRunner({ strategy, onBacktestComplete }: BacktestRunnerP
           initial_balance: initialBalance,
         },
       })
-      setResult(result)
-      if (onBacktestComplete) {
-        onBacktestComplete(result)
-      }
+      setJobId(response.jobId)
     } catch (error) {
       alert(`Backtest failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
+
+  useEffect(() => {
+    if (result && onBacktestComplete) {
+      onBacktestComplete(result)
+    }
+  }, [result, onBacktestComplete])
 
   function handleRemoveSymbol(symbol: string) {
     setSelectedSymbols(selectedSymbols.filter((s) => s !== symbol))
@@ -222,8 +228,55 @@ export function BacktestRunner({ strategy, onBacktestComplete }: BacktestRunnerP
 
       {backtest.isPending && (
         <div className="p-4 bg-blue-900/30 border border-blue-600 text-blue-300 rounded-lg">
-          <p className="font-medium">Running backtest...</p>
-          <p className="text-sm mt-1">This may take a few moments. Please wait.</p>
+          <p className="font-medium">Creating backtest job...</p>
+          <p className="text-sm mt-1">Please wait.</p>
+        </div>
+      )}
+
+      {jobId && job && (
+        <div className="p-4 bg-slate-800 border border-slate-700 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <p className="font-medium text-white">Backtest Job #{job.id}</p>
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                job.status === 'completed'
+                  ? 'bg-green-600/20 text-green-400'
+                  : job.status === 'failed'
+                    ? 'bg-red-600/20 text-red-400'
+                    : job.status === 'running'
+                      ? 'bg-blue-600/20 text-blue-400'
+                      : 'bg-yellow-600/20 text-yellow-400'
+              }`}
+            >
+              {job.status.toUpperCase()}
+            </span>
+          </div>
+          {job.status === 'running' && (
+            <div className="mt-2">
+              <div className="flex items-center justify-between text-sm text-slate-400 mb-1">
+                <span>Progress</span>
+                <span>{job.progress_pct}%</span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${job.progress_pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {job.status === 'failed' && job.error_message && (
+            <div className="mt-2 p-3 bg-red-900/20 border border-red-600/50 rounded text-sm text-red-300">
+              <p className="font-medium">Error:</p>
+              <p>{job.error_message}</p>
+            </div>
+          )}
+          {job.status === 'completed' && result && (
+            <div className="mt-2 p-3 bg-green-900/20 border border-green-600/50 rounded text-sm text-green-300">
+              <p className="font-medium">Backtest completed successfully!</p>
+              <p className="text-xs mt-1">Result ID: {result.id}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

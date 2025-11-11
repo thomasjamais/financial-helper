@@ -219,12 +219,36 @@ export class StrategiesService {
       throw new Error('Allocated amount must be non-negative')
     }
 
+    const strategy = await this.getById(userId, strategyId)
+    if (!strategy) {
+      throw new Error('Strategy not found')
+    }
+
     await this.db
       .updateTable('strategies')
       .set({ allocated_amount_usd })
       .where('user_id', '=', userId)
       .where('id', '=', strategyId)
       .execute()
+
+    const { StrategyExecutionService } = await import('./StrategyExecutionService')
+    const executionService = new StrategyExecutionService(this.db, this.logger)
+
+    const existingExecution = await executionService.getExecution(userId, strategyId)
+
+    if (allocated_amount_usd > 0 && strategy.is_active && !existingExecution) {
+      log.info('Starting strategy execution due to allocation')
+      await executionService.startExecution({
+        userId,
+        strategyId,
+        symbols: ['BTCUSDT'],
+        interval: '1h',
+        correlationId,
+      })
+    } else if ((allocated_amount_usd === 0 || !strategy.is_active) && existingExecution) {
+      log.info('Stopping strategy execution')
+      await executionService.stopExecution(userId, strategyId, correlationId)
+    }
 
     log.info({ allocated_amount_usd }, 'Strategy allocation updated')
   }
@@ -235,9 +259,8 @@ export class StrategiesService {
     input: BacktestStrategyInput,
     correlationId?: string,
   ): Promise<{
-    aggregated: unknown
-    perCrypto: Array<{ symbol: string; result: unknown }>
-    backtestId: number
+    jobId: number
+    status: 'pending'
   }> {
     const log = this.logger.child({ correlationId, userId, strategyId })
 
@@ -246,63 +269,99 @@ export class StrategiesService {
       throw new Error('Strategy not found')
     }
 
-    const interval = input.interval ?? '1h'
-    const months = input.months ?? 6
-    const initialBalance = input.initial_balance ?? (strategy.allocated_amount_usd || 1000)
+    const { BacktestJobService } = await import('./BacktestJobService')
+    const jobService = new BacktestJobService(this.db, this.logger)
 
-    log.info({ symbols: input.symbols, interval, months, initialBalance }, 'Starting backtest')
-
-    const historicalDataService = new HistoricalDataService()
-    const candlesMap = await historicalDataService.fetchKlinesForMultipleSymbols(
-      input.symbols,
-      interval,
-      months,
-    )
-
-    const sandbox = StrategySandbox.createStrategy(strategy.code)
-    const strategyInstance = {
-      name: strategy.name,
-      initialize: (candles: Candle[]) => {
-        sandbox.initialize(candles)
-      },
-      onCandle: (candle: Candle, index: number, candles: Candle[]) => {
-        const result = sandbox.execute(candle, index, candles)
-        if (!result.success || !result.signal) {
-          return 'hold' as const
-        }
-        return result.signal
-      },
-    }
-
-    const backtestResult = runMultiCryptoBacktest({
-      symbols: input.symbols,
-      candlesMap,
-      strategy: strategyInstance,
-      initialBalance,
+    const job = await jobService.createJob({
+      userId,
+      strategyId,
+      input,
+      correlationId,
     })
 
-    const endDate = new Date()
-    const startDate = new Date(endDate.getTime() - months * 30 * 24 * 60 * 60 * 1000)
-
-    const backtestRecord = await this.db
-      .insertInto('strategy_backtests')
-      .values({
-        strategy_id: strategyId,
-        symbols: input.symbols,
-        start_date: startDate,
-        end_date: endDate,
-        metrics: backtestResult.aggregated.metrics as unknown,
-        results_json: backtestResult as unknown,
-      })
-      .returning('id')
-      .executeTakeFirstOrThrow()
-
-    log.info({ backtestId: backtestRecord.id }, 'Backtest completed')
+    log.info({ jobId: job.id }, 'Backtest job created')
 
     return {
-      aggregated: backtestResult.aggregated,
-      perCrypto: backtestResult.perCrypto,
-      backtestId: backtestRecord.id,
+      jobId: job.id,
+      status: 'pending',
+    }
+  }
+
+  async listBacktestResults(
+    userId: string,
+    strategyId: number,
+    limit = 50,
+    offset = 0,
+  ): Promise<Array<{
+    id: number
+    symbols: string[]
+    start_date: Date
+    end_date: Date
+    metrics: unknown
+    created_at: Date
+  }>> {
+    const results = await this.db
+      .selectFrom('strategy_backtests')
+      .innerJoin('strategies', 'strategies.id', 'strategy_backtests.strategy_id')
+      .select([
+        'strategy_backtests.id',
+        'strategy_backtests.symbols',
+        'strategy_backtests.start_date',
+        'strategy_backtests.end_date',
+        'strategy_backtests.metrics',
+        'strategy_backtests.created_at',
+      ])
+      .where('strategies.user_id', '=', userId)
+      .where('strategy_backtests.strategy_id', '=', strategyId)
+      .orderBy('strategy_backtests.created_at', 'desc')
+      .limit(limit)
+      .offset(offset)
+      .execute()
+
+    return results.map((r) => ({
+      id: r.id,
+      symbols: r.symbols,
+      start_date: r.start_date,
+      end_date: r.end_date,
+      metrics: r.metrics as unknown,
+      created_at: r.created_at,
+    }))
+  }
+
+  async getBacktestResult(
+    userId: string,
+    resultId: number,
+  ): Promise<{
+    id: number
+    strategy_id: number
+    symbols: string[]
+    start_date: Date
+    end_date: Date
+    metrics: unknown
+    results_json: unknown
+    created_at: Date
+  } | null> {
+    const result = await this.db
+      .selectFrom('strategy_backtests')
+      .innerJoin('strategies', 'strategies.id', 'strategy_backtests.strategy_id')
+      .selectAll('strategy_backtests')
+      .where('strategies.user_id', '=', userId)
+      .where('strategy_backtests.id', '=', resultId)
+      .executeTakeFirst()
+
+    if (!result) {
+      return null
+    }
+
+    return {
+      id: result.id,
+      strategy_id: result.strategy_id,
+      symbols: result.symbols,
+      start_date: result.start_date,
+      end_date: result.end_date,
+      metrics: result.metrics as unknown,
+      results_json: result.results_json as unknown,
+      created_at: result.created_at,
     }
   }
 

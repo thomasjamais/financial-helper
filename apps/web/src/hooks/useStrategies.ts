@@ -159,6 +159,7 @@ export function useUpdateAllocation() {
 
 export function useBacktest() {
   const { accessToken } = useAuth()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, input }: { id: number; input: BacktestInput }) => {
       const response = await axios.post(
@@ -170,7 +171,13 @@ export function useBacktest() {
             : undefined,
         },
       )
-      return response.data.result
+      return {
+        jobId: response.data.jobId as number,
+        status: response.data.status as 'pending',
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['backtest-jobs'] })
     },
   })
 }
