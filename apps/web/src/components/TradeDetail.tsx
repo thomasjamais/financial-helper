@@ -114,28 +114,39 @@ export default function TradeDetail({ tradeId }: { tradeId: number }) {
   }
 
   return (
-    <div className="space-y-6 bg-slate-900 rounded-lg p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">
-            {t.symbol} {t.side}
-          </h2>
-          <div className="text-sm text-slate-400 mt-1">
-            Status: <span className="text-slate-300">{t.status}</span> | Opened:{' '}
-            {new Date(t.opened_at || '').toLocaleString()}
-          </div>
-        </div>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4 mb-4">
         <button
-          onClick={snapshot}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+          onClick={() => {
+            window.location.hash = '#/trades'
+          }}
+          className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded text-sm"
         >
-          Record Snapshot
+          ← Back to Trades
         </button>
       </div>
+      <div className="space-y-6 bg-slate-900 rounded-lg p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white">
+              {t.symbol} {t.side}
+            </h2>
+            <div className="text-sm text-slate-400 mt-1">
+              Status: <span className="text-slate-300">{t.status}</span> | Opened:{' '}
+              {new Date(t.opened_at || '').toLocaleString()}
+            </div>
+          </div>
+          <button
+            onClick={snapshot}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+          >
+            Record Snapshot
+          </button>
+        </div>
 
-      {/* Trade Info Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Trade Info Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-slate-800 rounded-lg p-4">
           <div className="text-xs text-slate-400 mb-1">Entry Price</div>
           <div className="text-lg font-mono text-white">{formatPrice(entryPrice)}</div>
@@ -346,8 +357,8 @@ export default function TradeDetail({ tradeId }: { tradeId: number }) {
         </div>
       </div>
 
-      {/* PnL History */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+        {/* PnL History */}
+        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
         <div className="p-3 border-b border-slate-700 text-slate-300 font-semibold">
           PnL History
         </div>
@@ -387,6 +398,7 @@ export default function TradeDetail({ tradeId }: { tradeId: number }) {
               )}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
     </div>

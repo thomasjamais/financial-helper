@@ -207,6 +207,17 @@ export interface TradeFeelingTable {
   created_at: Generated<Date>
 }
 
+export interface BinanceListingAlertTable {
+  id: Generated<number>
+  event_type: 'IPO' | 'Launchpool' | 'new_listing' | 'delisting'
+  symbol: string | null
+  title: string
+  description: string | null
+  announcement_url: string | null
+  detected_at: Generated<Date>
+  metadata: unknown | null
+}
+
 export type User = Selectable<UserTable>
 export type NewUser = Insertable<UserTable>
 export type UserUpdate = Updateable<UserTable>
@@ -238,6 +249,7 @@ export interface DB {
   strategy_executions: StrategyExecutionTable
   strategy_trades: StrategyTradeTable
   trade_feelings: TradeFeelingTable
+  binance_listing_alerts: BinanceListingAlertTable
 }
 
 export function createDb(connectionString?: string): Kysely<DB> {

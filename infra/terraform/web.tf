@@ -126,6 +126,7 @@ resource "aws_cloudfront_distribution" "web" {
   }
 
   # Cache behavior for /healthz endpoint (proxy to ALB)
+  # IMPORTANT: Order matters - more specific paths should come first
   ordered_cache_behavior {
     path_pattern     = "/healthz"
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
@@ -148,6 +149,8 @@ resource "aws_cloudfront_distribution" "web" {
   }
 
   # Cache behavior for API requests (proxy to ALB)
+  # IMPORTANT: This must come before default_cache_behavior to ensure API routes are proxied correctly
+  # All /v1/* requests should be routed to the API backend
   ordered_cache_behavior {
     path_pattern     = "/v1/*"
     allowed_methods  = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]

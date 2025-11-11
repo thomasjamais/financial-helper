@@ -23,6 +23,8 @@ import { CurrencyToggle } from './components/CurrencyToggle'
 import DashboardExchangeCard from './components/DashboardExchangeCard'
 import { formatNumber } from './lib/format'
 import StrategiesPage from './pages/StrategiesPage'
+import { BinanceListingAlerts } from './components/BinanceListingAlerts'
+import BinanceListingAlertsPage from './pages/BinanceListingAlertsPage'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
@@ -50,8 +52,22 @@ export default function App() {
   const isAuthPage = route === '#/login' || route === '#/signup'
 
   useEffect(() => {
-    const onHashChange = () => setRoute(location.hash)
+    const onHashChange = () => {
+      const hash = location.hash
+      setRoute(hash)
+      // Handle tab activation based on route
+      if (hash === '' || hash === '#') {
+        setActiveTab('dashboard')
+      } else if (hash === '#/trades') {
+        setActiveTab('trades')
+      } else if (hash.startsWith('#/trade/')) {
+        // Keep trades tab active when viewing trade detail
+        setActiveTab('trades')
+      }
+    }
     window.addEventListener('hashchange', onHashChange)
+    // Initial call
+    onHashChange()
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
@@ -189,28 +205,35 @@ export default function App() {
 
                 {/* Main Content */}
                 <main className="container mx-auto px-4 py-6">
+                  {/* Route-based pages (exclusive - don't render tab content when these are active) */}
                   {route === '#/profile' && <Profile />}
                   {route === '#/users' && <UsersAdmin />}
-                  {activeTab === 'dashboard' && <DashboardView />}
-                  {activeTab === 'portfolio' && <PortfolioTab />}
-                  {activeTab === 'ai' && <AiTrades />}
-                  {activeTab === 'ai' && <AiTrades />}
-                  {activeTab === 'signals' && <Signals />}
-                  {activeTab === 'trades' && <Trades />}
+                  {route === '#/listing-alerts' && <BinanceListingAlertsPage />}
                   {route.startsWith('#/trade/') && (
-                    <div className="mt-6">
-                      <TradeDetail
-                        tradeId={Number(route.replace('#/trade/', ''))}
-                      />
-                    </div>
+                    <TradeDetail
+                      tradeId={Number(route.replace('#/trade/', ''))}
+                    />
                   )}
-                  {activeTab === 'ideas' && <TradeIdeas />}
-                  {activeTab === 'strategies' && <StrategiesPage />}
-                  {activeTab === 'configs' && (
-                    <div>
-                      <ExchangeConfigManager />
-                    </div>
-                  )}
+                  {/* Tab-based pages (only render if no route-based page is active) */}
+                  {route !== '#/profile' &&
+                    route !== '#/users' &&
+                    route !== '#/listing-alerts' &&
+                    !route.startsWith('#/trade/') && (
+                      <>
+                        {activeTab === 'dashboard' && <DashboardView />}
+                        {activeTab === 'portfolio' && <PortfolioTab />}
+                        {activeTab === 'ai' && <AiTrades />}
+                        {activeTab === 'signals' && <Signals />}
+                        {activeTab === 'trades' && <Trades />}
+                        {activeTab === 'ideas' && <TradeIdeas />}
+                        {activeTab === 'strategies' && <StrategiesPage />}
+                        {activeTab === 'configs' && (
+                          <div>
+                            <ExchangeConfigManager />
+                          </div>
+                        )}
+                      </>
+                    )}
                 </main>
               </div>
             </Protected>
@@ -386,6 +409,11 @@ function DashboardView() {
           assets={(earnPortfolio?.assets || []).slice(0, 5)}
           tooltip="Top 5 Earn positions on Binance by value."
         />
+      </div>
+
+      {/* Listing Alerts */}
+      <div className="mt-6">
+        <BinanceListingAlerts />
       </div>
     </div>
   )

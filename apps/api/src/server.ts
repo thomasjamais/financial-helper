@@ -11,6 +11,7 @@ import { createDb, runMigrations } from '@pkg/db'
 import { createLogger } from './logger'
 import { loadEnv } from './env'
 import { createApp } from './app'
+import { BinanceListingWorker } from './workers/BinanceListingWorker'
 
 async function main() {
   const env = loadEnv()
@@ -47,6 +48,11 @@ async function main() {
   const port = Number(env.PORT ?? 8080)
   app.listen(port, () => {
     logger.info({ port }, 'API listening')
+  })
+
+  const listingWorker = new BinanceListingWorker(db, logger)
+  listingWorker.start(3600000).catch((err) => {
+    logger.error({ err }, 'Failed to start Binance listing worker')
   })
 }
 
