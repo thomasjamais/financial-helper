@@ -72,7 +72,9 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
           aws_secretsmanager_secret.db_password.arn,
           aws_secretsmanager_secret.api_enc_key.arn,
           aws_secretsmanager_secret.jwt_secret.arn,
-          aws_secretsmanager_secret.jwt_refresh_secret.arn
+          aws_secretsmanager_secret.jwt_refresh_secret.arn,
+          aws_secretsmanager_secret.bot_auth_email.arn,
+          aws_secretsmanager_secret.bot_auth_password.arn
         ]
       }
     ]
