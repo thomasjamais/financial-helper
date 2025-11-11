@@ -29,3 +29,39 @@ export interface Strategy {
   initialize(candles: Candle[]): void
   onCandle(candle: Candle, index: number, candles: Candle[]): StrategySignal
 }
+
+export type BacktestMetrics = {
+  totalReturnPct: number
+  sharpeRatio: number
+  maxDrawdown: number
+  maxDrawdownPct: number
+  winRate: number
+  avgTradeDuration: number
+  totalTrades: number
+  profitableTrades: number
+  losingTrades: number
+  profitFactor: number
+  avgWin: number
+  avgLoss: number
+  largestWin: number
+  largestLoss: number
+}
+
+export type EnhancedBacktestResult = {
+  trades: Trade[]
+  snapshots: PortfolioSnapshot[]
+  finalEquity: number
+  initialBalance: number
+  totalReturnPct: number
+  metrics: BacktestMetrics
+}
+
+export type PerCryptoBacktestResult = {
+  symbol: string
+  result: EnhancedBacktestResult
+}
+
+export type MultiCryptoBacktestResult = {
+  aggregated: EnhancedBacktestResult
+  perCrypto: PerCryptoBacktestResult[]
+}

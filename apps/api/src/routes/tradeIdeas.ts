@@ -543,14 +543,13 @@ export function tradeIdeasRouter(
     async (req: Request, res: Response) => {
       try {
         const tradeId = Number(req.params.id)
-        const trade = await tradesService.findById(req.user!.userId, tradeId)
+        const detail = await tradesService.getTradeDetail(req.user!.userId, tradeId)
 
-        if (!trade) {
+        if (!detail) {
           return res.status(404).json({ error: 'Trade not found' })
         }
 
-        const history = await tradesService.getHistory(tradeId)
-        return res.json({ trade, history })
+        return res.json(detail)
       } catch (err) {
         return res.status(500).json({ error: 'Failed to load trade detail' })
       }
@@ -783,6 +782,95 @@ export function tradeIdeasRouter(
           error: 'Failed to monitor trades',
           detail: err instanceof Error ? err.message : String(err),
         })
+      }
+    },
+  )
+
+  r.post(
+    '/v1/trades/:id/feelings',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trades/:id/feelings' })
+      try {
+        const tradeId = Number(req.params.id)
+        const { feeling_text, sentiment_score, timeframe } = req.body
+
+        if (!timeframe || !['1min', '5min', '30min', '1h', '4h', '1d', '1w', '1m', '1y'].includes(timeframe)) {
+          return res.status(400).json({ error: 'Invalid timeframe' })
+        }
+
+        if (sentiment_score !== null && sentiment_score !== undefined) {
+          if (typeof sentiment_score !== 'number' || sentiment_score < -1 || sentiment_score > 1) {
+            return res.status(400).json({ error: 'Sentiment score must be between -1 and 1' })
+          }
+        }
+
+        const result = await tradesService.createTradeFeeling(
+          req.user!.userId,
+          tradeId,
+          feeling_text ?? null,
+          sentiment_score ?? null,
+          timeframe,
+          req.correlationId,
+        )
+
+        return res.json(result)
+      } catch (err) {
+        log.error({ err }, 'Failed to create trade feeling')
+        return res.status(500).json({
+          error: 'Failed to create trade feeling',
+          detail: err instanceof Error ? err.message : String(err),
+        })
+      }
+    },
+  )
+
+  r.put(
+    '/v1/trades/:id/feelings/:feelingId',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/trades/:id/feelings/:feelingId' })
+      try {
+        const feelingId = Number(req.params.feelingId)
+        const { feeling_text, sentiment_score } = req.body
+
+        if (sentiment_score !== null && sentiment_score !== undefined) {
+          if (typeof sentiment_score !== 'number' || sentiment_score < -1 || sentiment_score > 1) {
+            return res.status(400).json({ error: 'Sentiment score must be between -1 and 1' })
+          }
+        }
+
+        await tradesService.updateTradeFeeling(
+          req.user!.userId,
+          feelingId,
+          feeling_text ?? null,
+          sentiment_score ?? null,
+          req.correlationId,
+        )
+
+        return res.json({ ok: true })
+      } catch (err) {
+        log.error({ err }, 'Failed to update trade feeling')
+        return res.status(500).json({
+          error: 'Failed to update trade feeling',
+          detail: err instanceof Error ? err.message : String(err),
+        })
+      }
+    },
+  )
+
+  r.get(
+    '/v1/trades/:id/feelings',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      try {
+        const tradeId = Number(req.params.id)
+        const feelings = await tradesService.getTradeFeelings(req.user!.userId, tradeId)
+        return res.json({ feelings })
+      } catch (err) {
+        return res.status(500).json({ error: 'Failed to load trade feelings' })
       }
     },
   )

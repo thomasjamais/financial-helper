@@ -1,0 +1,22 @@
+export type Candle = {
+  timestamp: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume?: number
+}
+
+export type StrategySignal = 'buy' | 'sell' | 'hold'
+
+export interface Strategy {
+  readonly name: string
+  initialize(candles: Candle[]): void
+  onCandle(candle: Candle, index: number, candles: Candle[]): StrategySignal
+}
+
+export type StrategyExecutionContext = {
+  candles: Candle[]
+  currentIndex: number
+}
+

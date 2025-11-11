@@ -12,6 +12,7 @@ import { usersRouter } from './routes/users'
 import { signalsRouter } from './routes/signals'
 import { AuthService } from './services/AuthService'
 import { tradeIdeasRouter } from './routes/tradeIdeas'
+import { strategiesRouter } from './routes/strategies'
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from './logger'
@@ -65,6 +66,7 @@ export function createApp(
   const authService = new AuthService(db, logger, jwtSecret, jwtRefreshSecret)
   app.use(signalsRouter(db, logger, authService))
   app.use(tradeIdeasRouter(db, logger, authService, encKey))
+  app.use(strategiesRouter(db, logger, authService))
 
   app.use(errorHandler(logger))
 

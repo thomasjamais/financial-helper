@@ -1,10 +1,12 @@
 import type {
   Candle,
+  EnhancedBacktestResult,
   PortfolioSnapshot,
   Strategy,
   StrategySignal,
   Trade,
 } from './types'
+import { calculateMetrics } from './metrics'
 
 export type BacktestResult = {
   trades: Trade[]
@@ -80,4 +82,22 @@ export function runBacktest(
   const totalReturnPct = ((finalEquity - initialBalance) / initialBalance) * 100
 
   return { trades, snapshots, finalEquity, initialBalance, totalReturnPct }
+}
+
+export function runEnhancedBacktest(
+  candles: Candle[],
+  strategy: Strategy,
+  initialBalance: number,
+): EnhancedBacktestResult {
+  const basicResult = runBacktest(candles, strategy, initialBalance)
+  const metrics = calculateMetrics(
+    basicResult.trades,
+    basicResult.snapshots,
+    initialBalance,
+  )
+
+  return {
+    ...basicResult,
+    metrics,
+  }
 }

@@ -484,6 +484,181 @@ export class TradesService {
       .execute()
   }
 
+  async getTradeDetail(
+    userId: string,
+    tradeId: number,
+  ): Promise<{
+    trade: {
+      id: number
+      idea_id: number | null
+      exchange: string
+      symbol: string
+      side: 'BUY' | 'SELL'
+      budget_usd: number
+      quantity: number
+      entry_price: number
+      tp_pct: number
+      sl_pct: number
+      status: string
+      opened_at: Date | null
+      closed_at: Date | null
+      pnl_usd: number | null
+      metadata: any
+    }
+    currentMarkPrice: number | null
+    tpPrice: number | null
+    slPrice: number | null
+    expectedPnLAtTp: number | null
+    expectedPnLAtSl: number | null
+    currentUnrealizedPnL: number | null
+    riskRewardRatio: number | null
+    probabilityEstimate: number | null
+    feelings: Array<{
+      id: number
+      feeling_text: string | null
+      sentiment_score: number | null
+      timeframe: string
+      created_at: Date
+    }>
+    history: Array<{
+      id: number
+      trade_id: number
+      ts: Date
+      mark_price: number
+      pnl_usd: number
+    }>
+  } | null> {
+    const trade = await this.findById(userId, tradeId)
+    if (!trade) {
+      return null
+    }
+
+    // Get current mark price
+    let currentMarkPrice: number | null = null
+    try {
+      if (isUSDQuoted(trade.symbol)) {
+        currentMarkPrice = await getSymbolPrice(trade.symbol)
+      } else {
+        const pairPrice = await getTradingPairPrice(trade.symbol)
+        if (pairPrice && isFinite(pairPrice) && pairPrice > 0) {
+          currentMarkPrice = pairPrice
+        }
+      }
+    } catch (e) {
+      this.logger.debug({ err: e, symbol: trade.symbol }, 'Error fetching current price')
+    }
+
+    // Calculate TP and SL prices
+    const entryPrice = Number(trade.entry_price)
+    const quantity = Number(trade.quantity)
+    let tpPrice: number | null = null
+    let slPrice: number | null = null
+
+    if (isFinite(entryPrice) && entryPrice > 0) {
+      if (trade.side === 'BUY') {
+        tpPrice = entryPrice * (1 + trade.tp_pct)
+        slPrice = entryPrice * (1 - trade.sl_pct)
+      } else {
+        tpPrice = entryPrice * (1 - trade.tp_pct)
+        slPrice = entryPrice * (1 + trade.sl_pct)
+      }
+    }
+
+    // Calculate expected PnL at TP and SL
+    let expectedPnLAtTp: number | null = null
+    let expectedPnLAtSl: number | null = null
+    let currentUnrealizedPnL: number | null = null
+
+    if (tpPrice && isFinite(tpPrice) && tpPrice > 0 && isFinite(quantity) && quantity > 0) {
+      if (trade.side === 'BUY') {
+        expectedPnLAtTp = quantity * (tpPrice - entryPrice)
+        if (slPrice && isFinite(slPrice) && slPrice > 0) {
+          expectedPnLAtSl = quantity * (slPrice - entryPrice)
+        }
+        if (currentMarkPrice && isFinite(currentMarkPrice) && currentMarkPrice > 0) {
+          currentUnrealizedPnL = quantity * (currentMarkPrice - entryPrice)
+        }
+      } else {
+        expectedPnLAtTp = quantity * (entryPrice - tpPrice)
+        if (slPrice && isFinite(slPrice) && slPrice > 0) {
+          expectedPnLAtSl = quantity * (entryPrice - slPrice)
+        }
+        if (currentMarkPrice && isFinite(currentMarkPrice) && currentMarkPrice > 0) {
+          currentUnrealizedPnL = quantity * (entryPrice - currentMarkPrice)
+        }
+      }
+
+      // Convert to USD if needed
+      if (!isUSDQuoted(trade.symbol)) {
+        const quoteAsset = extractQuoteAsset(trade.symbol)
+        if (quoteAsset) {
+          try {
+            const quoteAssetUsdPrice = await getSymbolPrice(`${quoteAsset}USDT`)
+            if (quoteAssetUsdPrice && isFinite(quoteAssetUsdPrice) && quoteAssetUsdPrice > 0) {
+              if (expectedPnLAtTp !== null) {
+                expectedPnLAtTp = expectedPnLAtTp * quoteAssetUsdPrice
+              }
+              if (expectedPnLAtSl !== null) {
+                expectedPnLAtSl = expectedPnLAtSl * quoteAssetUsdPrice
+              }
+              if (currentUnrealizedPnL !== null) {
+                currentUnrealizedPnL = currentUnrealizedPnL * quoteAssetUsdPrice
+              }
+            }
+          } catch (e) {
+            this.logger.debug({ err: e, quoteAsset }, 'Error fetching quote asset price')
+          }
+        }
+      }
+    }
+
+    // Calculate risk/reward ratio
+    let riskRewardRatio: number | null = null
+    if (expectedPnLAtTp !== null && expectedPnLAtSl !== null && expectedPnLAtSl !== 0) {
+      riskRewardRatio = Math.abs(expectedPnLAtTp / expectedPnLAtSl)
+    }
+
+    // Calculate probability estimate
+    let probabilityEstimate: number | null = null
+    if (currentMarkPrice && tpPrice && slPrice) {
+      if (trade.side === 'BUY') {
+        const distanceToTp = Math.abs(tpPrice - currentMarkPrice)
+        const distanceToSl = Math.abs(currentMarkPrice - slPrice)
+        const totalDistance = distanceToTp + distanceToSl
+        if (totalDistance > 0) {
+          probabilityEstimate = Math.max(0, Math.min(1, distanceToSl / totalDistance))
+        }
+      } else {
+        const distanceToTp = Math.abs(currentMarkPrice - tpPrice)
+        const distanceToSl = Math.abs(slPrice - currentMarkPrice)
+        const totalDistance = distanceToTp + distanceToSl
+        if (totalDistance > 0) {
+          probabilityEstimate = Math.max(0, Math.min(1, distanceToSl / totalDistance))
+        }
+      }
+    }
+
+    // Get feelings
+    const feelings = await this.getTradeFeelings(userId, tradeId)
+
+    // Get history
+    const history = await this.getHistory(tradeId)
+
+    return {
+      trade,
+      currentMarkPrice,
+      tpPrice,
+      slPrice,
+      expectedPnLAtTp,
+      expectedPnLAtSl,
+      currentUnrealizedPnL,
+      riskRewardRatio,
+      probabilityEstimate,
+      feelings,
+      history,
+    }
+  }
+
   async closeTrade(
     userId: string,
     tradeId: number,
@@ -793,6 +968,121 @@ export class TradesService {
       .orderBy('executed_at', 'desc')
       .limit(limit)
       .execute()
+  }
+
+  async createTradeFeeling(
+    userId: string,
+    tradeId: number,
+    feelingText: string | null,
+    sentimentScore: number | null,
+    timeframe: '1min' | '5min' | '30min' | '1h' | '4h' | '1d' | '1w' | '1m' | '1y',
+    correlationId?: string,
+  ): Promise<{ id: number }> {
+    const log = this.logger.child({ correlationId, userId, tradeId })
+
+    // Verify trade belongs to user
+    const trade = await this.findById(userId, tradeId)
+    if (!trade) {
+      throw new Error('Trade not found')
+    }
+
+    // Validate sentiment score
+    if (sentimentScore !== null && (sentimentScore < -1 || sentimentScore > 1)) {
+      throw new Error('Sentiment score must be between -1 and 1')
+    }
+
+    const inserted = await this.db
+      .insertInto('trade_feelings')
+      .values({
+        trade_id: tradeId,
+        user_id: userId,
+        feeling_text: feelingText,
+        sentiment_score: sentimentScore,
+        timeframe,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow()
+
+    log.info({ feelingId: inserted.id, timeframe }, 'Trade feeling created')
+    return { id: inserted.id }
+  }
+
+  async updateTradeFeeling(
+    userId: string,
+    feelingId: number,
+    feelingText: string | null,
+    sentimentScore: number | null,
+    correlationId?: string,
+  ): Promise<void> {
+    const log = this.logger.child({ correlationId, userId, feelingId })
+
+    // Validate sentiment score
+    if (sentimentScore !== null && (sentimentScore < -1 || sentimentScore > 1)) {
+      throw new Error('Sentiment score must be between -1 and 1')
+    }
+
+    // Verify feeling belongs to user
+    const feeling = await this.db
+      .selectFrom('trade_feelings')
+      .selectAll()
+      .where('id', '=', feelingId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst()
+
+    if (!feeling) {
+      throw new Error('Trade feeling not found')
+    }
+
+    await this.db
+      .updateTable('trade_feelings')
+      .set({
+        feeling_text: feelingText,
+        sentiment_score: sentimentScore,
+      })
+      .where('id', '=', feelingId)
+      .where('user_id', '=', userId)
+      .execute()
+
+    log.info('Trade feeling updated')
+  }
+
+  async getTradeFeelings(
+    userId: string,
+    tradeId: number,
+  ): Promise<Array<{
+    id: number
+    feeling_text: string | null
+    sentiment_score: number | null
+    timeframe: string
+    created_at: Date
+  }>> {
+    // Verify trade belongs to user
+    const trade = await this.findById(userId, tradeId)
+    if (!trade) {
+      return []
+    }
+
+    const feelings = await this.db
+      .selectFrom('trade_feelings')
+      .select([
+        'id',
+        'feeling_text',
+        'sentiment_score',
+        'timeframe',
+        'created_at',
+      ])
+      .where('trade_id', '=', tradeId)
+      .where('user_id', '=', userId)
+      .orderBy('created_at', 'desc')
+      .execute()
+
+    return feelings.map((f) => ({
+      id: f.id,
+      feeling_text: f.feeling_text,
+      sentiment_score: f.sentiment_score,
+      timeframe: f.timeframe,
+      created_at: f.created_at,
+    }))
   }
 }
 

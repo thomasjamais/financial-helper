@@ -44,6 +44,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@pkg/backtester':
+        specifier: workspace:*
+        version: link:../../packages/backtester
       '@pkg/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -53,6 +56,9 @@ importers:
       '@pkg/shared-kernel':
         specifier: workspace:*
         version: link:../../packages/shared-kernel
+      '@pkg/strategy-engine':
+        specifier: workspace:*
+        version: link:../../packages/strategy-engine
       '@pkg/trade-monitor':
         specifier: workspace:*
         version: link:../../packages/trade-monitor
@@ -315,6 +321,28 @@ importers:
       typescript:
         specifier: ^5.6.2
         version: 5.6.2
+
+  packages/strategy-engine:
+    dependencies:
+      vm2:
+        specifier: ^3.9.19
+        version: 3.9.19
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
+    devDependencies:
+      '@types/node':
+        specifier: ^24.9.1
+        version: 24.9.2
+      '@vitest/coverage-v8':
+        specifier: ^2.1.1
+        version: 2.1.1(vitest@2.1.9)
+      typescript:
+        specifier: ^5.6.2
+        version: 5.6.2
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@24.9.2)(jsdom@25.0.1)
 
   packages/trade-monitor:
     devDependencies:
@@ -1894,6 +1922,32 @@ packages:
       - supports-color
     dev: true
 
+  /@vitest/coverage-v8@2.1.1(vitest@2.1.9):
+    resolution: {integrity: sha512-md/A7A3c42oTT8JUHSqjP5uKTWJejzUW4jalpvs+rZ27gsURsMU8DEb+8Jf8C6Kj2gwfSHJqobDNBuoqlm0cFw==}
+    peerDependencies:
+      '@vitest/browser': 2.1.1
+      vitest: 2.1.1
+    peerDependenciesMeta:
+      '@vitest/browser':
+        optional: true
+    dependencies:
+      '@ampproject/remapping': 2.3.0
+      '@bcoe/v8-coverage': 0.2.3
+      debug: 4.4.3
+      istanbul-lib-coverage: 3.2.2
+      istanbul-lib-report: 3.0.1
+      istanbul-lib-source-maps: 5.0.6
+      istanbul-reports: 3.2.0
+      magic-string: 0.30.21
+      magicast: 0.3.5
+      std-env: 3.10.0
+      test-exclude: 7.0.1
+      tinyrainbow: 1.2.0
+      vitest: 2.1.9(@types/node@24.9.2)(jsdom@25.0.1)
+    transitivePeerDependencies:
+      - supports-color
+    dev: true
+
   /@vitest/expect@1.6.0:
     resolution: {integrity: sha512-ixEvFVQjycy/oNgHjqsL6AZCDduC+tflRluaHIzKIsdbzkLn2U/iBnVeJwB6HsIjQBdfMR8Z0tRxKUsvFJEeWQ==}
     dependencies:
@@ -2087,13 +2141,11 @@ packages:
     engines: {node: '>=0.4.0'}
     dependencies:
       acorn: 8.15.0
-    dev: true
 
   /acorn@8.15.0:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
     engines: {node: '>=0.4.0'}
     hasBin: true
-    dev: true
 
   /agent-base@6.0.2:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
@@ -5667,6 +5719,16 @@ packages:
       - supports-color
       - terser
     dev: true
+
+  /vm2@3.9.19:
+    resolution: {integrity: sha512-J637XF0DHDMV57R6JyVsTak7nIL8gy5KH4r1HiwWLf/4GBbb5MKL5y7LpmF4A8E2nR6XmzpmMFQ7V7ppPTmUQg==}
+    engines: {node: '>=6.0'}
+    deprecated: The library contains critical security issues and should not be used for production! The maintenance of the project has been discontinued. Consider migrating your code to isolated-vm.
+    hasBin: true
+    dependencies:
+      acorn: 8.15.0
+      acorn-walk: 8.3.4
+    dev: false
 
   /w3c-xmlserializer@5.0.0:
     resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}

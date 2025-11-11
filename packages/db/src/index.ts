@@ -137,6 +137,39 @@ export interface TradeExitTable {
   executed_at: Generated<Date>
 }
 
+export interface StrategyTable {
+  id: Generated<number>
+  user_id: string
+  name: string
+  code: string
+  params_schema: unknown | null
+  allocated_amount_usd: number
+  is_active: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+}
+
+export interface StrategyBacktestTable {
+  id: Generated<number>
+  strategy_id: number
+  symbols: string[]
+  start_date: Date
+  end_date: Date
+  metrics: unknown
+  results_json: unknown
+  created_at: Generated<Date>
+}
+
+export interface TradeFeelingTable {
+  id: Generated<number>
+  trade_id: number
+  user_id: string
+  feeling_text: string | null
+  sentiment_score: number | null
+  timeframe: '1min' | '5min' | '30min' | '1h' | '4h' | '1d' | '1w' | '1m' | '1y'
+  created_at: Generated<Date>
+}
+
 export type User = Selectable<UserTable>
 export type NewUser = Insertable<UserTable>
 export type UserUpdate = Updateable<UserTable>
@@ -162,6 +195,9 @@ export interface DB {
   trades: TradeTable
   trade_pnl: TradePnlTable
   trade_exits: TradeExitTable
+  strategies: StrategyTable
+  strategy_backtests: StrategyBacktestTable
+  trade_feelings: TradeFeelingTable
 }
 
 export function createDb(connectionString?: string): Kysely<DB> {

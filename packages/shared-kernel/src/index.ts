@@ -13,6 +13,7 @@ export * from './conversionService'
 export * from './tradeService'
 export * from './pnlService'
 export * from './opportunityScoring'
+export * from './historicalDataService'
 
 export function assert(condition: any, msg: string): asserts condition {
   if (!condition) throw new Error(msg)

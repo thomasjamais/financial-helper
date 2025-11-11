@@ -22,6 +22,7 @@ import UsersAdmin from './pages/UsersAdmin'
 import { CurrencyToggle } from './components/CurrencyToggle'
 import DashboardExchangeCard from './components/DashboardExchangeCard'
 import { formatNumber } from './lib/format'
+import StrategiesPage from './pages/StrategiesPage'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
@@ -40,6 +41,7 @@ type Tab =
   | 'trades'
   | 'signals'
   | 'configs'
+  | 'strategies'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
@@ -160,6 +162,16 @@ export default function App() {
                           Trades
                         </button>
                         <button
+                          onClick={() => setActiveTab('strategies')}
+                          className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
+                            activeTab === 'strategies'
+                              ? 'text-blue-400 border-b-2 border-blue-400'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Strategies
+                        </button>
+                        <button
                           onClick={() => setActiveTab('configs')}
                           className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
                             activeTab === 'configs'
@@ -193,6 +205,7 @@ export default function App() {
                     </div>
                   )}
                   {activeTab === 'ideas' && <TradeIdeas />}
+                  {activeTab === 'strategies' && <StrategiesPage />}
                   {activeTab === 'configs' && (
                     <div>
                       <ExchangeConfigManager />

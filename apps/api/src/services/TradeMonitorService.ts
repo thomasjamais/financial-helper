@@ -291,7 +291,7 @@ export class TradeMonitorService {
         price: currentPrice,
         pnlUSD,
         orderId,
-        level: action.level,
+        exitLevel: action.level,
       },
       'Partial exit executed',
     )

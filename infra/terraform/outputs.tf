@@ -48,3 +48,8 @@ output "s3_web_bucket" {
   value       = aws_s3_bucket.web.id
   description = "S3 bucket for web assets"
 }
+
+output "nat_gateway_public_ip" {
+  value       = aws_eip.nat.public_ip
+  description = "NAT Gateway public IP (use this IP for Binance API whitelisting)"
+}

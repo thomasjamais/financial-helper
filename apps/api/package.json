@@ -11,9 +11,11 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@pkg/backtester": "workspace:*",
     "@pkg/db": "workspace:*",
     "@pkg/exchange-adapters": "workspace:*",
     "@pkg/shared-kernel": "workspace:*",
+    "@pkg/strategy-engine": "workspace:*",
     "@pkg/trade-monitor": "workspace:*",
     "axios": "^1.7.7",
     "bcrypt": "^5.1.1",

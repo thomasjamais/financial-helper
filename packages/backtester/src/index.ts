@@ -1,3 +1,5 @@
 export * from './types'
 export * from './engine'
 export * from './strategies'
+export * from './metrics'
+export * from './multiCryptoBacktest'
