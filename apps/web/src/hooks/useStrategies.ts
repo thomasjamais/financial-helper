@@ -43,7 +43,9 @@ export function useStrategies() {
   return useQuery({
     queryKey: ['strategies'],
     queryFn: async () => {
-      const response = await axios.get(`${API_BASE}/v1/strategies`, {
+      // Add cache-busting parameter to avoid CloudFront cached errors
+      const cacheBuster = `_t=${Date.now()}`
+      const response = await axios.get(`${API_BASE}/v1/strategies?${cacheBuster}`, {
         headers: accessToken
           ? { Authorization: `Bearer ${accessToken}` }
           : undefined,

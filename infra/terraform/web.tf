@@ -118,10 +118,12 @@ resource "aws_cloudfront_distribution" "web" {
     origin_id   = "ALB-${aws_lb.api.dns_name}"
 
     custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
+      http_port                = 80
+      https_port               = 443
+      origin_protocol_policy   = "http-only"
+      origin_ssl_protocols     = ["TLSv1.2"]
+      origin_keepalive_timeout = 5
+      origin_read_timeout      = 30
     }
   }
 
@@ -170,18 +172,54 @@ resource "aws_cloudfront_distribution" "web" {
     default_ttl            = 0
     max_ttl                = 0
     compress               = true
+
+    # Don't apply custom error responses to API routes - let errors pass through
+    # This prevents CloudFront from serving S3 HTML for API errors
+  }
+
+  # Custom error responses for SPA routing
+  # IMPORTANT: These apply to ALL cache behaviors, including API routes
+  # However, API routes should return proper error codes, not HTML
+  # We only use these for SPA fallback when S3 returns 404/403
+  # API routes that return 404/403 will pass through (not ideal but necessary for SPA)
+  # Better solution: Use CloudFront Functions for SPA routing (future enhancement)
+  custom_error_response {
+    error_code            = 404
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0 # Don't cache errors
   }
 
   custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0 # Don't cache errors
+  }
+
+  # Add error responses for 5xx errors to prevent caching
+  custom_error_response {
+    error_code            = 500
+    response_code         = 500
+    error_caching_min_ttl = 0
   }
 
   custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
+    error_code            = 502
+    response_code         = 502
+    error_caching_min_ttl = 0
+  }
+
+  custom_error_response {
+    error_code            = 503
+    response_code         = 503
+    error_caching_min_ttl = 0
+  }
+
+  custom_error_response {
+    error_code            = 504
+    response_code         = 504
+    error_caching_min_ttl = 0
   }
 
   restrictions {
