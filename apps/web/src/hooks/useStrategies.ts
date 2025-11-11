@@ -45,11 +45,14 @@ export function useStrategies() {
     queryFn: async () => {
       // Add cache-busting parameter to avoid CloudFront cached errors
       const cacheBuster = `_t=${Date.now()}`
-      const response = await axios.get(`${API_BASE}/v1/strategies?${cacheBuster}`, {
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined,
-      })
+      const response = await axios.get(
+        `${API_BASE}/v1/strategies?${cacheBuster}`,
+        {
+          headers: accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : undefined,
+        },
+      )
       return response.data.strategies as Strategy[]
     },
     enabled: !!accessToken,
@@ -78,15 +81,11 @@ export function useCreateStrategy() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: CreateStrategyInput) => {
-      const response = await axios.post(
-        `${API_BASE}/v1/strategies`,
-        input,
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        },
-      )
+      const response = await axios.post(`${API_BASE}/v1/strategies`, input, {
+        headers: accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : undefined,
+      })
       return response.data
     },
     onSuccess: () => {
@@ -99,7 +98,13 @@ export function useUpdateStrategy() {
   const { accessToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, input }: { id: number; input: UpdateStrategyInput }) => {
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: number
+      input: UpdateStrategyInput
+    }) => {
       const response = await axios.put(
         `${API_BASE}/v1/strategies/${id}`,
         input,
@@ -140,7 +145,13 @@ export function useUpdateAllocation() {
   const { accessToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, allocated_amount_usd }: { id: number; allocated_amount_usd: number }) => {
+    mutationFn: async ({
+      id,
+      allocated_amount_usd,
+    }: {
+      id: number
+      allocated_amount_usd: number
+    }) => {
       const response = await axios.put(
         `${API_BASE}/v1/strategies/${id}/allocation`,
         { allocated_amount_usd },
@@ -212,14 +223,18 @@ export function useExampleStrategies() {
   return useQuery({
     queryKey: ['strategies', 'examples'],
     queryFn: async () => {
-      const response = await axios.get(`${API_BASE}/v1/strategies/examples`, {
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined,
-      })
+      // Add cache-busting parameter to avoid CloudFront cached errors
+      const cacheBuster = `_t=${Date.now()}`
+      const response = await axios.get(
+        `${API_BASE}/v1/strategies/examples?${cacheBuster}`,
+        {
+          headers: accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : undefined,
+        },
+      )
       return response.data.strategies as Strategy[]
     },
     enabled: !!accessToken,
   })
 }
-
