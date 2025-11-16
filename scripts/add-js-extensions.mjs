@@ -5,102 +5,115 @@
  * Cela permet de garder les imports sans extensions dans les fichiers .ts
  */
 
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 function processFile(filePath) {
-  let content = readFileSync(filePath, 'utf8');
-  let modified = false;
+  let content = readFileSync(filePath, 'utf8')
+  let modified = false
 
   // Pattern pour trouver les imports relatifs sans extension
   // from './something' ou from "../something" mais pas from './something.js' ou from '@pkg/...'
   // Match both ./ and ../ patterns
-  const relativeImportRegex = /from\s+['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"]/g;
-  const sideEffectImportRegex = /^import\s+['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"];?$/gm;
-  const dynamicImportRegex = /import\s*\(\s*['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"]/g;
+  const relativeImportRegex =
+    /from\s+['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"]/g
+  const sideEffectImportRegex =
+    /^import\s+['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"];?$/gm
+  const dynamicImportRegex =
+    /import\s*\(\s*['"](\.\.?\/[^'"]+?)(?<!\.js)(?<!\.json)['"]/g
 
   // Remplacer les imports avec 'from'
   content = content.replace(relativeImportRegex, (match, importPath) => {
     // Ignorer si c'est déjà .js, .json, ou un chemin de package
-    if (importPath.endsWith('.js') || importPath.endsWith('.json') || importPath.startsWith('@')) {
-      return match;
+    if (
+      importPath.endsWith('.js') ||
+      importPath.endsWith('.json') ||
+      importPath.startsWith('@')
+    ) {
+      return match
     }
-    modified = true;
-    return match.replace(importPath, importPath + '.js');
-  });
+    modified = true
+    return match.replace(importPath, importPath + '.js')
+  })
 
   // Remplacer les imports side-effect (import './something')
   content = content.replace(sideEffectImportRegex, (match, importPath) => {
-    if (importPath.endsWith('.js') || importPath.endsWith('.json') || importPath.startsWith('@')) {
-      return match;
+    if (
+      importPath.endsWith('.js') ||
+      importPath.endsWith('.json') ||
+      importPath.startsWith('@')
+    ) {
+      return match
     }
-    modified = true;
-    return match.replace(importPath, importPath + '.js');
-  });
+    modified = true
+    return match.replace(importPath, importPath + '.js')
+  })
 
   // Remplacer les imports dynamiques
   content = content.replace(dynamicImportRegex, (match, importPath) => {
     if (importPath.endsWith('.js') || importPath.endsWith('.json')) {
-      return match;
+      return match
     }
-    modified = true;
-    return match.replace(importPath, importPath + '.js');
-  });
+    modified = true
+    return match.replace(importPath, importPath + '.js')
+  })
 
   if (modified) {
-    writeFileSync(filePath, content, 'utf8');
-    return true;
+    writeFileSync(filePath, content, 'utf8')
+    return true
   }
-  return false;
+  return false
 }
 
 function processDirectory(dirPath) {
-  let count = 0;
-  const entries = readdirSync(dirPath);
+  let count = 0
+  const entries = readdirSync(dirPath)
 
   for (const entry of entries) {
-    const fullPath = join(dirPath, entry);
-    const stat = statSync(fullPath);
+    const fullPath = join(dirPath, entry)
+    const stat = statSync(fullPath)
 
     if (stat.isDirectory()) {
-      count += processDirectory(fullPath);
+      count += processDirectory(fullPath)
     } else if (entry.endsWith('.js')) {
       if (processFile(fullPath)) {
-        count++;
+        count++
       }
     }
   }
 
-  return count;
+  return count
 }
 
 function main() {
-  const distPath = process.argv[2] || join(__dirname, '../apps/api/dist');
+  const distPathArg = process.argv[2]
+  const distPath = distPathArg
+    ? join(process.cwd(), distPathArg) // Resolve relative to current working directory
+    : join(__dirname, '../apps/api/dist')
 
   // Check if directory exists
   try {
-    const stat = statSync(distPath);
+    const stat = statSync(distPath)
     if (!stat.isDirectory()) {
-      console.error(`Error: ${distPath} is not a directory`);
-      process.exit(1);
+      console.error(`Error: ${distPath} is not a directory`)
+      process.exit(1)
     }
   } catch (err) {
     if (err.code === 'ENOENT') {
       // Directory doesn't exist, nothing to process
-      console.log(`Note: ${distPath} does not exist, skipping...`);
-      process.exit(0);
+      console.log(`Note: ${distPath} does not exist, skipping...`)
+      process.exit(0)
     }
-    throw err;
+    throw err
   }
 
-  console.log(`Processing ${distPath}...`);
-  const count = processDirectory(distPath);
-  console.log(`✅ Added .js extensions to ${count} files`);
+  console.log(`Processing ${distPath}...`)
+  const count = processDirectory(distPath)
+  console.log(`✅ Added .js extensions to ${count} files`)
 }
 
-main();
-
+main()

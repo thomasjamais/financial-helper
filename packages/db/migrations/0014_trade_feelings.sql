@@ -15,3 +15,5 @@ create index if not exists idx_trade_feelings_user_id on trade_feelings(user_id)
 create index if not exists idx_trade_feelings_timeframe on trade_feelings(timeframe);
 create index if not exists idx_trade_feelings_trade_timeframe on trade_feelings(trade_id, timeframe);
 
+
+
