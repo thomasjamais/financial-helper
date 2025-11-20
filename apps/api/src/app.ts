@@ -15,6 +15,7 @@ import { tradeIdeasRouter } from './routes/tradeIdeas'
 import { strategiesRouter } from './routes/strategies'
 import { backtestRouter } from './routes/backtest'
 import { binanceListingAlertsRouter } from './routes/binanceListingAlerts'
+import { scalpingRouter } from './routes/scalping'
 import type { Kysely } from 'kysely'
 import type { DB } from '@pkg/db'
 import type { Logger } from './logger'
@@ -71,6 +72,7 @@ export function createApp(
   app.use(strategiesRouter(db, logger, authService))
   app.use(backtestRouter(logger, authService))
   app.use(binanceListingAlertsRouter(db, logger, authService))
+  app.use(scalpingRouter(db, logger))
 
   app.use(errorHandler(logger))
 

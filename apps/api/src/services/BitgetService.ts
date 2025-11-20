@@ -84,5 +84,29 @@ export class BitgetService {
       clientOid,
     })
   }
-}
 
+  async getFuturesSymbols(): Promise<
+    Array<{
+      symbol: string
+      baseAsset: string
+      quoteAsset: string
+      volume24h: number
+    }>
+  > {
+    try {
+      const adapter = await this.createAdapter()
+      return await adapter.getFuturesSymbols()
+    } catch (err) {
+      this.logger.error(
+        {
+          err: {
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          },
+        },
+        'Failed to get futures symbols',
+      )
+      throw err
+    }
+  }
+}

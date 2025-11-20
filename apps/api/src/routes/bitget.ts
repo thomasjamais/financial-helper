@@ -221,5 +221,40 @@ export function bitgetRouter(
     }
   })
 
+  r.get('/v1/bitget/futures-symbols', async (req: Request, res: Response) => {
+    const log =
+      req.logger || logger.child({ endpoint: '/v1/bitget/futures-symbols' })
+    const startTime = Date.now()
+
+    try {
+      log.info('Fetching Bitget futures symbols')
+      const symbols = await bitgetService.getFuturesSymbols()
+
+      const duration = Date.now() - startTime
+      log.info(
+        { count: symbols.length, durationMs: duration },
+        'Futures symbols fetched successfully',
+      )
+
+      return res.json({ symbols })
+    } catch (err) {
+      const duration = Date.now() - startTime
+      log.error(
+        {
+          err: {
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          },
+          durationMs: duration,
+        },
+        'Failed to fetch futures symbols',
+      )
+      return res.status(500).json({
+        error: err instanceof Error ? err.message : 'Unknown error',
+        correlationId: req.correlationId,
+      })
+    }
+  })
+
   return r
 }

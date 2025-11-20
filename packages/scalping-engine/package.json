@@ -1,0 +1,21 @@
+{
+  "name": "@pkg/scalping-engine",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node ../../scripts/add-js-extensions.mjs dist",
+    "dev": "pnpm build",
+    "test": "vitest",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "typescript": "^5.6.2",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "technicalindicators": "^3.1.0"
+  }
+}
+

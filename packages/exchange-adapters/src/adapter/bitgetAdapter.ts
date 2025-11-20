@@ -10,6 +10,7 @@ import {
   parseRiskConfigFromEnv,
   type RiskConfig,
 } from '../utils/riskEngine'
+import { request } from 'undici'
 
 type Logger = {
   debug: (msg: string, data?: unknown) => void
@@ -207,5 +208,140 @@ export class BitgetAdapter implements ExchangePort {
 
   resetCircuitBreaker() {
     this.http.resetCircuitBreaker()
+  }
+
+  async getFuturesSymbols(): Promise<
+    Array<{
+      symbol: string
+      baseAsset: string
+      quoteAsset: string
+      volume24h: number
+    }>
+  > {
+    this.logger?.info('Fetching futures symbols from public API')
+
+    const baseUrl = this.cfg.baseUrl || 'https://api.bitget.com'
+    const url = `${baseUrl}/api/mix/v1/market/ticker?productType=USDT-FUTURES`
+
+    try {
+      this.logger?.debug('Fetching tickers', { url })
+
+      const response = await request(url, {
+        method: 'GET',
+        headers: {
+          'content-type': 'application/json',
+        },
+      })
+
+      const responseText = await response.body.text()
+
+      if (response.statusCode >= 400) {
+        this.logger?.error('Futures symbols API HTTP error', {
+          statusCode: response.statusCode,
+          url,
+          response: responseText,
+        })
+        throw new Error(
+          `Bitget API HTTP ${response.statusCode}: ${responseText.substring(0, 200)}`,
+        )
+      }
+
+      let data: {
+        code: string
+        msg: string
+        data: any[]
+      }
+
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseErr) {
+        this.logger?.error('Failed to parse Bitget API response', {
+          url,
+          responseText: responseText.substring(0, 500),
+          parseError:
+            parseErr instanceof Error ? parseErr.message : String(parseErr),
+        })
+        throw new Error(
+          `Failed to parse Bitget API response: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+        )
+      }
+
+      if (!data || data.code !== '00000') {
+        this.logger?.error('Futures symbols API returned error code', {
+          code: data?.code,
+          msg: data?.msg,
+          url,
+        })
+        throw new Error(
+          `Bitget API error ${data?.code}: ${data?.msg || 'Unknown error'}`,
+        )
+      }
+
+      const tickers: any[] = Array.isArray(data?.data) ? data.data : []
+
+      if (tickers.length === 0) {
+        this.logger?.warn('No tickers returned from Bitget API', { url })
+        return []
+      }
+
+      const symbols = tickers
+        .map((ticker) => {
+          const symbol = ticker.symbol as string
+          if (
+            !symbol ||
+            typeof symbol !== 'string' ||
+            !symbol.endsWith('USDT')
+          ) {
+            return null
+          }
+
+          const baseAsset = symbol.replace('USDT', '')
+          const volume24h = parseFloat(
+            ticker.quoteVolume || ticker.volume24h || ticker.vol || '0',
+          )
+
+          if (!isFinite(volume24h) || volume24h <= 0) {
+            return null
+          }
+
+          return {
+            symbol,
+            baseAsset,
+            quoteAsset: 'USDT',
+            volume24h,
+          }
+        })
+        .filter(
+          (
+            s,
+          ): s is {
+            symbol: string
+            baseAsset: string
+            quoteAsset: string
+            volume24h: number
+          } => s !== null,
+        )
+        .sort((a, b) => b.volume24h - a.volume24h)
+        .slice(0, 50)
+
+      this.logger?.info('Futures symbols fetched successfully', {
+        totalTickers: tickers.length,
+        filteredSymbols: symbols.length,
+        topSymbols: symbols.slice(0, 5).map((s) => s.symbol),
+      })
+
+      return symbols
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      const errorStack = err instanceof Error ? err.stack : undefined
+
+      this.logger?.error('Failed to fetch futures symbols', {
+        error: errorMessage,
+        stack: errorStack,
+        url,
+      })
+
+      throw new Error(`Failed to fetch Bitget futures symbols: ${errorMessage}`)
+    }
   }
 }

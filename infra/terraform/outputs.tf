@@ -51,5 +51,5 @@ output "s3_web_bucket" {
 
 output "nat_gateway_public_ip" {
   value       = aws_eip.nat.public_ip
-  description = "NAT Gateway public IP (use this IP for Binance API whitelisting)"
+  description = "NAT Gateway public IP (use this IP for exchange API whitelisting: Binance, Bitget, etc.)"
 }

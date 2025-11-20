@@ -15,6 +15,7 @@
     "@pkg/backtester": "workspace:*",
     "@pkg/db": "workspace:*",
     "@pkg/exchange-adapters": "workspace:*",
+    "@pkg/scalping-engine": "workspace:*",
     "@pkg/shared-kernel": "workspace:*",
     "@pkg/strategies": "workspace:*",
     "@pkg/strategy-engine": "workspace:*",

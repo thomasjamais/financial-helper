@@ -25,6 +25,9 @@ import { formatNumber } from './lib/format'
 import StrategiesPage from './pages/StrategiesPage'
 import { BinanceListingAlerts } from './components/BinanceListingAlerts'
 import BinanceListingAlertsPage from './pages/BinanceListingAlertsPage'
+import { BinanceDashboard } from './components/BinanceDashboard'
+import { BitgetDashboard } from './components/BitgetDashboard'
+import { ScalpingDashboard } from './components/ScalpingDashboard'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
@@ -44,6 +47,7 @@ type Tab =
   | 'signals'
   | 'configs'
   | 'strategies'
+  | 'scalping'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
@@ -197,6 +201,16 @@ export default function App() {
                         >
                           Configs
                         </button>
+                        <button
+                          onClick={() => setActiveTab('scalping')}
+                          className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition ${
+                            activeTab === 'scalping'
+                              ? 'text-blue-400 border-b-2 border-blue-400'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Scalping
+                        </button>
                       </div>
                       <CurrencyToggle />
                     </div>
@@ -232,6 +246,7 @@ export default function App() {
                             <ExchangeConfigManager />
                           </div>
                         )}
+                        {activeTab === 'scalping' && <ScalpingDashboard />}
                       </>
                     )}
                 </main>
@@ -301,119 +316,11 @@ function PortfolioTab() {
 }
 
 function DashboardView() {
-  const { currency } = useCurrency()
-  const { data: bitgetBalances } = useQuery({
-    queryKey: ['balances', 'bitget'],
-    queryFn: async () => (await axios.get(`${API_BASE}/v1/balances`)).data,
-    retry: false,
-    refetchInterval: 30000,
-  })
-
-  const { data: binanceBalances } = useQuery({
-    queryKey: ['balances', 'binance'],
-    queryFn: async () =>
-      (await axios.get(`${API_BASE}/v1/binance/balances`)).data,
-    retry: false,
-    refetchInterval: 30000,
-  })
-
-  const { data: portfolio } = useQuery({
-    queryKey: ['portfolio', 'binance'],
-    queryFn: async () =>
-      (await axios.get(`${API_BASE}/v1/binance/portfolio`)).data,
-    retry: false,
-    refetchInterval: 30000,
-  })
-
-  const { data: spotPortfolio } = useQuery({
-    queryKey: ['portfolio', 'binance', 'spot'],
-    queryFn: async () =>
-      (await axios.get(`${API_BASE}/v1/binance/portfolio/spot`)).data,
-    retry: false,
-    refetchInterval: 30000,
-  })
-
-  const { data: earnPortfolio } = useQuery({
-    queryKey: ['portfolio', 'binance', 'earn'],
-    queryFn: async () =>
-      (await axios.get(`${API_BASE}/v1/binance/portfolio/earn`)).data,
-    retry: false,
-    refetchInterval: 30000,
-  })
-
   return (
-    <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Portfolio"
-          value={`${currency === 'USD' ? '$' : '€'}${formatNumber((currency === 'USD' ? portfolio?.totalValueUSD : portfolio?.totalValueEUR) ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          subtitle={portfolio?.assets?.length || 0 + ' assets'}
-          color="blue"
-          tooltip="Total estimated value across Spot and Earn in the selected currency."
-        />
-        <StatCard
-          title="Binance Spot"
-          value={
-            binanceBalances?.spot?.length > 0
-              ? `${binanceBalances.spot.length} assets`
-              : 'Not configured'
-          }
-          subtitle={
-            binanceBalances?.spot
-              ?.reduce(
-                (sum: number, b: any) => sum + parseFloat(b.free || 0),
-                0,
-              )
-              .toFixed(2) || '0'
-          }
-          color="green"
-          tooltip="Number of assets held in Binance Spot and total free amounts (raw units)."
-        />
-        <StatCard
-          title="Bitget Spot"
-          value={
-            bitgetBalances?.spot?.length > 0
-              ? `${bitgetBalances.spot.length} assets`
-              : 'Not configured'
-          }
-          subtitle={
-            bitgetBalances?.spot
-              ?.reduce(
-                (sum: number, b: any) => sum + parseFloat(b.free || 0),
-                0,
-              )
-              .toFixed(2) || '0'
-          }
-          color="purple"
-          tooltip="Number of assets held in Bitget Spot and total free amounts (raw units)."
-        />
-        <StatCard
-          title="Last Update"
-          value={new Date().toLocaleTimeString()}
-          subtitle="Auto-refresh: 30s"
-          color="orange"
-          tooltip="Time when data was last fetched. Values refresh automatically every 30 seconds."
-        />
-      </div>
-
-      {/* Exchange Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <DashboardExchangeCard
-          title="Binance Spot (Top 5)"
-          assets={(spotPortfolio?.assets || []).slice(0, 5)}
-          tooltip="Top 5 Spot assets on Binance by value."
-        />
-        <DashboardExchangeCard
-          title="Binance Earn (Top 5)"
-          assets={(earnPortfolio?.assets || []).slice(0, 5)}
-          tooltip="Top 5 Earn positions on Binance by value."
-        />
-      </div>
-
-      {/* Listing Alerts */}
-      <div className="mt-6">
-        <BinanceListingAlerts />
+    <div className="space-y-8">
+      <BinanceDashboard />
+      <div className="border-t border-slate-700 pt-8">
+        <BitgetDashboard />
       </div>
     </div>
   )

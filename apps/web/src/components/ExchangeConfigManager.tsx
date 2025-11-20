@@ -149,7 +149,14 @@ export function ExchangeConfigManager() {
           Exchange Configurations
         </h2>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              resetForm()
+            } else {
+              resetForm()
+              setShowForm(true)
+            }
+          }}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
         >
           {showForm ? 'Cancel' : '+ New Config'}
