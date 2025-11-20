@@ -1,25 +1,23 @@
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useCurrency } from './CurrencyContext'
 import StatCard from './StatCard'
 import DashboardExchangeCard from './DashboardExchangeCard'
 import { formatNumber } from '../lib/format'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export function BitgetDashboard() {
   const { currency } = useCurrency()
 
   const { data: bitgetBalances } = useQuery({
     queryKey: ['balances', 'bitget'],
-    queryFn: async () => (await axios.get(`${API_BASE}/v1/balances`)).data,
+    queryFn: async () => (await apiClient.get('/v1/balances')).data,
     retry: false,
     refetchInterval: 30000,
   })
 
   const { data: bitgetPositions } = useQuery({
     queryKey: ['positions', 'bitget'],
-    queryFn: async () => (await axios.get(`${API_BASE}/v1/positions`)).data,
+    queryFn: async () => (await apiClient.get('/v1/positions')).data,
     retry: false,
     refetchInterval: 30000,
   })

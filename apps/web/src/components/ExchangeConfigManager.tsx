@@ -1,72 +1,12 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-
-type ExchangeConfig = {
-  id: number
-  exchange: 'bitget' | 'binance'
-  label: string
-  env: 'paper' | 'live'
-  baseUrl?: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
-
-function useExchangeConfigs() {
-  return useQuery({
-    queryKey: ['exchange-configs'],
-    queryFn: async () =>
-      (
-        await axios.get<{ configs: ExchangeConfig[] }>(
-          `${API_BASE}/v1/exchange-configs`,
-        )
-      ).data,
-    refetchInterval: 5000,
-  })
-}
-
-function useCreateConfig() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: any) =>
-      (await axios.post(`${API_BASE}/v1/exchange-configs`, data)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exchange-configs'] }),
-  })
-}
-
-function useUpdateConfig() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) =>
-      (await axios.put(`${API_BASE}/v1/exchange-configs/${id}`, data)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exchange-configs'] }),
-  })
-}
-
-function useDeleteConfig() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: number) =>
-      (await axios.delete(`${API_BASE}/v1/exchange-configs/${id}`)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exchange-configs'] }),
-  })
-}
-
-function useActivateConfig() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: number) =>
-      (await axios.post(`${API_BASE}/v1/exchange-configs/${id}/activate`)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['exchange-configs'] })
-      qc.invalidateQueries({ queryKey: ['balances'] })
-      qc.invalidateQueries({ queryKey: ['portfolio'] })
-    },
-  })
-}
+import {
+  useExchangeConfigs,
+  useCreateExchangeConfig,
+  useUpdateExchangeConfig,
+  useDeleteExchangeConfig,
+  useActivateExchangeConfig,
+  type ExchangeConfig,
+} from '../hooks/exchangeConfigs/useExchangeConfigs'
 
 export function ExchangeConfigManager() {
   const [showForm, setShowForm] = useState(false)
@@ -82,10 +22,10 @@ export function ExchangeConfigManager() {
   })
 
   const { data, isLoading } = useExchangeConfigs()
-  const create = useCreateConfig()
-  const update = useUpdateConfig()
-  const remove = useDeleteConfig()
-  const activate = useActivateConfig()
+  const create = useCreateExchangeConfig()
+  const update = useUpdateExchangeConfig()
+  const remove = useDeleteExchangeConfig()
+  const activate = useActivateExchangeConfig()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import { useAuth } from './AuthContext'
 import { formatPrice, formatQuantity, formatCurrency } from '../lib/numberFormat'
 import { useTradeDetail, useCreateTradeFeeling, useUpdateTradeFeeling } from '../hooks/useTradeDetail'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 const TIMEFRAMES: Array<'1min' | '5min' | '30min' | '1h' | '4h' | '1d' | '1w' | '1m' | '1y'> = [
   '1min',
@@ -44,13 +42,7 @@ export default function TradeDetail({ tradeId }: { tradeId: number }) {
   }, [data, selectedTimeframe])
 
   async function snapshot() {
-    await axios.post(
-      `${API_BASE}/v1/trades/${tradeId}/snapshot`,
-      {},
-      {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      },
-    )
+    await apiClient.post(`/v1/trades/${tradeId}/snapshot`, {})
     await refetch()
   }
 

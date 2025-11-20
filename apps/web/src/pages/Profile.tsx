@@ -1,19 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../components/AuthContext'
+import { apiClient } from '../lib/api'
 
 export default function Profile() {
   const { accessToken, signout } = useAuth()
-  const [me, setMe] = useState<{ userId: string; email: string } | null>(null)
-
-  useEffect(() => {
-    const run = async () => {
-      const res = await fetch((import.meta as any).env.VITE_API_URL + '/v1/auth/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-      if (res.ok) setMe(await res.json())
-    }
-    if (accessToken) run()
-  }, [accessToken])
+  const { data: me } = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: async () => {
+      const res = await apiClient.get<{ userId: string; email: string }>('/v1/auth/me')
+      return res.data
+    },
+    enabled: !!accessToken,
+  })
 
   return (
     <div className="max-w-lg mx-auto p-6 bg-slate-800 rounded space-y-3">

@@ -1,65 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
+import { useState } from 'react'
 import { IndicatorPanel } from './IndicatorPanel'
 import { EntryExitPanel } from './EntryExitPanel'
 import { TradingViewChart } from './TradingViewChart'
-import { useState } from 'react'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
-
-interface ScalpingAnalysis {
-  symbol: string
-  currentPrice: number
-  fibonacci: {
-    '1m': any
-    '5m': any
-    '15m': any
-  }
-  supportResistance: Array<{
-    level: number
-    strength: number
-    touches: number
-    type: 'support' | 'resistance'
-  }>
-  trend: {
-    '1h': any
-    '4h': any
-    '1d': any
-  }
-  atr: number
-  recommendedEntry: {
-    price: number
-    side: 'BUY' | 'SELL'
-    confidence: number
-    reason: string
-  } | null
-  stopLoss: {
-    price: number
-    distance: number
-    distancePct: number
-  } | null
-  takeProfits: Array<{
-    price: number
-    percentage: number
-    distance: number
-    distancePct: number
-  }>
-}
+import { BacktestPanel } from './BacktestPanel'
+import { OrderPlacer } from './OrderPlacer'
+import { useScalpingAnalysis } from '../hooks/scalping/useScalpingAnalysis'
 
 export function PairAnalysis({ symbol }: { symbol: string }) {
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>('15')
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['scalping-analysis', symbol],
-    queryFn: async () => {
-      const response = await axios.get<{ analysis: ScalpingAnalysis }>(
-        `${API_BASE}/v1/scalping/analyze/${symbol}`,
-      )
-      return response.data.analysis
-    },
-    enabled: !!symbol,
-    refetchInterval: 60000,
-  })
+  const { data, isLoading, error } = useScalpingAnalysis(symbol)
 
   if (isLoading) {
     return (
@@ -90,7 +40,10 @@ export function PairAnalysis({ symbol }: { symbol: string }) {
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-2xl font-bold text-white">{symbol}</h3>
           <div className="text-slate-400">
-            Current Price: <span className="text-white font-semibold">{data.currentPrice.toFixed(4)} USDT</span>
+            Current Price:{' '}
+            <span className="text-white font-semibold">
+              {data.currentPrice.toFixed(4)} USDT
+            </span>
           </div>
         </div>
 
@@ -190,17 +143,19 @@ export function PairAnalysis({ symbol }: { symbol: string }) {
             indicators={data.supportResistance.slice(0, 5).map((sr) => ({
               name: `${sr.type.toUpperCase()} (${sr.touches} touches)`,
               value: sr.level.toFixed(4),
-              label: `${((sr.level - data.currentPrice) / data.currentPrice * 100).toFixed(2)}% • Strength: ${(sr.strength * 100).toFixed(0)}%`,
+              label: `${(((sr.level - data.currentPrice) / data.currentPrice) * 100).toFixed(2)}% • Strength: ${(sr.strength * 100).toFixed(0)}%`,
             }))}
           />
 
           <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-            <h4 className="text-lg font-semibold text-white mb-3">Volatility</h4>
+            <h4 className="text-lg font-semibold text-white mb-3">
+              Volatility
+            </h4>
             <div className="text-white font-semibold text-xl">
               ATR: {data.atr.toFixed(4)}
             </div>
             <div className="text-sm text-slate-400 mt-1">
-              {(data.atr / data.currentPrice * 100).toFixed(2)}% of price
+              {((data.atr / data.currentPrice) * 100).toFixed(2)}% of price
             </div>
           </div>
         </div>
@@ -212,7 +167,10 @@ export function PairAnalysis({ symbol }: { symbol: string }) {
           currentPrice={data.currentPrice}
         />
       </div>
+
+      <BacktestPanel symbol={symbol} />
+
+      <OrderPlacer symbol={symbol} analysis={data} />
     </div>
   )
 }
-

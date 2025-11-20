@@ -1,8 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAuth } from './AuthContext'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export default function Signals() {
   const { accessToken } = useAuth()
@@ -10,9 +8,7 @@ export default function Signals() {
     queryKey: ['signals'],
     queryFn: async () =>
       (
-        await axios.get(`${API_BASE}/v1/signals`, {
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-        })
+        await apiClient.get('/v1/signals')
       ).data as Array<{
         id: number
         source: string

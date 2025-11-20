@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
+import { apiClient } from '../lib/api'
 
 type Opportunity = {
   id: string
@@ -18,15 +18,9 @@ export function EarnOpportunities() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['binance', 'earn', 'opportunities', minScore],
     queryFn: async () =>
-      (
-        await axios.get<Opportunity[]>(
-          '/v1/binance/earn/opportunities',
-          {
-            baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
-            params: { minScore },
-          },
-        )
-      ).data,
+      (await apiClient.get<Opportunity[]>('/v1/binance/earn/opportunities', {
+        params: { minScore },
+      })).data,
     retry: false,
     refetchOnWindowFocus: false,
   })
@@ -141,12 +135,12 @@ function AutoPlanPanel() {
         </label>
       </div>
       <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded" title="Build a suggested allocation; no funds are moved." onClick={async () => {
-        const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/plan', { minApr, totalPct, maxPerProductPct, minAmount, roundTo })
+        const res = await apiClient.post('/v1/binance/earn/auto/plan', { minApr, totalPct, maxPerProductPct, minAmount, roundTo })
         setResult(res.data)
       }}>Build plan</button>
       {result && (
         <button className="ml-2 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded" title="Simulate the subscribe steps; no funds are moved." onClick={async () => {
-          const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/execute', { dryRun: true, plan: result.plan })
+          const res = await apiClient.post('/v1/binance/earn/auto/execute', { dryRun: true, plan: result.plan })
           setExecuted(res.data)
         }}>Execute (dry run)</button>
       )}
@@ -158,7 +152,7 @@ function AutoPlanPanel() {
       )}
       {result && (
         <button disabled={!confirmLive} className="ml-2 px-3 py-2 bg-green-600 disabled:opacity-50 hover:bg-green-700 text-white rounded" title="Execute live subscriptions on Binance Flexible Earn for the plan above." onClick={async () => {
-          const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/execute', { dryRun: false, confirm: true, plan: result.plan })
+          const res = await apiClient.post('/v1/binance/earn/auto/execute', { dryRun: false, confirm: true, plan: result.plan })
           setExecuted(res.data)
         }}>Execute (live)</button>
       )}
@@ -198,7 +192,7 @@ function AutoPlanPanel() {
           </label>
         </div>
         <button className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded" title="Build a suggested redeem plan; no funds are moved." onClick={async () => {
-          const res = await axios.post((import.meta as any).env.VITE_API_URL + '/v1/binance/earn/auto/unsubscribe/plan', { minApr: unsubMinApr, targetFreeAmount: targetFree })
+          const res = await apiClient.post('/v1/binance/earn/auto/unsubscribe/plan', { minApr: unsubMinApr, targetFreeAmount: targetFree })
           setResult(res.data)
         }}>Build unsubscribe plan</button>
       </div>

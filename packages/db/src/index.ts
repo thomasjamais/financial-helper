@@ -69,6 +69,23 @@ export interface ExchangeConfigTable {
   updated_at: Generated<Date>
 }
 
+export interface ScalpingStrategyTable {
+  id: Generated<number>
+  user_id: string
+  exchange: 'bitget' | 'binance'
+  symbol: string
+  max_capital: number
+  leverage: number
+  risk_per_trade: number
+  min_confidence: number
+  max_open_positions: number
+  is_active: boolean
+  fee_rate: number
+  slippage_bps: number
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+}
+
 export interface SignalTable {
   id: Generated<number>
   user_id: string
@@ -255,13 +272,14 @@ export interface DB {
 export function createDb(connectionString?: string): Kysely<DB> {
   const { Pool } = pg
   const dbUrl = connectionString ?? process.env.DATABASE_URL
-  
+
   // Determine if we should use SSL
   // Use SSL for RDS connections (contains .rds.amazonaws.com) or in production
-  const useSSL = 
+  const useSSL =
     process.env.NODE_ENV === 'production' ||
-    (dbUrl && (dbUrl.includes('.rds.amazonaws.com') || dbUrl.includes('?sslmode=')))
-  
+    (dbUrl &&
+      (dbUrl.includes('.rds.amazonaws.com') || dbUrl.includes('?sslmode=')))
+
   const pool = new Pool({
     connectionString: dbUrl,
     // Enable SSL for RDS connections

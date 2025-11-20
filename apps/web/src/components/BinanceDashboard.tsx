@@ -1,44 +1,38 @@
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useCurrency } from './CurrencyContext'
 import StatCard from './StatCard'
 import DashboardExchangeCard from './DashboardExchangeCard'
 import { BinanceListingAlerts } from './BinanceListingAlerts'
 import { formatNumber } from '../lib/format'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export function BinanceDashboard() {
   const { currency } = useCurrency()
 
   const { data: binanceBalances } = useQuery({
     queryKey: ['balances', 'binance'],
-    queryFn: async () =>
-      (await axios.get(`${API_BASE}/v1/binance/balances`)).data,
+    queryFn: async () => (await apiClient.get('/v1/binance/balances')).data,
     retry: false,
     refetchInterval: 30000,
   })
 
   const { data: portfolio } = useQuery({
     queryKey: ['portfolio', 'binance'],
-    queryFn: async () =>
-      (await axios.get(`${API_BASE}/v1/binance/portfolio`)).data,
+    queryFn: async () => (await apiClient.get('/v1/binance/portfolio')).data,
     retry: false,
     refetchInterval: 30000,
   })
 
   const { data: spotPortfolio } = useQuery({
     queryKey: ['portfolio', 'binance', 'spot'],
-    queryFn: async () =>
-      (await axios.get(`${API_BASE}/v1/binance/portfolio/spot`)).data,
+    queryFn: async () => (await apiClient.get('/v1/binance/portfolio/spot')).data,
     retry: false,
     refetchInterval: 30000,
   })
 
   const { data: earnPortfolio } = useQuery({
     queryKey: ['portfolio', 'binance', 'earn'],
-    queryFn: async () =>
-      (await axios.get(`${API_BASE}/v1/binance/portfolio/earn`)).data,
+    queryFn: async () => (await apiClient.get('/v1/binance/portfolio/earn')).data,
     retry: false,
     refetchInterval: 30000,
   })

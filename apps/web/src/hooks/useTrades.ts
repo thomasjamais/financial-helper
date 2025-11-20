@@ -1,8 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAuth } from '../components/AuthContext'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export type Trade = {
   id: number
@@ -28,14 +26,10 @@ export function useTrades() {
   
   return useQuery({
     queryKey: ['trades-with-pnl'],
-    queryFn: async () =>
-      (
-        await axios.get<Trade[]>(`${API_BASE}/v1/trades/with-pnl`, {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        })
-      ).data,
+    queryFn: async () => {
+      const response = await apiClient.get<Trade[]>('/v1/trades/with-pnl')
+      return response.data
+    },
     enabled: !!accessToken,
     refetchInterval: 30000,
   })

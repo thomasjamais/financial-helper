@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAuth } from '../components/AuthContext'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export type StrategyExecutionStatus = 'active' | 'paused' | 'stopped'
 
@@ -38,11 +36,7 @@ export function useStrategyExecution(strategyId: number) {
   return useQuery({
     queryKey: ['strategy-execution', strategyId],
     queryFn: async () => {
-      const response = await axios.get(`${API_BASE}/v1/strategies/${strategyId}/execution`, {
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined,
-      })
+      const response = await apiClient.get(`/v1/strategies/${strategyId}/execution`)
       return response.data.execution as StrategyExecution | null
     },
     enabled: !!accessToken && !!strategyId,
@@ -51,7 +45,6 @@ export function useStrategyExecution(strategyId: number) {
 }
 
 export function useStartExecution() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -64,14 +57,9 @@ export function useStartExecution() {
       symbols: string[]
       interval?: string
     }) => {
-      const response = await axios.post(
-        `${API_BASE}/v1/strategies/${strategyId}/execution/start`,
+      const response = await apiClient.post(
+        `/v1/strategies/${strategyId}/execution/start`,
         { symbols, interval },
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        },
       )
       return response.data
     },
@@ -83,20 +71,11 @@ export function useStartExecution() {
 }
 
 export function useStopExecution() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (strategyId: number) => {
-      const response = await axios.post(
-        `${API_BASE}/v1/strategies/${strategyId}/execution/stop`,
-        {},
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        },
-      )
+      const response = await apiClient.post(`/v1/strategies/${strategyId}/execution/stop`, {})
       return response.data
     },
     onSuccess: (_, strategyId) => {
@@ -116,13 +95,8 @@ export function useStrategyTrades(strategyId: number, options?: { limit?: number
       if (options?.limit) params.append('limit', String(options.limit))
       if (options?.offset) params.append('offset', String(options.offset))
 
-      const response = await axios.get(
-        `${API_BASE}/v1/strategies/${strategyId}/trades?${params.toString()}`,
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        },
+      const response = await apiClient.get(
+        `/v1/strategies/${strategyId}/trades?${params.toString()}`,
       )
       return response.data.trades as StrategyTrade[]
     },

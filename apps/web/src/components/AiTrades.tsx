@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAuth } from './AuthContext'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 type Trade = {
   asset: string
@@ -18,17 +16,10 @@ export default function AiTrades() {
   const { accessToken } = useAuth()
   const { mutate, data, isPending } = useMutation({
     mutationFn: async () =>
-      (
-        await axios.post(
-          `${API_BASE}/v1/binance/ai/spot-trades`,
-          { minUsd },
-          {
-            headers: accessToken
-              ? { Authorization: `Bearer ${accessToken}` }
-              : undefined,
-          },
-        )
-      ).data as { advice: any; trades: Trade[] },
+      (await apiClient.post('/v1/binance/ai/spot-trades', { minUsd })).data as {
+        advice: any
+        trades: Trade[]
+      },
   })
 
   return (

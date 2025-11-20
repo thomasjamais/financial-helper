@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import axios from 'axios'
 import { useCurrency } from './CurrencyContext'
 import AssetTable from './AssetTable'
 import AssetTableTotals from './AssetTableTotals'
+import { apiClient } from '../lib/api'
 
 type Portfolio = {
   assets: { asset: string; amount: number; priceUSD: number; priceEUR: number; valueUSD: number; valueEUR: number }[]
@@ -15,12 +15,7 @@ export function BinanceSpotOverview() {
   const { currency } = useCurrency()
   const { data, isLoading, error } = useQuery({
     queryKey: ['portfolio', 'binance', 'spot'],
-    queryFn: async () =>
-      (
-        await axios.get<Portfolio>('/v1/binance/portfolio/spot', {
-          baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
-        })
-      ).data,
+    queryFn: async () => (await apiClient.get<Portfolio>('/v1/binance/portfolio/spot')).data,
     retry: false,
     refetchInterval: 30000,
   })

@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAuth } from '../components/AuthContext'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export type TradeIdea = {
   id: number
@@ -37,15 +35,12 @@ export function useTradeIdeas(
 
   return useQuery({
     queryKey: ['trade-ideas', sortBy, sortOrder],
-    queryFn: async () =>
-      (
-        await axios.get<TradeIdea[]>(`${API_BASE}/v1/trade-ideas`, {
-          params: { sortBy, sortOrder },
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        })
-      ).data,
+    queryFn: async () => {
+      const response = await apiClient.get<TradeIdea[]>('/v1/trade-ideas', {
+        params: { sortBy, sortOrder },
+      })
+      return response.data
+    },
     enabled: !!accessToken,
     refetchInterval: 60000,
   })
@@ -59,23 +54,17 @@ export type ExecuteTradeIdeaParams = {
 }
 
 export function useExecuteTradeIdea() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (params: ExecuteTradeIdeaParams) => {
-      const response = await axios.post(
-        `${API_BASE}/v1/trade-ideas/${params.id}/execute`,
+      const response = await apiClient.post(
+        `/v1/trade-ideas/${params.id}/execute`,
         {
           confirm: true,
           budgetUSD: params.budgetUSD,
           risk: params.risk,
           realTrade: params.realTrade ?? false,
-        },
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
         },
       )
       return response.data
@@ -87,24 +76,3 @@ export function useExecuteTradeIdea() {
   })
 }
 
-export function validateBudget(budgetStr: string | null): {
-  valid: boolean
-  budget?: number
-  error?: string
-} {
-  if (!budgetStr) {
-    return { valid: false, error: 'Budget is required' }
-  }
-
-  const budget = Number(budgetStr)
-
-  if (!isFinite(budget)) {
-    return { valid: false, error: 'Budget must be a number' }
-  }
-
-  if (budget <= 0) {
-    return { valid: false, error: 'Budget must be greater than 0' }
-  }
-
-  return { valid: true, budget }
-}

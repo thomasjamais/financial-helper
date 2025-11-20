@@ -224,7 +224,7 @@ export class BitgetAdapter implements ExchangePort {
     const url = `${baseUrl}/api/mix/v1/market/ticker?productType=USDT-FUTURES`
 
     try {
-      this.logger?.debug('Fetching tickers', { url })
+      this.logger?.info('Calling Bitget public API', { url, method: 'GET' })
 
       const response = await request(url, {
         method: 'GET',
@@ -234,6 +234,13 @@ export class BitgetAdapter implements ExchangePort {
       })
 
       const responseText = await response.body.text()
+
+      this.logger?.info('Bitget API response received', {
+        statusCode: response.statusCode,
+        url,
+        responseLength: responseText.length,
+        responsePreview: responseText.substring(0, 200),
+      })
 
       if (response.statusCode >= 400) {
         this.logger?.error('Futures symbols API HTTP error', {

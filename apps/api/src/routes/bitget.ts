@@ -8,11 +8,14 @@ import { sql } from 'kysely'
 import { makeEncryptDecrypt } from '../services/crypto'
 import { getBitgetConfig, setBitgetConfig } from '../services/bitgetState'
 import type { Logger } from '../logger'
+import { authMiddleware } from '../middleware/auth'
+import type { AuthService } from '../services/AuthService'
 
 export function bitgetRouter(
   db: Kysely<DB>,
   logger: Logger,
   encKey: string,
+  authService: AuthService,
 ): Router {
   const r = Router()
   const { encrypt } = makeEncryptDecrypt(encKey)
@@ -221,14 +224,17 @@ export function bitgetRouter(
     }
   })
 
-  r.get('/v1/bitget/futures-symbols', async (req: Request, res: Response) => {
-    const log =
-      req.logger || logger.child({ endpoint: '/v1/bitget/futures-symbols' })
-    const startTime = Date.now()
+  r.get(
+    '/v1/bitget/futures-symbols',
+    authMiddleware(authService, logger),
+    async (req: Request, res: Response) => {
+      const log =
+        req.logger || logger.child({ endpoint: '/v1/bitget/futures-symbols' })
+      const startTime = Date.now()
 
-    try {
-      log.info('Fetching Bitget futures symbols')
-      const symbols = await bitgetService.getFuturesSymbols()
+      try {
+        log.info('Fetching Bitget futures symbols')
+        const symbols = await bitgetService.getFuturesSymbols()
 
       const duration = Date.now() - startTime
       log.info(
@@ -254,7 +260,8 @@ export function bitgetRouter(
         correlationId: req.correlationId,
       })
     }
-  })
+  },
+  )
 
   return r
 }

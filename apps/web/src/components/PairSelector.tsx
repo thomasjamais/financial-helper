@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useState } from 'react'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
+import { useAuth } from './AuthContext'
 
 interface FuturesSymbol {
   symbol: string
@@ -19,15 +18,17 @@ export function PairSelector({
   selectedPair: string | null
 }) {
   const [searchTerm, setSearchTerm] = useState('')
+  const { accessToken } = useAuth()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['bitget-futures-symbols'],
     queryFn: async () => {
-      const response = await axios.get<{ symbols: FuturesSymbol[] }>(
-        `${API_BASE}/v1/bitget/futures-symbols`,
+      const response = await apiClient.get<{ symbols: FuturesSymbol[] }>(
+        '/v1/bitget/futures-symbols',
       )
       return response.data
     },
+    enabled: !!accessToken,
     refetchInterval: 300000,
   })
 
@@ -110,4 +111,3 @@ function formatVolume(volume: number): string {
   }
   return volume.toFixed(2)
 }
-

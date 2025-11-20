@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAuth } from '../components/AuthContext'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export type TradeFeeling = {
   id: number
@@ -66,14 +64,7 @@ export function useTradeDetail(tradeId: number | null) {
     queryKey: ['trade-detail', tradeId],
     queryFn: async () => {
       if (!tradeId) return null
-      const response = await axios.get<TradeDetail>(
-        `${API_BASE}/v1/trades/${tradeId}`,
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        },
-      )
+      const response = await apiClient.get<TradeDetail>(`/v1/trades/${tradeId}`)
       return response.data
     },
     enabled: !!tradeId && !!accessToken,
@@ -81,7 +72,6 @@ export function useTradeDetail(tradeId: number | null) {
 }
 
 export function useCreateTradeFeeling() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -92,15 +82,7 @@ export function useCreateTradeFeeling() {
       tradeId: number
       input: CreateTradeFeelingInput
     }) => {
-      const response = await axios.post(
-        `${API_BASE}/v1/trades/${tradeId}/feelings`,
-        input,
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        },
-      )
+      const response = await apiClient.post(`/v1/trades/${tradeId}/feelings`, input)
       return response.data
     },
     onSuccess: (_, variables) => {
@@ -110,7 +92,6 @@ export function useCreateTradeFeeling() {
 }
 
 export function useUpdateTradeFeeling() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -123,14 +104,9 @@ export function useUpdateTradeFeeling() {
       feelingId: number
       input: UpdateTradeFeelingInput
     }) => {
-      const response = await axios.put(
-        `${API_BASE}/v1/trades/${tradeId}/feelings/${feelingId}`,
+      const response = await apiClient.put(
+        `/v1/trades/${tradeId}/feelings/${feelingId}`,
         input,
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        },
       )
       return response.data
     },

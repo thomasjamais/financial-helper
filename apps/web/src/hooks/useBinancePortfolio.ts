@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export type PortfolioAsset = {
   asset: string
@@ -46,11 +44,7 @@ export function usePortfolio() {
   return useQuery({
     queryKey: ['portfolio', 'binance'],
     queryFn: async () =>
-      (
-        await axios.get<Portfolio>('/v1/binance/portfolio', {
-          baseURL: API_BASE,
-        })
-      ).data,
+      (await apiClient.get<Portfolio>('/v1/binance/portfolio')).data,
     retry: false,
     refetchInterval: 30000,
   })
@@ -64,11 +58,7 @@ export function useConvert() {
       fromAmount: number
       toAsset: 'BTC' | 'BNB' | 'ETH'
     }) =>
-      (
-        await axios.post<ConversionResult>('/v1/binance/convert', params, {
-          baseURL: API_BASE,
-        })
-      ).data,
+      (await apiClient.post<ConversionResult>('/v1/binance/convert', params)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['portfolio'] }),
   })
 }
@@ -76,11 +66,7 @@ export function useConvert() {
 export function useRebalance() {
   return useMutation({
     mutationFn: async (params: { mode: 'spot' | 'earn' | 'overview' }) => {
-      const res = await axios.post<RebalanceAdvice>(
-        '/v1/binance/rebalance',
-        params,
-        { baseURL: API_BASE }
-      )
+      const res = await apiClient.post<RebalanceAdvice>('/v1/binance/rebalance', params)
       return res.data
     },
   })

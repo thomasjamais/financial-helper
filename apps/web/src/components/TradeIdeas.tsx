@@ -2,10 +2,10 @@ import { useState } from 'react'
 import {
   useTradeIdeas,
   useExecuteTradeIdea,
-  validateBudget,
   type SortBy,
   type SortOrder,
 } from '../hooks/useTradeIdeas'
+import { validateBudget } from '../lib/tradeIdeas/validation'
 
 export default function TradeIdeas() {
   const [sortBy, setSortBy] = useState<SortBy>('created_at')

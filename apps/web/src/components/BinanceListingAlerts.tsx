@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAuth } from './AuthContext'
+import { apiClient } from '../lib/api'
 
 type ListingAlert = {
   id: number
@@ -12,8 +12,6 @@ type ListingAlert = {
   detected_at: string
   metadata: unknown | null
 }
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
 function getEventTypeColor(eventType: string): string {
   switch (eventType) {
@@ -51,13 +49,10 @@ export function BinanceListingAlerts() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['binance', 'listing-alerts', 'recent'],
     queryFn: async () => {
-      const response = await axios.get<{ alerts: ListingAlert[] }>(
-        `${API_BASE}/v1/binance/listing-alerts/recent`,
+      const response = await apiClient.get<{ alerts: ListingAlert[] }>(
+        '/v1/binance/listing-alerts/recent',
         {
           params: { limit: 5 },
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
         },
       )
       return response.data.alerts

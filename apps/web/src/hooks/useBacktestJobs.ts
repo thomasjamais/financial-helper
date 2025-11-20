@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import { useAuth } from '../components/AuthContext'
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+import { apiClient } from '../lib/api'
 
 export type BacktestJobStatus = 'pending' | 'running' | 'completed' | 'failed'
 
@@ -57,11 +55,7 @@ export function useBacktestJobs(options?: {
       if (options?.sortBy) params.append('sort_by', options.sortBy)
       if (options?.sortOrder) params.append('sort_order', options.sortOrder)
 
-      const response = await axios.get(`${API_BASE}/v1/backtest-jobs?${params.toString()}`, {
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined,
-      })
+      const response = await apiClient.get(`/v1/backtest-jobs?${params.toString()}`)
       return {
         jobs: response.data.jobs as BacktestJob[],
         total: response.data.total as number,
@@ -84,11 +78,7 @@ export function useBacktestJob(jobId: number) {
   return useQuery({
     queryKey: ['backtest-jobs', jobId],
     queryFn: async () => {
-      const response = await axios.get(`${API_BASE}/v1/backtest-jobs/${jobId}`, {
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined,
-      })
+      const response = await apiClient.get(`/v1/backtest-jobs/${jobId}`)
       return response.data.job as BacktestJob
     },
     enabled: !!accessToken && !!jobId,
@@ -105,11 +95,7 @@ export function useBacktestJobResult(jobId: number) {
   return useQuery({
     queryKey: ['backtest-jobs', jobId, 'result'],
     queryFn: async () => {
-      const response = await axios.get(`${API_BASE}/v1/backtest-jobs/${jobId}/result`, {
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined,
-      })
+      const response = await apiClient.get(`/v1/backtest-jobs/${jobId}/result`)
       return response.data.result as BacktestResult
     },
     enabled: !!accessToken && !!jobId,
@@ -126,13 +112,8 @@ export function useBacktestResults(strategyId: number, options?: { limit?: numbe
       if (options?.limit) params.append('limit', String(options.limit))
       if (options?.offset) params.append('offset', String(options.offset))
 
-      const response = await axios.get(
-        `${API_BASE}/v1/strategies/${strategyId}/backtests?${params.toString()}`,
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : undefined,
-        },
+      const response = await apiClient.get(
+        `/v1/strategies/${strategyId}/backtests?${params.toString()}`,
       )
       return response.data.results as BacktestResult[]
     },
