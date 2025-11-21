@@ -20,6 +20,9 @@ export function PairSelector({
   const [searchTerm, setSearchTerm] = useState('')
   const { accessToken } = useAuth()
 
+  // Check both context and localStorage to ensure token is available
+  const hasToken = !!accessToken || !!localStorage.getItem('accessToken')
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['bitget-futures-symbols'],
     queryFn: async () => {
@@ -28,7 +31,7 @@ export function PairSelector({
       )
       return response.data
     },
-    enabled: !!accessToken,
+    enabled: hasToken,
     refetchInterval: 300000,
   })
 

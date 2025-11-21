@@ -22,11 +22,19 @@ export function setAuthToken(token: string | null): void {
 // Request interceptor to add token from localStorage if available
 apiClient.interceptors.request.use(
   (config) => {
+    // Always check localStorage first (most up-to-date)
     const token = localStorage.getItem('accessToken')
     if (token) {
       // Always set the Authorization header if token exists
       // This ensures the token is always sent, even if it was previously set
       config.headers.Authorization = `Bearer ${token}`
+    } else {
+      // If no token in localStorage, remove the header
+      delete config.headers.Authorization
+      // Log warning in development to help debug
+      if (import.meta.env.DEV) {
+        console.warn('[apiClient] No access token found in localStorage for request:', config.url)
+      }
     }
     return config
   },
@@ -48,25 +56,42 @@ apiClient.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken')
       if (refreshToken) {
         try {
-          const response = await axios.post(`${API_BASE}/v1/auth/refresh`, {
-            refreshToken,
-          })
+          // Use a plain axios instance for refresh to avoid circular interceptor calls
+          const response = await axios.post(
+            `${API_BASE}/v1/auth/refresh`,
+            { refreshToken },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            },
+          )
 
           const { accessToken, refreshToken: newRefreshToken } = response.data
           localStorage.setItem('accessToken', accessToken)
           localStorage.setItem('refreshToken', newRefreshToken)
           setAuthToken(accessToken)
 
-          // Retry original request with new token
+          // Update the original request with new token
           originalRequest.headers.Authorization = `Bearer ${accessToken}`
+          
+          // Retry original request with new token
           return apiClient(originalRequest)
         } catch (refreshError) {
           // Refresh failed, clear tokens and redirect to login
           localStorage.removeItem('accessToken')
           localStorage.removeItem('refreshToken')
           setAuthToken(null)
-          window.location.hash = '#/login'
+          // Only redirect if we're not already on login page
+          if (window.location.hash !== '#/login') {
+            window.location.hash = '#/login'
+          }
           return Promise.reject(refreshError)
+        }
+      } else {
+        // No refresh token available, redirect to login
+        if (window.location.hash !== '#/login') {
+          window.location.hash = '#/login'
         }
       }
     }
